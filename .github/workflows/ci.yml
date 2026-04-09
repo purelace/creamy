@@ -24,9 +24,6 @@ jobs:
         
       - name: Install Rust
         run: rustup update stable
-        
-      - name: Install wasm target
-        run: rustup target add wasm32-wasip2
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -37,7 +34,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
         
       - name: Generate code coverage
-        run: RUSTFLAGS="-C instrument-coverage -C target-cpu=native" cargo llvm-cov --html
+        run: RUSTFLAGS="-C instrument-coverage -C target-cpu=native" cargo +nightly llvm-cov --html
           
       - name: Setup Pages
         uses: actions/configure-pages@v4
