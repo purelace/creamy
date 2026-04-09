@@ -73,12 +73,12 @@ where
         let mut write_pool = BufferPool::new(max_subscribers, max_messages);
         let mut read_pool = BufferPool::new(max_subscribers, max_messages);
 
-        let Some(outgoing) = read_pool.next_out() else {
+        let Some(outgoing) = read_pool.next_out(0) else {
             unreachable!();
         };
 
         // Этот буфер используется в качестве мусорки
-        let Some(_) = write_pool.next_inc() else {
+        let Some(_) = write_pool.next_inc(0) else {
             // Буферы должны нарезаться одинакого. Если буферы не нарезаются одинаково, то это ошибка.
             unreachable!("Buffers must be sliced equally");
         };
@@ -124,12 +124,12 @@ where
 
     fn get_subscriber_data(&mut self) -> Result<SubscriberData, BusError> {
         let id = self.mint.issue().unwrap();
-        let Some(outgoing) = self.read_pool.next_out() else {
+        let Some(outgoing) = self.read_pool.next_out(id) else {
             let max = self.read_pool.capacity();
             return Err(BusError::PoolExhausted { max });
         };
 
-        let Some(incoming) = self.write_pool.next_inc() else {
+        let Some(incoming) = self.write_pool.next_inc(id) else {
             // Буферы должны нарезаться одинакого. Если буферы не нарезаются одинаково, то это ошибка.
             unreachable!("Buffers must be sliced equally");
         };

@@ -1,7 +1,6 @@
 use std::{alloc::Layout, marker::PhantomData, ptr::NonNull};
 
 use as_guard::AsGuard;
-use idmint::HeapMint;
 
 use crate::{
     core::{
@@ -67,7 +66,6 @@ pub struct BufferPool<O> {
     slice_size: usize,
     capacity: usize,
 
-    provider: HeapMint<usize>,
     _operation: PhantomData<O>,
 }
 
@@ -91,7 +89,6 @@ impl<O> BufferPool<O> {
             bytes,
             capacity: slices,
             slice_size,
-            provider: HeapMint::default(),
             _operation: PhantomData,
         }
     }
@@ -99,10 +96,6 @@ impl<O> BufferPool<O> {
     pub const fn header_mut_ptr_for(&mut self, dst: usize) -> *mut Header {
         let start = self.u_mut_slice_for(dst);
         start.cast::<Header>().as_ptr()
-    }
-
-    pub fn return_buffer(&mut self, index: usize) {
-        self.provider.recycle(index);
     }
 
     #[inline(always)]
@@ -155,21 +148,12 @@ impl<O> BufferPool<O> {
     ///
     /// * `Some(Incoming)` - The next slice of the fixed pool.
     /// * `None` - If the fixed pool is full.
-    fn internal_next_slice(&mut self) -> Option<Buffer<O>> {
-        let used = self.provider.used();
-        if used >= self.capacity {
+    fn internal_next_slice(&mut self, id: usize) -> Option<Buffer<O>> {
+        if id >= self.capacity {
             return None;
         }
 
-        let next_used = self.provider.issue().unwrap();
-        let used = if next_used < used {
-            next_used
-        } else {
-            self.provider.recycle(next_used);
-            used
-        };
-
-        let start = used * self.slice_size;
+        let start = id * self.slice_size;
 
         unsafe {
             let capacity = ((self.slice_size - SPECIAL_DATA_OFFSET) / MESSAGE_SIZE).safe_as();
@@ -183,21 +167,27 @@ impl<O> BufferPool<O> {
             // Reset ignore flag
             count.add(1).write(0);
 
-            let _ = self.provider.issue();
-
             Some(Buffer::new(count, buffer, capacity))
+        }
+    }
+
+    pub const fn return_buffer(&mut self, id: usize) {
+        let start = id * self.slice_size;
+        unsafe {
+            let count = self.bytes.add(start).cast::<u32>();
+            count.write(0);
         }
     }
 }
 
 impl BufferPool<Read> {
-    pub fn next_inc(&mut self) -> Option<Incoming> {
-        self.internal_next_slice()
+    pub fn next_inc(&mut self, id: u8) -> Option<Incoming> {
+        self.internal_next_slice(id as usize)
     }
 }
 
 impl BufferPool<Write> {
-    pub fn next_out(&mut self) -> Option<Outgoing> {
-        self.internal_next_slice()
+    pub fn next_out(&mut self, id: u8) -> Option<Outgoing> {
+        self.internal_next_slice(id as usize)
     }
 }

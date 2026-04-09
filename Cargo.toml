@@ -14,7 +14,7 @@ members = [
 
 [workspace.dependencies]
 as-guard = "0.1.0"
-idmint = { version = "0.2.2", features = ["stack", "heap"] }
+idmint = { version = "0.2.2", features = ["stack"] }
 
 cbus = { path = "bus/cbus" }
 cbus-core = { path = "bus/cbus-core" }
