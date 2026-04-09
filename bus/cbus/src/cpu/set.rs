@@ -5,8 +5,6 @@ use crate::{
 };
 
 pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
-    const CHUNK_SIZE: usize = CHUNK_SIZE;
-
     /// Пишет сообщения в слайс с заданным размером
     fn send_exactly(read: &[UntypedMessage; CHUNK_SIZE], write: &mut [UntypedMessage; CHUNK_SIZE]);
 

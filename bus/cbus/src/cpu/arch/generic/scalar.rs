@@ -13,9 +13,6 @@ impl ScalarInstructionSet {
     // * Проверяем права доступа и корректность DST, если он некорректный, то он обнуляется
     #[inline(always)]
     fn prepare_single_message(lut: &LookupTable, src: usize, message: &mut UntypedMessage) {
-        let (src_in_slice, src_out_slice) = lut.subscriber_data(src.safe_as());
-        let (dst_in_slice, dst_out_slice) = lut.subscriber_data(message.dst);
-
         let max_groups = lut.max_groups();
         // Устанавливаем актуальное значение
         message.src = src.safe_as();

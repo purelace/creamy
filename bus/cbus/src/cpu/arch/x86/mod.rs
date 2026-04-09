@@ -48,7 +48,6 @@ cfg_if::cfg_if! {
         }
     } else {
         use super::generic::ScalarInstructionSet;
-        //pub use super::generic::AvailableStrategy;
         define_strategy! {
             Fallback,
             128..  => [batch  | ScalarInstructionSet],
