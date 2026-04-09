@@ -1,0 +1,22 @@
+[package]
+name = "cbus-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+cbus-core-macros.workspace = true
+as-guard.workspace = true
+static_assertions.workspace = true
+downcast-rs = "2.0.2"
+bytemuck = { version = "1.25.0", default-features = false, features = [
+    "derive",
+] }
+const_format = "0.2.35"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+
+[build-dependencies]
+syn.workspace = true
+#message-generator.workspace = true
+#prettyplease.workspace = true

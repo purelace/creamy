@@ -1,0 +1,15 @@
+[package]
+name = "message-generator"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+macro-utils.workspace = true
+
+syn.workspace = true
+quote.workspace = true
+proc-macro2.workspace = true
+thiserror.workspace = true
+roxmltree = "0.21.1"
+regex = "1.12.3"
+indexmap = "2.13.1"

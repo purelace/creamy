@@ -1,0 +1,18 @@
+[package]
+name = "cbus"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+cbus-core.workspace = true
+cbus-core-macros.workspace = true
+
+as-guard.workspace = true
+idmint.workspace = true
+
+thiserror.workspace = true
+static_assertions.workspace = true
+cfg-if.workspace = true
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }

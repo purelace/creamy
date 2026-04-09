@@ -1,0 +1,32 @@
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+resolver = "2"
+members = [
+    "bus/cbus",
+    "bus/cbus-core",
+    "bus/cbus-core-macros",
+    "bus/macro-utils",
+    "bus/message-generator",
+]
+
+[workspace.dependencies]
+as-guard = "0.1.0"
+idmint = { version = "0.2.2", features = ["stack", "heap"] }
+
+cbus = { path = "bus/cbus" }
+cbus-core = { path = "bus/cbus-core" }
+cbus-core-macros = { path = "bus/cbus-core-macros" }
+macro-utils = { path = "bus/macro-utils" }
+message-generator = { path = "bus/message-generator" }
+
+thiserror = "2.0.18"
+static_assertions = "1.1.0"
+cfg-if = "1.0.4"
+
+syn = "2.0.117"
+quote = "1.0.45"
+proc-macro2 = "1.0.106"
+proc-macro-crate = "3.5.0"
