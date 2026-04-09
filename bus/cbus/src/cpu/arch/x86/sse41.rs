@@ -14,7 +14,7 @@ mod sse2_reexports {
     };
 }
 
-use cast_guard::CastGuard;
+use as_guard::AsGuard;
 pub use sse2_reexports::*;
 pub use sse41_reexports::*;
 
@@ -60,8 +60,8 @@ impl Sse41InstructionSet {
 
             macro_rules! translate {
                 ($idx:expr) => {{
-                    let dst: usize = _mm_extract_epi32(xmm_dst, $idx).safe_cast();
-                    let grp: usize = _mm_extract_epi32(xmm_group, $idx).safe_cast();
+                    let dst: usize = _mm_extract_epi32(xmm_dst, $idx).safe_as();
+                    let grp: usize = _mm_extract_epi32(xmm_group, $idx).safe_as();
 
                     // IN_LUT: [src][local_group]
                     let g_grp = *lut.get_input().get_unchecked(shifted_id + grp);
@@ -70,7 +70,7 @@ impl Sse41InstructionSet {
                     let l_grp = *lut
                         .get_output()
                         .get_unchecked((dst << bits) + g_grp as usize);
-                    let l_grp: i32 = l_grp.safe_cast();
+                    let l_grp: i32 = l_grp.safe_as();
                     l_grp
                 }};
             }
@@ -93,7 +93,7 @@ impl Sse41InstructionSet {
                 xmm_raw_headers,
                 _mm_set1_epi32(0xFF00_0000u32.cast_signed()),
             );
-            let xmm_src = _mm_set1_epi32(src.safe_cast());
+            let xmm_src = _mm_set1_epi32(src.safe_as());
 
             let xmm_new_header = _mm_or_si128(
                 xmm_dst, // Src

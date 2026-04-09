@@ -47,6 +47,14 @@ cfg_if::cfg_if! {
             1..4   => [scalar | ScalarInstructionSet],
         }
     } else {
-        pub use super::generic::AvailableStrategy;
+        use super::generic::ScalarInstructionSet;
+        //pub use super::generic::AvailableStrategy;
+        define_strategy! {
+            Fallback,
+            128..  => [batch  | ScalarInstructionSet],
+            1..128   => [scalar | ScalarInstructionSet],
+        }
+
+        pub type AvailableStrategy = Fallback;
     }
 }

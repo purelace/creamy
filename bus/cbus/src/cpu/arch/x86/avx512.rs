@@ -7,7 +7,7 @@ use core::arch::x86_64::{
 };
 use std::arch::x86_64::{_mm512_loadu_si512, _mm512_storeu_si512};
 
-use cast_guard::CastGuard;
+use as_guard::AsGuard;
 
 use crate::{
     core::UntypedMessage,
@@ -191,7 +191,7 @@ impl MessagePipeline {
             .for_each(|slice| {
                 let dst = slice[0].dst; // slice гарантированно не пустой
                 self.batch
-                    .push((dst, slice.len().safe_cast(), ptr_location));
+                    .push((dst, slice.len().safe_as(), ptr_location));
                 ptr_location += slice.len();
             });
     }
@@ -205,7 +205,7 @@ impl Avx512FInstructionSet {
     fn get_valid_header(lut: &LookupTable, src: usize, zmm_messages: &[__m512i; 8]) -> __m512i {
         unsafe {
             let shift_bits = lut.max_groups().trailing_zeros();
-            let zmm_bits = _mm512_set1_epi32(shift_bits.safe_cast());
+            let zmm_bits = _mm512_set1_epi32(shift_bits.safe_as());
 
             // Индексы для сборки: берем 0-й и 8-й элементы из каждой пары ZMM
             // 0, 8 (из первого), 16, 24 (из второго) и так далее...
@@ -233,7 +233,7 @@ impl Avx512FInstructionSet {
             let zmm_group =
                 _mm512_and_si512(_mm512_srli_epi32(final_headers, 8), _mm512_set1_epi32(0xFF));
 
-            let zmm_src = _mm512_set1_epi32(src.safe_cast());
+            let zmm_src = _mm512_set1_epi32(src.safe_as());
             let zmm_local_input_group_indices =
                 _mm512_add_epi32(_mm512_sllv_epi32(zmm_src, zmm_bits), zmm_group);
 
@@ -283,7 +283,7 @@ impl Avx512FInstructionSet {
     fn get_valid_header(lut: &LookupTable, src: usize, zmm_messages: &[__m512i; 8]) -> __m512i {
         unsafe {
             let shift_bits = lut.max_groups().trailing_zeros();
-            let zmm_bits = _mm512_set1_epi32(shift_bits.safe_cast());
+            let zmm_bits = _mm512_set1_epi32(shift_bits.safe_as());
 
             let idx_mask = 0b0000_0001_0000_0001_u16;
             let h0 = _mm512_maskz_compress_epi32(idx_mask, zmm_messages[0]);
@@ -309,7 +309,7 @@ impl Avx512FInstructionSet {
             let zmm_group =
                 _mm512_and_si512(_mm512_srli_epi32(final_headers, 8), _mm512_set1_epi32(0xFF));
 
-            let zmm_src = _mm512_set1_epi32(src.safe_cast());
+            let zmm_src = _mm512_set1_epi32(src.safe_as());
             let zmm_local_input_group_indices =
                 _mm512_add_epi32(_mm512_sllv_epi32(zmm_src, zmm_bits), zmm_group);
 

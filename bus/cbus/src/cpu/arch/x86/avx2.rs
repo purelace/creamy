@@ -14,9 +14,9 @@ mod avx2_reexport {
     };
 }
 
+use as_guard::AsGuard;
 pub use avx_reexport::*;
 pub use avx2_reexport::*;
-use cast_guard::CastGuard;
 
 use crate::{
     core::UntypedMessage,
@@ -63,8 +63,8 @@ impl Avx2InstructionSet {
 
             macro_rules! translate {
                 ($idx:expr) => {{
-                    let dst: usize = _mm256_extract_epi32(ymm_dst, $idx).safe_cast();
-                    let grp: usize = _mm256_extract_epi32(ymm_group, $idx).safe_cast();
+                    let dst: usize = _mm256_extract_epi32(ymm_dst, $idx).safe_as();
+                    let grp: usize = _mm256_extract_epi32(ymm_group, $idx).safe_as();
 
                     // IN_LUT: [src][local_group]
                     let g_grp = *lut.get_input().get_unchecked(shifted_src + grp);
@@ -73,7 +73,7 @@ impl Avx2InstructionSet {
                     let l_grp = *lut
                         .get_output()
                         .get_unchecked((dst << bits) + g_grp as usize);
-                    let l_grp: i32 = l_grp.safe_cast();
+                    let l_grp: i32 = l_grp.safe_as();
                     l_grp
                 }};
             }
@@ -99,7 +99,7 @@ impl Avx2InstructionSet {
                 _mm256_set1_epi32(0xFF00_0000_u32.cast_signed()),
             );
 
-            let ymm_src = _mm256_set1_epi32(src.safe_cast());
+            let ymm_src = _mm256_set1_epi32(src.safe_as());
 
             // Собираем всё воедино
             let ymm_new_header = _mm256_or_si256(
