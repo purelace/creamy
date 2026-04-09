@@ -1,0 +1,41 @@
+name: Miri CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:         
+  Tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+        
+      - name: Install Rust
+        run: rustup update stable
+
+      - name: Install Miri
+        run: rustup +nightly component add miri
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+        
+      - name: Run Miri (native)
+        run: RUSTFLAGS="-C target-cpu=native" cargo +nightly miri test
+      
+      - name: Run Miri (avx2)
+        run: RUSTFLAGS="-C target-feature=+avx2" cargo +nightly miri test
+      
+      - name: Run Miri (sse4.1)
+        run: RUSTFLAGS="-C target-feature=+sse4.1" cargo +nightly miri test
+        
+      - name: Run Miri (generic)
+        run: cargo +nightly miri test
