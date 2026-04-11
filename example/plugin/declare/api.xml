@@ -8,6 +8,28 @@
         <field name="len" type="u16" />
         <field name="data" type="{len}" />
     </message>
+
+    <message name="get_bucket">
+        <field name="index" type="u32" />
+    </message>
+
+    <message name="get_bucket_result">
+        <field name="status" type="status" />
+        <field name="value" type="bucket" />
+    </message>
+
+    <struct name="bucket">
+        <field name="a" type="u8" />
+        <field name="b" type="u8" />
+        <field name="c" type="u8" />
+    </struct>
+
+    <enum name="status">
+        <variant name="error" />
+        <variant name="allow" />
+        <variant name="deny" />
+    </enum>
+
 </protocol>
 <!--
     * Access types: [exclusive_write(01), multiple_write(02)]
@@ -20,6 +42,10 @@
 
     * Other: [
         fixed-size arrays [numeric_type; length],
-        field: {name},
+        field: {field_name},
+    ]
+
+    * Custom: [
+        enum, struct
     ]
 -->
