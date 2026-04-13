@@ -29,6 +29,6 @@ pub mod defines {
 }
 
 pub use bus::MessageBus;
-pub use driver::{BusDriver, DataIterator, DriverAnswer, OldDataIterator};
+pub use driver::{BusDriver, DataIterator, OldDataIterator};
 pub use error::BusError;
 pub use lookup::{SubscriberLookupData, SubscriberOldLookupData};

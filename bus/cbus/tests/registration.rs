@@ -3,8 +3,8 @@ mod general;
 use std::collections::HashMap;
 
 use cbus::{
-    BusDriver, BusError, DataIterator, DriverAnswer, MessageBus, OldDataIterator,
-    SubscriberLookupData, SubscriberOldLookupData,
+    BusDriver, BusError, DataIterator, MessageBus, OldDataIterator, SubscriberLookupData,
+    SubscriberOldLookupData,
     config::{BusConfig, Legacy, ValidConfig},
 };
 use cbus_core::{
@@ -36,7 +36,7 @@ impl Dns {
 }
 
 impl BusDriver for Dns {
-    fn on_subscribe(&mut self, id: u8) -> DriverAnswer<impl DataIterator, impl DataIterator> {
+    fn on_subscribe(&mut self, id: u8) -> impl DataIterator {
         let mut message = UntypedMessage {
             dst: id,
             group: id,
@@ -58,37 +58,16 @@ impl BusDriver for Dns {
 
         assert!(self.outgoing.send_many_iter_exact(std::iter::once(message)));
 
-        let subscriber_changes = std::iter::once(SubscriberLookupData {
+        std::iter::once(SubscriberLookupData {
             local_group_id: 1,
             global_group_id: 1,
-        });
-        let driver_changes = std::iter::once(SubscriberLookupData {
-            local_group_id: id as usize,
-            global_group_id: id,
-        });
-
-        DriverAnswer {
-            subscriber_changes,
-            driver_changes,
-        }
+        })
     }
 
-    fn on_unsubscribe(
-        &mut self,
-        id: u8,
-    ) -> DriverAnswer<impl OldDataIterator, impl OldDataIterator> {
-        let subscriber_changes = std::iter::once(SubscriberOldLookupData {
+    fn on_unsubscribe(&mut self, id: u8) -> impl OldDataIterator {
+        std::iter::once(SubscriberOldLookupData {
             global_group_id: id,
-        });
-
-        let driver_changes = std::iter::once(SubscriberOldLookupData {
-            global_group_id: id,
-        });
-
-        DriverAnswer {
-            subscriber_changes,
-            driver_changes,
-        }
+        })
     }
 }
 

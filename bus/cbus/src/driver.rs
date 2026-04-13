@@ -11,17 +11,9 @@ pub trait OldDataIterator: Iterator<Item = SubscriberOldLookupData> {}
 impl<I: Iterator<Item = SubscriberLookupData>> DataIterator for I {}
 impl<I: Iterator<Item = SubscriberOldLookupData>> OldDataIterator for I {}
 
-pub struct DriverAnswer<I1, I2> {
-    pub subscriber_changes: I1,
-    pub driver_changes: I2,
-}
-
 pub trait BusDriver {
-    fn on_subscribe(&mut self, id: u8) -> DriverAnswer<impl DataIterator, impl DataIterator>;
-    fn on_unsubscribe(
-        &mut self,
-        id: u8,
-    ) -> DriverAnswer<impl OldDataIterator, impl OldDataIterator>;
+    fn on_subscribe(&mut self, id: u8) -> impl DataIterator;
+    fn on_unsubscribe(&mut self, id: u8) -> impl OldDataIterator;
 }
 pub struct Driver<D: BusDriver> {
     lookup_table: LookupTable,
@@ -39,15 +31,13 @@ impl<D: BusDriver> Driver<D> {
     }
 
     pub fn on_subscribe(&mut self, id: u8) {
-        let answer = self.inner.on_subscribe(id);
-        self.lookup_table.add(id, answer.subscriber_changes);
-        //self.lookup_table.add(0, answer.driver_changes)
+        let iter = self.inner.on_subscribe(id);
+        self.lookup_table.add(id, iter);
     }
 
     pub fn on_unsubscribe(&mut self, id: u8) {
-        let answer = self.inner.on_unsubscribe(id);
-        self.lookup_table.remove(id, answer.subscriber_changes);
-        //self.lookup_table.remove(0, answer.driver_changes);
+        let iter = self.inner.on_unsubscribe(id);
+        self.lookup_table.remove(id, iter);
     }
 
     pub fn process_messages(&mut self, memory: MemoryPools, range: RangeInclusive<usize>) {

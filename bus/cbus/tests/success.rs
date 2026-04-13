@@ -1,8 +1,7 @@
 #![allow(clippy::missing_errors_doc)]
 
 use cbus::{
-    BusDriver, DataIterator, DriverAnswer, OldDataIterator, SubscriberLookupData,
-    SubscriberOldLookupData,
+    BusDriver, DataIterator, OldDataIterator, SubscriberLookupData, SubscriberOldLookupData,
     config::{Advanced, BusConfig, ValidConfig},
     core::{
         Subscriber, UntypedMessage,
@@ -20,29 +19,20 @@ impl Driver {
 }
 
 impl BusDriver for Driver {
-    fn on_subscribe(&mut self, id: u8) -> DriverAnswer<impl DataIterator, impl DataIterator> {
+    fn on_subscribe(&mut self, id: u8) -> impl DataIterator {
         match id {
-            1 | 2 => DriverAnswer {
-                subscriber_changes: std::iter::once(SubscriberLookupData {
-                    local_group_id: 1,
-                    global_group_id: 10,
-                }),
-                driver_changes: std::iter::empty(),
-            },
+            1 | 2 => std::iter::once(SubscriberLookupData {
+                local_group_id: 1,
+                global_group_id: 10,
+            }),
             _ => unreachable!(),
         }
     }
 
-    fn on_unsubscribe(
-        &mut self,
-        _id: u8,
-    ) -> DriverAnswer<impl OldDataIterator, impl OldDataIterator> {
-        DriverAnswer {
-            subscriber_changes: std::iter::once(SubscriberOldLookupData {
-                global_group_id: 10,
-            }),
-            driver_changes: std::iter::empty(),
-        }
+    fn on_unsubscribe(&mut self, _id: u8) -> impl OldDataIterator {
+        std::iter::once(SubscriberOldLookupData {
+            global_group_id: 10,
+        })
     }
 }
 

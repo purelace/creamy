@@ -180,12 +180,12 @@ pub struct MessagePipeline {
 
 impl MessagePipeline {
     pub fn new(max_subscribers: u8) -> Self {
-        println!("[MessageBus] Arch: {ARCH}");
-        println!("[MessageBus] Stragegy: {}", AvailableStrategy::name());
-        println!(
-            "[MessageBus] Features in use: {}",
-            AvailableStrategy::features()
-        );
+        //println!("[MessageBus] Arch: {ARCH}");
+        //println!("[MessageBus] Stragegy: {}", AvailableStrategy::name());
+        //println!(
+        //    "[MessageBus] Features in use: {}",
+        //    AvailableStrategy::features()
+        //);
 
         Self {
             plan: PipelinePlan::new(),
