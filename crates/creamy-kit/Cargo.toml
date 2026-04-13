@@ -1,0 +1,31 @@
+[package]
+name = "creamy-kit"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+[dependencies.toml]
+version = "1.1.2"
+default-features = false
+features = ["serde"]
+
+[dependencies.serde]
+version = "1.0.228"
+default-features = false
+features = ["derive"]
+
+[dependencies.roxmltree]
+version = "0.21.1"
+features = ["std"]
+default-features = false
+
+[dependencies.zerocopy]
+version = "0.8.48"
+features = ["derive"]
+default-features = false
+
+[dependencies.binrw]
+version = "0.15.1"
+features = ["default"]
+#default-features = false

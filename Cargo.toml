@@ -10,23 +10,42 @@ members = [
     "bus/cbus-core-macros",
     "bus/macro-utils",
     "bus/message-generator",
+
+    "crates/creamy-kit",
 ]
 
 [workspace.dependencies]
-as-guard = "0.1.0"
-idmint = { version = "0.2.2", features = ["stack"] }
-
 cbus = { path = "bus/cbus" }
 cbus-core = { path = "bus/cbus-core" }
 cbus-core-macros = { path = "bus/cbus-core-macros" }
 macro-utils = { path = "bus/macro-utils" }
 message-generator = { path = "bus/message-generator" }
 
+anyhow = "1.0.102"
+as-guard = "0.1.0"
+idmint = { version = "0.2.2", features = ["stack"] }
 thiserror = "2.0.18"
 static_assertions = "1.1.0"
 cfg-if = "1.0.4"
-
 syn = "2.0.117"
 quote = "1.0.45"
 proc-macro2 = "1.0.106"
 proc-macro-crate = "3.5.0"
+criterion = { version = "0.8.2", features = ["html_reports"] }
+
+bitflags = "2.11.0"
+chrono = "0.4.44"
+derive_more = { version = "2.1.1", features = ["from", "display"] }
+notify = "8.2.0"
+regex = "1.12.3"
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "1.1.2"
+tree-sitter = "0.26.8"
+zip = "8.5.1"
+env_logger = "0.11.10"
+lazy_static = "1.5.0"
+tempfile = "3.27.0"
+
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+tracing-tracy = "0.11.4"
