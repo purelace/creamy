@@ -10,7 +10,8 @@ members = [
     "bus/cbus-core-macros",
     "bus/macro-utils",
     "bus/message-generator",
-
+    "crates/compiler-utils",
+    "crates/creamy-compiler",
     "crates/creamy-kit",
 ]
 
@@ -20,6 +21,8 @@ cbus-core = { path = "bus/cbus-core" }
 cbus-core-macros = { path = "bus/cbus-core-macros" }
 macro-utils = { path = "bus/macro-utils" }
 message-generator = { path = "bus/message-generator" }
+
+compiler-utils = { path = "crates/compiler-utils" }
 
 anyhow = "1.0.102"
 as-guard = "0.1.0"

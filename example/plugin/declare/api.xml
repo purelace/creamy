@@ -1,33 +1,35 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <protocol name="api" version="0" access="exclusive_write">
-    <message name="get_next_index">
+    <message name="GetNextIndex">
         <field name="index" type="u32" />
     </message>
 
+    <!--
     <message name="get_used_indices">
         <field name="len" type="u16" />
         <field name="data" type="{len}" />
     </message>
+    -->
 
-    <message name="get_bucket">
-        <field name="index" type="u32" />
+    <message name="GetBucket">
+        <field name="bucket_idx" type="u32" />
     </message>
 
-    <message name="get_bucket_result">
-        <field name="status" type="status" />
-        <field name="value" type="bucket" />
+    <message name="GetBucketResult">
+        <field name="status" type="Status" />
+        <field name="value" type="Bucket" />
     </message>
 
-    <struct name="bucket">
+    <struct name="Bucket">
         <field name="a" type="u8" />
         <field name="b" type="u8" />
         <field name="c" type="u8" />
     </struct>
 
-    <enum name="status">
-        <variant name="error" />
-        <variant name="allow" />
-        <variant name="deny" />
+    <enum name="Status">
+        <variant name="Error" />
+        <variant name="Allow" />
+        <variant name="Deny" />
     </enum>
 
 </protocol>

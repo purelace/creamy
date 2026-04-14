@@ -1,0 +1,12 @@
+[package]
+name = "compiler-utils"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+binrw = "0.15.1"
+
+[dependencies.serde]
+version = "1.0.228"
+default-features = false
+features = ["derive"]

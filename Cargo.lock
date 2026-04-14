@@ -114,6 +114,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "compiler-utils"
+version = "0.1.0"
+dependencies = [
+ "binrw",
+ "serde",
+]
+
+[[package]]
 name = "const_format"
 version = "0.2.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -134,11 +142,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "creamy-compiler"
+version = "0.1.0"
+dependencies = [
+ "binrw",
+ "compiler-utils",
+ "enum_dispatch",
+ "roxmltree",
+]
+
+[[package]]
 name = "creamy-kit"
 version = "0.1.0"
 dependencies = [
  "binrw",
- "roxmltree",
+ "compiler-utils",
  "serde",
  "toml",
  "zerocopy",
@@ -155,6 +173,18 @@ name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+
+[[package]]
+name = "enum_dispatch"
+version = "0.3.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa18ce2bc66555b3218614519ac839ddb759a7d6720732f979ef8d13be147ecd"
+dependencies = [
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "equivalent"
@@ -216,6 +246,12 @@ dependencies = [
  "syn",
  "thiserror",
 ]
+
+[[package]]
+name = "once_cell"
+version = "1.21.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "owo-colors"

@@ -1,13 +1,11 @@
-mod intern;
 mod manifest;
-mod parser;
-mod protocol;
-mod types;
+mod utils;
 
 use binrw::binrw;
+use compiler_utils::{List, strpool::StringPool};
 use serde::{Deserialize, Serialize};
 
-use crate::{intern::StringPool, manifest::Manifest};
+use crate::manifest::{Manifest, Protocol};
 
 #[binrw]
 #[brw(little)]
@@ -25,4 +23,5 @@ pub struct BinaryPlugin {
     version: Version,
     manifest: Manifest,
     pool: StringPool,
+    declare: List<Protocol>,
 }
