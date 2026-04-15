@@ -1,0 +1,18 @@
+[
+  {
+    "label": "DevKit tests",
+    "command": "cargo",
+    "env": {
+      "RUSTFLAGS": "-C instrument-coverage -Z coverage-options=condition",
+    },
+    "args": [
+      "+nightly",
+      "llvm-cov",
+      "--html",
+      "--package",
+      "creamy-compiler",
+      "--package",
+      "compiler-utils",
+    ],
+  },
+]
