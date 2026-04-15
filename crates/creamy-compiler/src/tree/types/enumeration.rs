@@ -1,27 +1,31 @@
 use std::collections::HashSet;
 
-use compiler_utils::{List, strpool::StringPool};
+use compiler_utils::{
+    List,
+    strpool::{StringId, StringPool},
+};
 use roxmltree::{Node, NodeType};
 
 use crate::{
+    StringPoolIntern,
     model::types::{CustomType, Enumeration, Type},
     table::TypeTable,
 };
 
 #[derive(Debug)]
 pub struct EnumToken {
-    name: String,
-    variants: Vec<String>,
+    name: StringId,
+    variants: Vec<StringId>,
 }
 
 impl EnumToken {
-    pub fn new(node: Node) -> Self {
+    pub fn new(node: Node, pool: &mut StringPool) -> Self {
         assert_eq!(node.tag_name().name(), "enum");
 
         let name = node
             .attribute("name")
             .expect("<enum>: missing 'name' attribute")
-            .to_string();
+            .intern(pool);
 
         let variants = node
             .children()
@@ -31,27 +35,26 @@ impl EnumToken {
 
                 node.attribute("name")
                     .expect("<variant>: missing 'name' attribute")
-                    .to_string()
+                    .intern(pool)
             })
             .collect::<Vec<_>>();
 
         Self { name, variants }
     }
 
-    pub fn resolve(self, _: &TypeTable, pool: &mut StringPool) -> Type {
+    pub fn resolve(self, _: &TypeTable, pool: &StringPool) -> Type {
         let mut names = HashSet::new();
-
-        let name = pool.get_id(&self.name);
 
         let mut result = List::with_capacity(self.variants.len());
         for variant in &self.variants {
-            if !names.insert(variant) {
-                panic!("Cannot resolve enum type. Duplicate variant: {variant}");
+            let variant_name = pool.get_string(*variant);
+            if !names.insert(variant_name) {
+                panic!("Cannot resolve enum type. Duplicate variant: {variant_name}");
             }
 
-            result.push(pool.get_id(variant));
+            result.push(*variant);
         }
 
-        Type::Custom(CustomType::Enum(Enumeration::new(name, result)))
+        Type::Custom(CustomType::Enum(Enumeration::new(self.name, result)))
     }
 }

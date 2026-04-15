@@ -1,11 +1,14 @@
-use compiler_utils::strpool::StringPool;
+use compiler_utils::strpool::{StringId, StringPool};
 use roxmltree::{Node, NodeType};
 
-use crate::tree::types::{EnumToken, MessageToken, StructToken};
+use crate::{
+    StringPoolIntern,
+    tree::types::{EnumToken, MessageToken, StructToken},
+};
 
 #[derive(Debug)]
 pub struct ProtocolTree {
-    pub name: String,
+    pub name: StringId,
     pub version: String,
     pub access: String,
     pub structs: Vec<StructToken>,
@@ -28,7 +31,7 @@ impl ProtocolTree {
         let name = root
             .attribute("name")
             .expect("<protocol>: missing 'name' attribute")
-            .to_string();
+            .intern(pool);
 
         let version = root
             .attribute("version")
@@ -56,7 +59,7 @@ impl ProtocolTree {
                     structs.push(StructToken::new(node, pool));
                 }
                 "enum" => {
-                    enums.push(EnumToken::new(node));
+                    enums.push(EnumToken::new(node, pool));
                 }
                 value => panic!("Unsupported '{value}'"),
             }

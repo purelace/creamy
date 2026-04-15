@@ -15,8 +15,8 @@ pub struct TypeTable {
 }
 
 impl TypeTable {
-    pub fn get_type_by_name(&self, name: StringId) -> TypeId {
-        *self.inner.get(&name).unwrap()
+    pub fn get_type_by_name(&self, name: StringId) -> Option<TypeId> {
+        self.inner.get(&name).copied()
     }
 
     pub fn register_type(&mut self, name: StringId, ty: Type) {

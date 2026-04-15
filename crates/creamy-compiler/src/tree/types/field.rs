@@ -4,7 +4,7 @@ use roxmltree::Node;
 use crate::{
     model::types::{Field, FieldType},
     table::TypeTable,
-    utils::StringPoolExt,
+    utils::StringPoolIntern,
 };
 
 fn parse_array(input: &str) -> Option<(&str, u32)> {
@@ -41,7 +41,6 @@ fn is_remainder_type(input: &str) -> bool {
 enum FieldTypeToken {
     Type(StringId),
     Array(StringId, u32),
-    Remainder,
 }
 
 impl FieldTypeToken {
@@ -49,8 +48,6 @@ impl FieldTypeToken {
         if let Some((name, size)) = parse_array(string) {
             let name = pool.get_id(name);
             FieldTypeToken::Array(name, size)
-        } else if is_remainder_type(string) {
-            FieldTypeToken::Remainder
         } else {
             FieldTypeToken::Type(pool.get_id(string))
         }
@@ -80,11 +77,19 @@ impl FieldToken {
         Self { name, kind }
     }
 
+    pub fn can_resolve(&self, tt: &TypeTable) -> bool {
+        match &self.kind {
+            FieldTypeToken::Type(id) => tt.get_type_by_name(*id).is_some(),
+            FieldTypeToken::Array(id, _) => tt.get_type_by_name(*id).is_some(),
+        }
+    }
+
     pub fn resolve(self, tt: &TypeTable) -> Field {
         let kind = match self.kind {
-            FieldTypeToken::Type(id) => FieldType::Type(tt.get_type_by_name(id)),
-            FieldTypeToken::Array(id, size) => FieldType::Array(tt.get_type_by_name(id), size),
-            FieldTypeToken::Remainder => FieldType::Remainder,
+            FieldTypeToken::Type(id) => FieldType::Type(tt.get_type_by_name(id).unwrap()),
+            FieldTypeToken::Array(id, size) => {
+                FieldType::Array(tt.get_type_by_name(id).unwrap(), size)
+            }
         };
 
         Field::new(self.name, kind)

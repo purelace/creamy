@@ -24,7 +24,7 @@ impl Layout for Structure {
         let mut size = 0;
         for field in self.fields.iter() {
             let padding = size % field.size_of(tt);
-            size += padding + size;
+            size += padding + field.size_of(tt);
         }
         size
     }

@@ -1,9 +1,13 @@
 use std::collections::HashSet;
 
-use compiler_utils::{List, strpool::StringPool};
+use compiler_utils::{
+    List,
+    strpool::{StringId, StringPool},
+};
 use roxmltree::{Node, NodeType};
 
 use crate::{
+    StringPoolIntern,
     model::types::{CustomType, Structure, Type},
     table::TypeTable,
     tree::types::field::FieldToken,
@@ -11,7 +15,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct StructToken {
-    name: String,
+    name: StringId,
     fields: Vec<FieldToken>,
 }
 
@@ -22,7 +26,7 @@ impl StructToken {
         let name = node
             .attribute("name")
             .expect("<struct>: missing 'name' attribute")
-            .to_string();
+            .intern(pool);
 
         let fields = node
             .children()
@@ -33,9 +37,11 @@ impl StructToken {
         Self { name, fields }
     }
 
-    pub fn resolve(mut self, tt: &TypeTable, pool: &mut StringPool) -> Type {
-        let name = pool.get_id(&self.name);
+    pub fn can_resolve(&self, tt: &TypeTable) -> bool {
+        self.fields.iter().all(|f| f.can_resolve(tt))
+    }
 
+    pub fn resolve(mut self, tt: &TypeTable, pool: &StringPool) -> Type {
         let mut names = HashSet::new();
         let mut fields = List::with_capacity(self.fields.len());
         for field in self.fields.drain(..) {
@@ -50,6 +56,6 @@ impl StructToken {
             fields.push(field.resolve(tt));
         }
 
-        Type::Custom(CustomType::Struct(Structure::new(name, fields)))
+        Type::Custom(CustomType::Struct(Structure::new(self.name, fields)))
     }
 }

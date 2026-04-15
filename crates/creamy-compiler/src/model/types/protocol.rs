@@ -5,7 +5,7 @@ use crate::model::types::{Message, Type};
 
 #[binrw]
 #[brw(little)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Access {
     #[brw(magic(0u8))]
     Error,
@@ -51,5 +51,25 @@ impl Protocol {
             types,
             messages,
         }
+    }
+
+    pub const fn name(&self) -> StringId {
+        self.name
+    }
+
+    pub const fn version(&self) -> u8 {
+        self.version
+    }
+
+    pub const fn access(&self) -> Access {
+        self.access
+    }
+
+    pub fn types(&self) -> &[Type] {
+        self.types.as_slice()
+    }
+
+    pub fn messages(&self) -> &[Message] {
+        self.messages.as_slice()
     }
 }

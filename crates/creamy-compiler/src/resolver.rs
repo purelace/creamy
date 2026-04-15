@@ -63,18 +63,38 @@ impl Resolver {
     }
 
     pub fn run(&mut self, mut tree: ProtocolTree) -> Protocol {
-        let name = self.pool.get_id(&tree.name);
         let version = tree.version.parse::<u8>().unwrap();
         let access = Access::from_str(&tree.access);
 
         for enum_token in tree.enums.drain(..) {
-            let ty = enum_token.resolve(&self.tt, &mut self.pool);
+            let ty = enum_token.resolve(&self.tt, &self.pool);
             self.tt.register_type(ty.name(), ty);
         }
 
-        for struct_token in tree.structs.drain(..) {
-            let ty = struct_token.resolve(&self.tt, &mut self.pool);
-            self.tt.register_type(ty.name(), ty);
+        let mut temp_structs = tree.structs;
+        let mut temp_structs1 = Vec::new();
+        let mut last_len = 0;
+
+        loop {
+            for struct_token in temp_structs.drain(..) {
+                if struct_token.can_resolve(&self.tt) {
+                    let ty = struct_token.resolve(&self.tt, &self.pool);
+                    self.tt.register_type(ty.name(), ty);
+                } else {
+                    temp_structs1.push(struct_token);
+                }
+            }
+
+            if temp_structs1.is_empty() {
+                break;
+            }
+
+            if temp_structs1.len() == last_len {
+                panic!("Cannot resolve types");
+            }
+
+            last_len = temp_structs1.len();
+            std::mem::swap(&mut temp_structs, &mut temp_structs1);
         }
 
         let messages = List::wrap(
@@ -85,6 +105,6 @@ impl Resolver {
         );
 
         let types = List::wrap(self.reset_table());
-        Protocol::new(name, version, access, types, messages)
+        Protocol::new(tree.name, version, access, types, messages)
     }
 }

@@ -32,7 +32,6 @@ pub enum Type {
 pub enum BuiltinType {
     Numeric(NumericType),
     Array(NumericType, u32),
-    Field(StringId),
 }
 
 impl Layout for BuiltinType {
@@ -40,7 +39,6 @@ impl Layout for BuiltinType {
         match self {
             BuiltinType::Numeric(ty) => ty.size_of(tt),
             BuiltinType::Array(ty, count) => ty.size_of(tt) * *count as usize,
-            BuiltinType::Field(_) => 0,
         }
     }
 
@@ -48,14 +46,16 @@ impl Layout for BuiltinType {
         match self {
             BuiltinType::Numeric(ty) => ty.align_of(tt),
             BuiltinType::Array(ty, _) => ty.align_of(tt),
-            BuiltinType::Field(_) => 0,
         }
     }
 }
 
 impl ResolvedType for BuiltinType {
     fn name(&self) -> StringId {
-        unreachable!()
+        match self {
+            BuiltinType::Numeric(ty) => ty.name(),
+            BuiltinType::Array(_, _) => unreachable!(),
+        }
     }
 }
 
@@ -72,7 +72,6 @@ pub enum CustomType {
 pub enum FieldType {
     Type(TypeId),
     Array(TypeId, u32),
-    Remainder,
 }
 
 impl Layout for FieldType {
@@ -80,7 +79,6 @@ impl Layout for FieldType {
         match self {
             FieldType::Type(ty) => tt.size_of_type(*ty),
             FieldType::Array(ty, size) => tt.size_of_type(*ty) * *size as usize,
-            FieldType::Remainder => 0,
         }
     }
 
@@ -88,7 +86,6 @@ impl Layout for FieldType {
         match self {
             FieldType::Type(ty) => tt.align_of_type(*ty),
             FieldType::Array(ty, _) => tt.align_of_type(*ty),
-            FieldType::Remainder => 0,
         }
     }
 }

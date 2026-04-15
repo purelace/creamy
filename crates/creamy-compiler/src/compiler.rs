@@ -1,3 +1,5 @@
+use compiler_utils::strpool::StringPool;
+
 use crate::{model::types::Protocol, resolver::Resolver, tree::types::ProtocolTree};
 
 pub struct ProtocolCompiler {
@@ -22,5 +24,9 @@ impl ProtocolCompiler {
         let root = document.root().first_child().unwrap();
         let tree = ProtocolTree::new(root, &mut self.resolver.pool);
         self.resolver.run(tree)
+    }
+
+    pub fn get_pool(&self) -> &StringPool {
+        &self.resolver.pool
     }
 }

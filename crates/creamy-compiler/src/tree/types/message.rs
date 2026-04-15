@@ -1,13 +1,24 @@
 use std::collections::HashSet;
 
-use compiler_utils::{List, strpool::StringPool};
+use compiler_utils::{
+    List,
+    strpool::{StringId, StringPool},
+};
 use roxmltree::{Node, NodeType};
 
-use crate::{model::types::Message, table::TypeTable, tree::types::field::FieldToken};
+use crate::{
+    StringPoolIntern, model::types::Message, table::TypeTable, tree::types::field::FieldToken,
+};
+
+#[derive(Debug)]
+enum NestedMessageToken {
+    Field(FieldToken),
+    Remainder,
+}
 
 #[derive(Debug)]
 pub struct MessageToken {
-    name: String,
+    name: StringId,
     fields: Vec<FieldToken>,
 }
 
@@ -18,7 +29,7 @@ impl MessageToken {
         let name = node
             .attribute("name")
             .expect("<message>: missing 'name' attribute")
-            .to_string();
+            .intern(pool);
 
         let fields = node
             .children()
@@ -30,8 +41,6 @@ impl MessageToken {
     }
 
     pub fn resolve(mut self, tt: &TypeTable, pool: &mut StringPool) -> Message {
-        let name = pool.get_id(&self.name);
-
         let mut names = HashSet::new();
         let mut fields = List::with_capacity(self.fields.len());
         for field in self.fields.drain(..) {
@@ -46,6 +55,6 @@ impl MessageToken {
             fields.push(field.resolve(tt));
         }
 
-        Message::new(name, fields)
+        Message::new(self.name, fields)
     }
 }
