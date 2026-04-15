@@ -7,6 +7,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct StringId(u32);
 
+impl StringId {
+    pub const fn new(id: u32) -> StringId {
+        StringId(id)
+    }
+}
+
 #[binrw]
 #[brw(little)]
 #[derive(Debug, Default)]
