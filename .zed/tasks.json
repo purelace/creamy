@@ -15,4 +15,15 @@
       "compiler-utils",
     ],
   },
+  {
+    "label": "Install Creamy Devkit CLI",
+    "command": "cargo",
+    "args": [
+      "+stable",
+      "install",
+      "creamy-devkit-cli",
+      "--path",
+      "devkit/creamy-devkit-cli",
+    ],
+  },
 ]

@@ -2,9 +2,11 @@ use std::fmt::Display;
 
 use binrw::{BinRead, BinWrite};
 
+use crate::define_readonly_struct;
+
 /// Max offset value: 2^27
 /// Max length value: 28
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RangePackedU32 {
     /// Packed value
     /// 00000 - len
@@ -41,38 +43,11 @@ impl RangePackedU32 {
     }
 }
 
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RangePackedU16 {
-    /// Packed value
-    /// 00000 - len
-    /// 00000000000 - start
-    value: u16,
-}
-
-impl RangePackedU16 {
-    #[must_use]
-    pub const fn new(start: u16, len: u8) -> Self {
-        assert!(start <= 2047);
-        assert!(len <= 28);
-        let len = (len as u16) << 11;
-        Self { value: start | len }
-    }
-
-    #[must_use]
-    pub const fn start(&self) -> u16 {
-        self.value & 0b00000_11111111111
-    }
-
-    #[allow(clippy::len_without_is_empty)]
-    #[must_use]
-    pub const fn len(&self) -> u8 {
-        (self.value >> 11) as u8
-    }
-}
-
 pub type Structs = RangePackedU32;
 pub type Fields = RangePackedU32;
 pub type Enums = RangePackedU32;
+pub type Flags = RangePackedU32;
+pub type Bitsets = RangePackedU32;
 
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Messages {
@@ -120,5 +95,19 @@ impl Variants {
     #[must_use]
     pub const fn len(&self) -> u16 {
         self.len
+    }
+}
+
+define_readonly_struct! {
+    struct Options {
+        start: u16,
+        len: u16,
+    }
+}
+
+define_readonly_struct! {
+    struct BitsetValues {
+        start: u16,
+        len: u16,
     }
 }

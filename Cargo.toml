@@ -7,7 +7,7 @@ license = "Apache-2.0"
 lto = "fat"
 opt-level = 3
 codegen-units = 1
-#strip = "symbols"
+incremental = false
 
 [workspace]
 resolver = "2"
@@ -18,13 +18,17 @@ members = [
     "bus/macro-utils",
     "devkit/creamy-devkit",
     "devkit/creamy-devkit-cli",
+    "devkit/creamy-libgen",
     "devkit/creamy-libgen-c",
     "devkit/creamy-libgen-rs",
     "devkit/creamy-manifest",
     "devkit/creamy-protocol",
     "devkit/creamy-protocol-tui",
+    "devkit/creamy-sdk",
     "devkit/creamy-utils",
     "devkit/creamy-xmlc",
+    "engine/creamy",
+    "engine/creamy-cbus-driver",
     "examples/ping/plugin",
 ]
 
@@ -35,6 +39,7 @@ cbus-core-macros = { path = "bus/cbus-core-macros" }
 macro-utils = { path = "bus/macro-utils" }
 
 creamy-devkit = { path = "devkit/creamy-devkit" }
+creamy-libgen = { path = "devkit/creamy-libgen" }
 creamy-libgen-c = { path = "devkit/creamy-libgen-c" }
 creamy-libgen-rs = { path = "devkit/creamy-libgen-rs" }
 creamy-manifest = { path = "devkit/creamy-manifest" }
@@ -42,25 +47,26 @@ creamy-protocol = { path = "devkit/creamy-protocol" }
 creamy-protocol-tui = { path = "devkit/creamy-protocol-tui" }
 creamy-utils = { path = "devkit/creamy-utils" }
 creamy-xmlc = { path = "devkit/creamy-xmlc" }
+creamy-sdk = { path = "devkit/creamy-sdk" }
 
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 as-guard = "0.1.0"
 idmint = { version = "0.2.2", features = ["stack"] }
 static_assertions = "1.1.0"
 cfg-if = "1.0.4"
-syn = "2.0.117"
-quote = "1.0.45"
+syn = "2.0.118"
+quote = "1.0.46"
 proc-macro2 = "1.0.106"
 proc-macro-crate = "3.5.0"
 criterion = { version = "0.8.2", features = ["html_reports"] }
-bitflags = "2.11.1"
-chrono = "0.4.44"
+bitflags = "2.13.0"
+chrono = "0.4.45"
 derive_more = { version = "2.1.1", features = ["from", "display"] }
 notify = "8.2.0"
-regex = "1.12.3"
-tree-sitter = "0.26.8"
+regex = "1.12.4"
+tree-sitter = "0.26.10"
 zip = "8.6.0"
-env_logger = "0.11.10"
+env_logger = "0.11.11"
 lazy_static = "1.5.0"
 tempfile = "3.27.0"
 tracing = "0.1.44"
@@ -72,7 +78,7 @@ thiserror = { version = "2.0.18", features = ["default"] }
 roxmltree = "0.21.1"
 strum = { version = "0.28.0", features = ["derive"] }
 ptree = "0.5.2"
-console = "0.16.3"
+console = "0.16.4"
 
 [workspace.dependencies.serde]
 version = "1.0.228"

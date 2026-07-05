@@ -1,30 +1,35 @@
 use creamy_utils::strpool::StringId;
 
 use crate::{
-    define_ro_struct,
-    error::ProtocolError,
-    model::{ranges::Variants, symbols::NumericSymbol},
+    constraints::{MAX_ENUMS, MAX_VARIANTS},
+    define_readonly_struct,
+    error::SemanticError,
+    model::symbols::EnumRepr,
+    nodes::VariantValue,
     table::TypeMeta,
+    utils::{EnumsRange, VariantsRange},
 };
 
-define_ro_struct! {
+define_readonly_struct! {
+    [element(MAX_VARIANTS, VariantsRange)]
+    struct VariantSymbol {
+        ident: StringId,
+        value: VariantValue,
+    }
+}
+
+define_readonly_struct! {
+    [element(MAX_ENUMS, EnumsRange)]
     struct EnumSymbol {
         name: StringId,
-        variants: Variants,
+        repr: EnumRepr,
+        variants: VariantsRange,
     }
 }
 
 impl EnumSymbol {
-    const fn get_numeric_type(self) -> NumericSymbol {
-        if self.variants.len() <= u8::MAX as u16 {
-            NumericSymbol::U8
-        } else {
-            NumericSymbol::U16
-        }
-    }
-
-    pub const fn meta(&self) -> Result<TypeMeta, ProtocolError> {
-        let ty = self.get_numeric_type();
+    pub const fn meta(&self) -> Result<TypeMeta, SemanticError> {
+        let ty = self.repr.as_numberic_symbol();
         let size = ty.size();
         let align = ty.align();
         TypeMeta::new(size, align)

@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-cbus-core.workspace = true
+creamy-sdk.workspace = true
 
 [build-dependencies]
 creamy-utils.workspace = true

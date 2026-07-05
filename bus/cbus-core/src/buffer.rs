@@ -14,6 +14,7 @@ pub type Incoming = Buffer<Read>;
 //    _padding: [u8; 56],
 //}
 
+#[derive(Clone, Copy)]
 pub struct Buffer<O> {
     count: NonNull<u32>,
     slice: NonNull<UntypedMessage>,
@@ -36,6 +37,9 @@ unsafe impl<O> Sync for Buffer<O> {}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<O> Buffer<O> {
+    // 1) указатель на область с метаданными
+    // 2) указатель на буфер после метаданных
+    // 3) обьем буфера
     #[must_use]
     #[inline(always)]
     pub const fn new(count: NonNull<u32>, slice: NonNull<UntypedMessage>, capacity: u32) -> Self {
@@ -43,6 +47,16 @@ impl<O> Buffer<O> {
             count,
             slice,
             capacity,
+            _phantom: PhantomData,
+        }
+    }
+
+    #[must_use]
+    pub const fn null() -> Self {
+        Buffer {
+            count: NonNull::dangling(),
+            slice: NonNull::dangling(),
+            capacity: 0,
             _phantom: PhantomData,
         }
     }
@@ -151,6 +165,7 @@ impl<O> Buffer<O> {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Write;
 impl Buffer<Write> {
     /// Return false if the buffer is full
@@ -171,9 +186,10 @@ impl Buffer<Write> {
     }
 
     #[inline(never)]
-    pub fn send_many_iter_with_count<I>(&mut self, iter: I, count: usize) -> bool
+    pub fn send_many_iter_with_count<M, I>(&mut self, iter: I, count: usize) -> bool
     where
-        I: IntoIterator<Item = UntypedMessage>,
+        M: TypedMessage,
+        I: IntoIterator<Item = M>,
         <I as core::iter::IntoIterator>::IntoIter: core::iter::DoubleEndedIterator,
     {
         let iter = iter.into_iter();
@@ -193,7 +209,7 @@ impl Buffer<Write> {
             let mut ptr = self.write_ptr().as_ptr();
 
             for msg in iter.rev() {
-                ptr.write(msg);
+                ptr.write(msg.cast());
                 ptr = ptr.add(1);
             }
         }
@@ -203,9 +219,10 @@ impl Buffer<Write> {
     /// # Returns
     /// Возвращает bool которое указывает на то, хватает ли места в буфере.
     #[inline(always)]
-    pub fn send_many_iter_exact<I>(&mut self, iter: I) -> bool
+    pub fn send_many_iter_exact<M, I>(&mut self, iter: I) -> bool
     where
-        I: IntoIterator<Item = UntypedMessage>,
+        M: TypedMessage,
+        I: IntoIterator<Item = M>,
         I::IntoIter: ExactSizeIterator,
         <I as core::iter::IntoIterator>::IntoIter: core::iter::DoubleEndedIterator,
     {
@@ -215,6 +232,7 @@ impl Buffer<Write> {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Read;
 impl Buffer<Read> {
     pub const fn pop(&mut self) -> Option<UntypedMessage> {

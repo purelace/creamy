@@ -10,7 +10,7 @@ use std::{collections::HashMap, ffi::OsString, fs::DirEntry, path::Path, str::Fr
 use binrw::binrw;
 use creamy_manifest::{Arguments, Manifest};
 use creamy_utils::{collections::List, strpool::StringPool, version::Version};
-use creamy_xmlc::{ProtocolCompiler, ProtocolDefinition};
+use creamy_xmlc::{ProtocolDefinition, compile};
 
 use crate::error::DevKitError;
 
@@ -88,10 +88,9 @@ fn compile_protocols(
         .collect::<Vec<_>>();
 
     let mut protocols = List::with_capacity(files.len() as u32);
-    let mut compiler = ProtocolCompiler::new(pool);
     for path in files {
         let content = std::fs::read_to_string(path)?;
-        protocols.push(compiler.compile(&content).unwrap());
+        protocols.push(compile(pool, &content).unwrap());
     }
 
     Ok(protocols)

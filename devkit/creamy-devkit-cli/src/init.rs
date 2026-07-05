@@ -18,7 +18,7 @@ authors = [""]
 # [[protocols]]
 # name = "compositor.wm"
 # version = "0.1"
-# group = 1 # optional
+# group = 1
 "#,
         id = input.id,
         name = input.name,

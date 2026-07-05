@@ -1,6 +1,7 @@
 #![allow(clippy::cast_possible_truncation)]
 
 mod cli;
+mod generate;
 mod init;
 mod show;
 
@@ -13,6 +14,7 @@ use creamy_xmlc::ProtocolDefinition;
 
 use crate::{
     cli::{Args, Command, Validate},
+    generate::generate_headers,
     init::init_template,
     show::execute_show_cmd,
 };
@@ -23,6 +25,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match args.command {
         Some(command) => match command {
             Command::Init => init_template(get_workdir(None)?),
+            Command::Generate {
+                xml_file,
+                output,
+                rewrite,
+            } => generate_headers(xml_file, get_workdir(output)?, rewrite),
             Command::Show(list) => execute_show_cmd(list),
             Command::Build { workdir, output } => build(workdir, output),
             Command::Validate(args) => validate(args),

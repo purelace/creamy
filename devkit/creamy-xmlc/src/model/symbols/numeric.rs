@@ -99,9 +99,9 @@ impl NumericSymbol {
         match self {
             NumericSymbol::U8 | NumericSymbol::I8 => 1,
             NumericSymbol::U16 | NumericSymbol::I16 => 2,
-            NumericSymbol::U128 | NumericSymbol::I128 => 16,
             NumericSymbol::U32 | NumericSymbol::I32 | NumericSymbol::F32 => 4,
             NumericSymbol::U64 | NumericSymbol::I64 | NumericSymbol::F64 => 8,
+            NumericSymbol::U128 | NumericSymbol::I128 => 16,
         }
     }
 
@@ -111,11 +111,8 @@ impl NumericSymbol {
             NumericSymbol::U8 | NumericSymbol::I8 => 1,
             NumericSymbol::U16 | NumericSymbol::I16 => 2,
             NumericSymbol::U32 | NumericSymbol::I32 | NumericSymbol::F32 => 4,
-            NumericSymbol::U64
-            | NumericSymbol::U128
-            | NumericSymbol::I64
-            | NumericSymbol::I128
-            | NumericSymbol::F64 => 8,
+            NumericSymbol::U64 | NumericSymbol::I64 | NumericSymbol::F64 => 8,
+            NumericSymbol::U128 | NumericSymbol::I128 => 16,
         }
     }
 }

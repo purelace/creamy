@@ -78,6 +78,11 @@ impl Manifest {
     pub fn name(&self) -> &str {
         self.package.name.as_str()
     }
+
+    #[must_use]
+    pub fn protocols(&self) -> &[Protocol] {
+        self.protocols.as_slice()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -107,7 +112,7 @@ mod test {
      name = "TestManifest"
      version = "0.4.2"
      description = "Test manifest"
-     repository = "https://github.com/mintwm/chocomint"
+     repository = "https://github.com/purelace/chocomint"
      authors = ["selrisu <myirisuchan@gmail.com>"]
 
      [core]
@@ -135,7 +140,7 @@ mod test {
                         patch: 2
                     },
                     description: "Test manifest".into(),
-                    repository: "https://github.com/mintwm/chocomint".into(),
+                    repository: "https://github.com/purelace/chocomint".into(),
                     authors: List::wrap(vec!["selrisu <myirisuchan@gmail.com>".into()])
                 },
                 protocols: List::wrap(vec![Protocol {
@@ -160,7 +165,7 @@ mod test {
      name = "TestManifest"
      version = "broken"
      description = "Test manifest"
-     repository = "https://github.com/mintwm/chocomint"
+     repository = "https://github.com/purelace/chocomint"
      authors = ["selrisu <myirisuchan@gmail.com>"]
 
      [core]
@@ -180,7 +185,7 @@ mod test {
      name = "TestManifest"
      version = "1000.1.0"
      description = "Test manifest"
-     repository = "https://github.com/mintwm/chocomint"
+     repository = "https://github.com/purelace/chocomint"
      authors = ["selrisu <myirisuchan@gmail.com>"]
 
      core.path = "core.wasm"
@@ -193,7 +198,7 @@ mod test {
       name = "TestManifest"
       version = "0.256.0"
       description = "Test manifest"
-      repository = "https://github.com/mintwm/chocomint"
+      repository = "https://github.com/purelace/chocomint"
       authors = ["selrisu <myirisuchan@gmail.com>"]
 
       core.path = "core.wasm"
@@ -206,7 +211,7 @@ mod test {
         name = "TestManifest"
         version = "0.0.70000"
         description = "Test manifest"
-        repository = "https://github.com/mintwm/chocomint"
+        repository = "https://github.com/purelace/chocomint"
         authors = ["selrisu <myirisuchan@gmail.com>"]
 
         core.path = "core.wasm"

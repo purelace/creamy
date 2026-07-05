@@ -1,0 +1,16 @@
+[package]
+name = "creamy-cbus-driver"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+as-guard.workspace = true
+idmint.workspace = true
+cbus.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "send_messages"
+harness = false

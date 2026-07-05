@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<protocol name="system" version="0.1">
+
+    <!-- Builtin group -->
+    <group name="builtin" access="Exclusive">
+        <message kind="0" name="PluginAppeared">
+            <field name="plugin_id" type="u8" />
+        </message>
+
+        <message kind="1" name="PluginDisappeared">
+            <field name="plugin_id" type="u8" />
+        </message>
+
+        <message kind="2" name="ProtocolDeclared">
+            <field name="version" type="u32" />
+            <field name="provider" type="u8" />
+            <field name="group_id" type="u8" />
+        </message>
+
+        <message kind="3" name="ProtocolUndeclared">
+            <field name="provider" type="u8" />
+            <field name="group_id" type="u8" />
+        </message>
+
+        <message kind="4" name="ProtocolRedeclared">
+            <field name="version" type="u32" />
+            <field name="provider" type="u8" />
+            <field name="group_id" type="u8" />
+        </message>
+
+        <stream kind="5" name="LogDebug" timeout="4">
+            <payload>
+                <array name="data" type="u8" len_type="u32" />
+            </payload>
+        </stream>
+
+        <stream kind="6" name="LogInfo" timeout="4">
+            <payload>
+                <array name="data" type="u8" len_type="u32" />
+            </payload>
+        </stream>
+
+        <stream kind="7" name="LogWarning" timeout="4">
+            <payload>
+                <array name="data" type="u8" len_type="u32" />
+            </payload>
+        </stream>
+
+        <stream kind="8" name="LogError" timeout="4">
+            <payload>
+                <array name="data" type="u8" len_type="u32" />
+            </payload>
+        </stream>
+
+        <!--
+        <obsolete until="2.0" reason="Test" replaced_by="ProtocolRedeclared">
+            <message kind="4" name="ProtocolRedeclaredOld">
+                <field name="version" type="u32" />
+                <field name="provider" type="u8" />
+                <field name="group_id" type="u8" />
+            </message>
+        </obsolete>
+        -->
+    </group>
+
+<!--
+    <group name="lifecycle" access="Exclusive">
+        <message name="on_reload" />
+        <message name="on_stop" />
+    </group>
+    <group name="permissions" access="Exclusive">
+
+    </group>
+-->
+</protocol>

@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="size_error" version="0" access="ExclusizeWrite">
-    <message name="ping">
-        <field name="data" type="[u8; 993]" />
-    </message>
-</protocol>

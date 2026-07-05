@@ -19,10 +19,9 @@ const STRUCT_COLOR: (u8, u8, u8) = (78, 201, 176);
 const GROUP_COLOR: (u8, u8, u8) = (219, 219, 169);
 
 fn print_header(def: &ProtocolDefinition, pool: &StringPool) {
-    let name = style(def.name_ref().resolve(pool)).green().bold();
+    let name = style(def.name().resolve(pool)).green().bold();
     let version = style(format!("v{}", def.version())).yellow().bold();
-    let access = style(def.access()).red().bold();
-    println!("— {name} | {version} | {access}");
+    println!("— {name} | {version}");
 }
 
 fn print_item(group_idx: u8, message_idx: u8, name: &str, name_color: (u8, u8, u8)) {
@@ -42,7 +41,7 @@ pub fn show_all_messages(def: &ProtocolDefinition, pool: &StringPool) {
     println!("+ List of messages");
 
     for (group_idx, group) in def.groups().iter().enumerate() {
-        for (message_idx, message) in def.message_slice(group.messages()).iter().enumerate() {
+        for (message_idx, message) in def.messages_slice(group.messages()).iter().enumerate() {
             let name_id = message.name();
             print_item(
                 group_idx as u8 + 1,
@@ -61,7 +60,7 @@ pub fn show_one_group_by_idx(def: &ProtocolDefinition, pool: &StringPool, idx: N
     println!("+ List of messages ({group_name})");
     print_header(def, pool);
 
-    let slice = def.message_slice(group.messages());
+    let slice = def.messages_slice(group.messages());
     for (message_idx, message) in slice.iter().enumerate() {
         let id = message.name();
         print_item(idx.get(), message_idx as u8, id.resolve(pool), STRUCT_COLOR);
@@ -102,9 +101,9 @@ pub fn show_memory_layout(
     msg: u8,
 ) {
     let group = &def.groups()[group.get() as usize - 1];
-    let messages = def.message_slice(group.messages());
+    let messages = def.messages_slice(group.messages());
     let message = messages[msg as usize];
-    let fields = def.field_slice(message.fields());
+    let fields = def.fields_slice(message.fields());
 
     let mut report = MemoryReport::new(message.name().resolve(pool));
     if flat {
@@ -153,8 +152,8 @@ fn make_flat_report(
         match field.kind() {
             FieldType::Type(tid) => match tt.get_type(tid) {
                 Type::Array(_) => unreachable!(),
-                Type::Struct(sym) => {
-                    let fields = def.field_slice(sym.fields());
+                Type::Struct(symbol) => {
+                    let fields = def.fields_slice(symbol.fields());
                     make_flat_report(def, report, fields, pool);
                 }
                 Type::Numeric(_) | Type::Enum(_) => {
@@ -165,6 +164,8 @@ fn make_flat_report(
                         align: align as usize,
                     });
                 }
+                Type::Flags(flags_symbol) => todo!(),
+                Type::Bitset(bitset_symbol) => todo!(),
             },
             FieldType::Array(array) => {
                 report.add_array_field(ArrayField {
@@ -212,7 +213,7 @@ fn make_report(
             Type::Array(_) => unreachable!(),
             Type::Struct(sym) => {
                 report.start_report();
-                let fields = def.field_slice(sym.fields());
+                let fields = def.fields_slice(sym.fields());
                 make_report(def, report, fields, pool);
                 report.end_report(SimpleField {
                     name: field.name().resolve(pool).to_string(),
@@ -229,6 +230,8 @@ fn make_report(
                     align: align as usize,
                 });
             }
+            Type::Flags(flags_symbol) => todo!(),
+            Type::Bitset(bitset_symbol) => todo!(),
         }
     }
 }

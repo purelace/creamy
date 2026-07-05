@@ -6,43 +6,52 @@ use creamy_utils::strpool::StringId;
 
 use crate::{
     Version,
-    constraints::{HEADER_BYTES, MAX_FIELDS, MAX_GROUPS, MAX_MESSAGES, MAX_PAYLOAD, MAX_VARIANTS},
-    error::ProtocolError,
-    model::{
-        ranges::{Fields, Messages, Variants},
-        symbols::{FieldSymbol, GroupSymbol, MessageSymbol, Type},
+    constraints::{HEADER_BYTES, MAX_PAYLOAD},
+    error::{Fallback, SemanticError},
+    model::symbols::{
+        BitsetValueSymbol, FieldSymbol, FieldType, GroupSymbol, MessageSymbolType, OptionSymbol,
+        StreamPayloadFieldSymbol, Type, VariantSymbol,
     },
     table::{FinishedTypeTable, TypeMeta},
-    utils::BoundedVec,
+    utils::{BValuesRange, BoundedVec, FieldsRange, MessagesRange, OptionsRange, VariantsRange},
 };
 
 #[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Access {
     #[default]
-    #[brw(magic(0u8))]
-    ExclusiveWrite,
     #[brw(magic(1u8))]
-    MultipleWrite,
-}
+    /// Все пишут, все читают
+    Public,
 
-impl Access {
-    pub fn new(string: &str) -> Result<Access, ProtocolError> {
-        match string {
-            "ExclusiveWrite" => Ok(Access::ExclusiveWrite),
-            "MultipleWrite" => Ok(Access::MultipleWrite),
-            value => Err(ProtocolError::InvalidAccess(value.to_string())),
-        }
-    }
+    #[brw(magic(2u8))]
+    /// Читают все, пишет один
+    Protected,
+
+    #[brw(magic(3u8))]
+    /// Читает один, пишут все
+    Private,
+
+    #[brw(magic(4u8))]
+    /// Читает один, пишет один
+    Exclusive,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl Display for Access {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            Access::ExclusiveWrite => "ExclusiveWrite",
-            Access::MultipleWrite => "MultipleWrite",
+            Access::Public => "Public",
+            Access::Protected => "Protected",
+            Access::Private => "Private",
+            Access::Exclusive => "Exclusive",
         };
         write!(f, "{str}")
+    }
+}
+
+impl Fallback for Access {
+    fn fallback() -> Self {
+        Self::default()
     }
 }
 
@@ -50,35 +59,51 @@ impl Display for Access {
 pub struct ProtocolDefinition {
     name: StringId,
     version: Version,
-    access: Access,
-    variants: BoundedVec<StringId, MAX_VARIANTS>,
-    fields: BoundedVec<FieldSymbol, MAX_FIELDS>,
-    groups: BoundedVec<GroupSymbol, MAX_GROUPS>,
-    messages: BoundedVec<MessageSymbol, MAX_MESSAGES>,
+    global: GroupSymbol,
+
+    groups: BoundedVec<GroupSymbol>,
+    messages: BoundedVec<MessageSymbolType>,
+
+    values: BoundedVec<BitsetValueSymbol>,
+    options: BoundedVec<OptionSymbol>,
+    variants: BoundedVec<VariantSymbol>,
+    fields: BoundedVec<FieldSymbol>,
+    payload: BoundedVec<StreamPayloadFieldSymbol>,
+
     table: FinishedTypeTable,
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl ProtocolDefinition {
     #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub const fn new(
         name: StringId,
         version: Version,
-        access: Access,
-        variants: BoundedVec<StringId, MAX_VARIANTS>,
-        fields: BoundedVec<FieldSymbol, MAX_FIELDS>,
-        groups: BoundedVec<GroupSymbol, MAX_GROUPS>,
-        messages: BoundedVec<MessageSymbol, MAX_MESSAGES>,
+        global: GroupSymbol,
+
+        groups: BoundedVec<GroupSymbol>,
+        messages: BoundedVec<MessageSymbolType>,
+
+        values: BoundedVec<BitsetValueSymbol>,
+        options: BoundedVec<OptionSymbol>,
+        variants: BoundedVec<VariantSymbol>,
+        fields: BoundedVec<FieldSymbol>,
+        payload: BoundedVec<StreamPayloadFieldSymbol>,
+
         table: FinishedTypeTable,
     ) -> Self {
         Self {
             name,
             version,
-            access,
-            variants,
-            fields,
+            global,
             groups,
             messages,
+            values,
+            options,
+            variants,
+            fields,
+            payload,
             table,
         }
     }
@@ -89,18 +114,13 @@ impl ProtocolDefinition {
     }
 
     #[must_use]
-    pub const fn name_ref(&self) -> &StringId {
-        &self.name
-    }
-
-    #[must_use]
     pub const fn version(&self) -> Version {
         self.version
     }
 
     #[must_use]
-    pub const fn access(&self) -> Access {
-        self.access
+    pub const fn global(&self) -> GroupSymbol {
+        self.global
     }
 
     #[must_use]
@@ -109,7 +129,7 @@ impl ProtocolDefinition {
     }
 
     #[must_use]
-    pub fn messages(&self) -> &[MessageSymbol] {
+    pub fn messages(&self) -> &[MessageSymbolType] {
         self.messages.as_slice()
     }
 
@@ -119,61 +139,70 @@ impl ProtocolDefinition {
     }
 
     #[must_use]
-    pub fn message_slice(&self, messages: Messages) -> &[MessageSymbol] {
-        let start = messages.start() as usize;
-        let len = messages.len() as usize;
-        &self.messages[start..start + len]
+    pub fn types_for_group(&self, group: GroupSymbol) -> &[Type] {
+        &self.table[group.types()]
     }
 
     #[must_use]
-    pub fn field_slice(&self, fields: Fields) -> &[FieldSymbol] {
-        let start = fields.start() as usize;
-        let len = fields.len() as usize;
-        &self.fields[start..start + len]
+    pub fn messages_slice(&self, messages: MessagesRange) -> &[MessageSymbolType] {
+        &self.messages[messages]
     }
 
+    #[must_use]
+    pub fn fields_slice(&self, fields: FieldsRange) -> &[FieldSymbol] {
+        &self.fields[fields]
+    }
+
+    #[must_use]
+    pub fn payload_slice(&self, fields: FieldsRange) -> &[StreamPayloadFieldSymbol] {
+        &self.payload[fields]
+    }
+
+    #[must_use]
+    pub fn variants_slice(&self, variants: VariantsRange) -> &[VariantSymbol] {
+        &self.variants[variants]
+    }
+
+    #[must_use]
+    pub fn bvalues_slice(&self, bvalues: BValuesRange) -> &[BitsetValueSymbol] {
+        &self.values[bvalues]
+    }
+
+    #[must_use]
+    pub fn options_slice(&self, options: OptionsRange) -> &[OptionSymbol] {
+        &self.options[options]
+    }
+}
+
+impl ProtocolDefinition {
     #[must_use]
     pub fn get_struct_paddings(fields: &[FieldSymbol]) -> u8 {
-        let mut total_size = HEADER_BYTES;
         let mut paddings = 0;
-        for field in fields {
-            let tid = field.type_id();
-            let size = tid.size().value();
-            let align = tid.align().value();
-
-            let padding = (align - (total_size % align)) % align;
-            paddings += padding;
-
-            total_size += padding + size;
-        }
-
+        compute_layout::<()>(HEADER_BYTES, fields, |_, l| {
+            paddings += l.padding;
+            Ok(())
+        })
+        .unwrap();
         paddings
     }
 
-    pub fn get_struct_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, ProtocolError> {
-        let mut total_size = HEADER_BYTES as usize;
-        let mut max_align = 1;
-
-        for field in fields {
-            let tid = field.type_id();
-            let size = tid.size().value() as usize;
-            let align = tid.align().value() as usize;
-
-            if align > max_align {
-                max_align = align;
+    fn get_meta(fields: &[FieldSymbol], reserved: u8) -> Result<TypeMeta, SemanticError> {
+        let mut max_align = 1usize;
+        let mut total_size = compute_layout::<()>(reserved, fields, |_, l| {
+            if l.align as usize > max_align {
+                max_align = l.align as usize;
             }
 
-            let padding = (align - (total_size % align)) % align;
-
-            total_size += padding + size;
-        }
+            Ok(())
+        })
+        .unwrap() as usize;
 
         let tail_padding = (max_align - (total_size % max_align)) % max_align;
         total_size += tail_padding;
-        total_size -= HEADER_BYTES as usize;
+        total_size -= reserved as usize;
 
         if total_size > MAX_PAYLOAD {
-            return Err(ProtocolError::InvalidSize(total_size));
+            return Err(SemanticError::InvalidSize { actual: total_size });
         }
 
         assert!(u8::try_from(max_align).is_ok());
@@ -181,37 +210,26 @@ impl ProtocolDefinition {
         TypeMeta::new(total_size.safe_as::<u8>(), max_align.safe_as::<u8>())
     }
 
-    pub fn message_iter(&self, mut f: impl FnMut(GroupSymbol, MessageSymbol)) {
-        self.groups
-            .iter()
-            .flat_map(|g| self.message_slice(g.messages()).iter().map(move |m| (g, m)))
-            .for_each(|(g, m)| f(*g, *m));
+    pub fn get_message_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
+        Self::get_meta(fields, HEADER_BYTES)
+    }
+
+    pub fn get_struct_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
+        Self::get_meta(fields, 0)
     }
 
     pub fn group_iter<E>(
         &self,
-        mut f: impl FnMut(GroupSymbol, &[MessageSymbol], &[Type]) -> Result<(), E>,
+        mut f: impl FnMut(GroupSymbol, &[MessageSymbolType], &[Type]) -> Result<(), E>,
     ) -> Result<(), E> {
         self.groups
             .iter()
-            .map(|g| {
-                (
-                    g,
-                    self.message_slice(g.messages()),
-                    &self.table.types()[g.type_range()],
-                )
-            })
+            .map(|g| (g, &self.messages[g.messages()], self.types_for_group(*g)))
             .try_for_each(|(g, m, t)| f(*g, m, t))
-    }
-
-    #[must_use]
-    pub fn variant_slice(&self, variants: Variants) -> &[StringId] {
-        let start = variants.start() as usize;
-        let len = variants.len() as usize;
-        &self.variants[start..start + len]
     }
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct LayoutStep {
     pub size: u8,
     pub align: u8,
@@ -219,16 +237,84 @@ pub struct LayoutStep {
     pub offset: u8,
 }
 
+#[derive(Clone)]
+pub struct LayoutCalculator<'a> {
+    total_size: u8,
+    fields: &'a [FieldSymbol],
+    index: usize,
+}
+
+impl<'a> LayoutCalculator<'a> {
+    #[must_use]
+    pub const fn new(reserved: u8, fields: &'a [FieldSymbol]) -> Self {
+        Self {
+            total_size: reserved,
+            fields,
+            index: 0,
+        }
+    }
+
+    #[must_use]
+    pub const fn total_size(&self) -> u8 {
+        self.total_size
+    }
+}
+
+impl Iterator for LayoutCalculator<'_> {
+    type Item = (FieldSymbol, LayoutStep);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.fields.len() {
+            return None;
+        }
+
+        let field = self.fields[self.index];
+        let type_id = field.type_id();
+        let align = type_id.align().value();
+
+        let size = match field.kind() {
+            FieldType::Type(sym) => sym.size().value(),
+            FieldType::Array(array) => {
+                let kind_size = array.kind().size().value();
+                let array_len = array.len().value();
+                kind_size * array_len
+            }
+        };
+
+        let padding = (align - (self.total_size % align)) % align;
+
+        let step = LayoutStep {
+            size,
+            align,
+            padding,
+            offset: self.total_size + padding,
+        };
+
+        //TODO: overflow
+        self.total_size += padding + size;
+        Some((field, step))
+    }
+}
+
 pub fn compute_layout<E>(
+    reserved: u8,
     fields: &[FieldSymbol],
     mut f: impl FnMut(&FieldSymbol, LayoutStep) -> Result<(), E>,
 ) -> Result<u8, E> {
-    let mut total_size = HEADER_BYTES;
+    let mut total_size = reserved;
 
     for field in fields {
-        let tid = field.type_id();
-        let size = tid.size().value();
-        let align = tid.align().value();
+        let type_id = field.type_id();
+        let align = type_id.align().value();
+
+        let size = match field.kind() {
+            FieldType::Type(sym) => sym.size().value(),
+            FieldType::Array(array) => {
+                let kind_size = array.kind().size().value();
+                let array_len = array.len().value();
+                kind_size * array_len
+            }
+        };
 
         let padding = (align - (total_size % align)) % align;
 
@@ -242,6 +328,7 @@ pub fn compute_layout<E>(
             },
         )?;
 
+        //TODO: overflow
         total_size += padding + size;
     }
 

@@ -1,8 +1,52 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="success_test" version="0.1" access="MultipleWrite">
+<protocol name="test" version="0.1">
 
-    <group name="first">
+    <!-- Max options: 128 -->
+    <flags name="TypeOptions">
+        <option name="Serialize" />
+        <option name="Notify" />
+        <option name="Destroy" />
+        <option name="Setup" />
+    </flags>
 
+    <!-- Max bits: 224 [28 * 8] -->
+    <bitset name="TypeMeta">
+        <value name="len" bits="5" repr="u8" />
+        <value name="size" bits="10" repr="i32" />
+        <value name="data" bits="3" repr="i64" />
+    </bitset>
+
+    <stream name="PlayerList">
+        <start>
+            <field name="count" type="u32" />
+        </start>
+        <middle>
+            <field name="len" type="u32" />
+            <remainder name="data" len="len" />
+        </middle>
+        <end>
+            <field name="checksum" type="u32" />
+        </end>
+    </stream>
+
+    <enum name="LogType" repr="u8">
+        <variant name="Debug" />
+        <variant name="Info" />
+        <variant name="Warning" />
+        <variant name="Error" />
+    </enum>
+
+    <stream name="Log">
+        <start>
+            <field name="kind" type="LogType" />
+        </start>
+        <middle>
+            <field name="len" type="u32" />
+            <remainder name="data" len="len" />
+        </middle>
+    </stream>
+
+    <group name="first" access="Public">
         <message name="FullHouse27">
             <field name="flag" type="u8" />
             <field name="small_val" type="u16" />
@@ -22,11 +66,11 @@
 
     </group>
 
-    <group name="second">
+    <group name="second" access="Protected">
 
         <struct name="BucketSmall">
-            <field name="c" type="u32" />
             <field name="d" type="u64" />
+            <field name="c" type="u32" />
             <field name="b" type="u16" />
             <field name="a" type="u8" />
         </struct>
@@ -38,7 +82,7 @@
 
     </group>
 
-    <group name="third">
+    <group name="third" access="Exclusive">
 
         <message name="StatusWithData">
             <field name="status" type="Status" />
@@ -47,13 +91,12 @@
 
         <message name="StatusWithRemainder">
             <field name="status" type="Status" />
-            <remainder name="buffer" />
         </message>
 
-        <enum name="Status">
-            <variant name="Error" />
-            <variant name="Allow" />
-            <variant name="Deny" />
+        <enum name="Status" repr="u8">
+            <variant name="Error" value="0" />
+            <variant name="Allow" value="1" />
+            <variant name="Deny" value="2" />
         </enum>
 
         <struct name="SmartReference">

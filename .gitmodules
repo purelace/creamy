@@ -1,0 +1,3 @@
+[submodule "examples/ping_printer/plugin/third-party/tlsf"]
+	path = examples/ping_printer/plugin/third-party/tlsf
+	url = https://github.com/mattconte/tlsf.git

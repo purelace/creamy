@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="ping" version="1.0" access="MultipleWrite">
-    <group name="messages">
-        <message name="Ping">
+<protocol name="ping" version="1.0">
+    <group name="messages" access="Public">
+        <message kind="0" name="Ping">
             <field name="serial" type="u32" />
         </message>
-        <message name="Pong">
+        <message kind="1" name="Pong">
             <field name="serial" type="u32" />
         </message>
     </group>

@@ -1,0 +1,16 @@
+[package]
+name = "creamy-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+cbus-core.workspace = true
+rlsf = "0.2.2"
+
+[build-dependencies]
+creamy-libgen-rs.workspace = true
+creamy-xmlc.workspace = true

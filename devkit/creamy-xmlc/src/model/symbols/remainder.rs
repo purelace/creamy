@@ -10,6 +10,12 @@ impl Remainder {
     pub const fn new(value: Option<NonZeroStringId>) -> Self {
         Self(value)
     }
+
+    #[cfg_attr(coverage_nightly, coverage(off))]
+    #[must_use]
+    pub fn into_inner(self) -> Option<NonZeroStringId> {
+        self.0
+    }
 }
 
 impl BinRead for Remainder {

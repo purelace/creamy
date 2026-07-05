@@ -2,7 +2,10 @@ use std::num::NonZeroU8;
 
 use binrw::{BinRead, BinWrite};
 
-use crate::{constraints::MAX_PAYLOAD, error::ProtocolError};
+use crate::{
+    constraints::MAX_PAYLOAD,
+    error::{Fallback, SemanticError},
+};
 
 /// This struct is guaranteed that size is non-zero and equal to or less than [`Self::MAX_VALUE`];
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,23 +20,26 @@ impl Size {
     pub const B8: Self = Self(NonZeroU8::new(8).unwrap());
     pub const B16: Self = Self(NonZeroU8::new(16).unwrap());
 
-    pub const fn new(size: u8) -> Result<Self, ProtocolError> {
+    pub const fn new(size: u8) -> Result<Self, SemanticError> {
         if size > Self::MAX_VALUE {
-            return Err(ProtocolError::InvalidSize(size as usize));
+            return Err(SemanticError::InvalidSize {
+                actual: size as usize,
+            });
         }
         let Some(value) = NonZeroU8::new(size) else {
-            return Err(ProtocolError::InvalidSize(0));
+            return Err(SemanticError::InvalidSize { actual: 0 });
         };
         Ok(Self(value))
     }
 
+    #[must_use]
     pub const fn value(self) -> u8 {
         self.0.get()
     }
 }
 
-impl Default for Size {
-    fn default() -> Self {
+impl Fallback for Size {
+    fn fallback() -> Self {
         Self::B1
     }
 }

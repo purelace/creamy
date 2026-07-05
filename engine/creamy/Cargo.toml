@@ -1,0 +1,34 @@
+[package]
+name = "creamy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+#creamy-core.workspace = true
+toml.workspace = true
+serde.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tracing-tracy.workspace = true
+
+futures-util = "0.3.32"
+memmap2 = "0.9.10"
+creamy-devkit.workspace = true
+
+[dependencies.async_zip]
+version = "0.0.18"
+default-features = false
+features = ["tokio", "bzip2", "deflate", "lzma", "zstd", "xz"]
+
+[dependencies.garde]
+version = "0.22.1"
+features = ["derive"]
+
+[dependencies.inotify]
+version = "0.11.1"
+
+[dependencies.tokio]
+version = "1.52.2"
+default-features = false
+features = ["fs", "rt", "io-util", "macros", "sync"]

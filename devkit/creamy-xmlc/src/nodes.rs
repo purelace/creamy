@@ -1,82 +1,125 @@
-use creamy_utils::strpool::{NonZeroStringId, StringId, StringPool};
+use std::fmt::Display;
 
-pub use crate::tree::Range;
-use crate::{define_ro_struct, error::ProtocolError};
+use binrw::{BinRead, BinWrite};
+use creamy_utils::strpool::{StringId, StringPool};
 
-define_ro_struct! {
+use crate::{
+    Access,
+    constraints::{
+        MAX_BITSET_VALUES, MAX_BITSETS, MAX_ENUMS, MAX_FIELDS, MAX_FLAGS, MAX_GROUPS, MAX_MESSAGES,
+        MAX_OPTIONS, MAX_STRUCTS, MAX_VARIANTS,
+    },
+    define_readonly_struct,
+    error::Fallback,
+    tokenizer::IdentifierOrArray,
+    utils::{
+        BValuesRange, BitsetsRange, EnumsRange, FieldsRange, FlagsRange, GroupsRange,
+        MessagesRange, OptionsRange, StreamsFieldsRange, StructsRange, VariantsRange,
+        VectorElement,
+    },
+};
+
+define_readonly_struct! {
     [no_brw]
+    [element(MAX_ENUMS, EnumsRange)]
     struct EnumNode {
         name: StringId,
-        variants: Range,
+        repr: StringId,
+        variants: VariantsRange,
     }
 }
 
-define_ro_struct! {
+define_readonly_struct! {
     [no_brw]
+    [element(MAX_VARIANTS, VariantsRange)]
+    struct VariantNode {
+        name: StringId,
+        value: VariantValue,
+    }
+}
+
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VariantValue {
+    #[brw(magic = 0u8)]
+    Singed(i64),
+    #[brw(magic = 1u8)]
+    Unsigned(u64),
+}
+
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl Display for VariantValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VariantValue::Singed(s) => write!(f, "{s}"),
+            VariantValue::Unsigned(u) => write!(f, "{u}"),
+        }
+    }
+}
+
+impl Fallback for VariantValue {
+    fn fallback() -> Self {
+        Self::Unsigned(1)
+    }
+}
+
+define_readonly_struct! {
+    [no_brw]
+    [element(MAX_GROUPS, GroupsRange)]
     struct GroupNode {
         name: StringId,
-        messages: Range,
-        structs: Range,
-        enums: Range,
+        access: Access,
+        messages: MessagesRange,
+        structs: StructsRange,
+        enums: EnumsRange,
+        flags: FlagsRange,
+        bitsets: BitsetsRange,
     }
 }
 
-define_ro_struct! {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MessageNodeType {
+    Single(MessageNode),
+    Stream(StreamNode),
+}
+
+impl VectorElement for MessageNodeType {
+    const MAX_SIZE: usize = MAX_MESSAGES;
+    type RangeType = MessagesRange;
+}
+
+impl MessageNodeType {
+    pub const fn name(&self) -> StringId {
+        match self {
+            MessageNodeType::Single(m) => m.name(),
+            MessageNodeType::Stream(s) => s.name(),
+        }
+    }
+}
+
+define_readonly_struct! {
     [no_brw]
     struct MessageNode {
         name: StringId,
-        fields: Range,
-        remainder: Option<NonZeroStringId>,
+        fields: FieldsRange,
+        kind: u8,
     }
 }
 
-define_ro_struct! {
+define_readonly_struct! {
     [no_brw]
+    [element(MAX_STRUCTS, StructsRange)]
     struct StructNode {
         name: StringId,
-        fields: Range,
+        fields: FieldsRange,
     }
 }
 
-define_ro_struct! {
+define_readonly_struct! {
     [no_brw]
     struct ArrayNode {
         kind: StringId,
         size: u8,
     }
-}
-
-fn parse_array(input: &str) -> Option<Result<(&str, u8), ProtocolError>> {
-    let s = input.trim();
-
-    let l_bracket = s.starts_with('[');
-    let r_bracket = s.ends_with(']');
-
-    if (!l_bracket && r_bracket) || (!r_bracket && l_bracket) {
-        return Some(Err(ProtocolError::Syntax {
-            src: input.to_string(),
-            should_be: "[TYPE; SIZE]".to_string(),
-        }));
-    } else if !l_bracket && !r_bracket {
-        return None;
-    }
-
-    let content = &s[1..s.len() - 1];
-    let mut parts = content.split(';');
-    let (type_ident, count) = match (parts.next(), parts.next(), parts.next()) {
-        (Some(l), Some(r), None) => (l.trim(), r.trim()),
-        _ => {
-            return Some(Err(ProtocolError::Syntax {
-                src: input.to_string(),
-                should_be: "[TYPE; SIZE]".to_string(),
-            }));
-        }
-    };
-
-    Some(match count.parse::<u8>() {
-        Ok(count) => Ok((type_ident, count)),
-        Err(err) => Err(err.into()),
-    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,13 +129,13 @@ pub enum FieldTypeNode {
 }
 
 impl FieldTypeNode {
-    pub fn new(string: &str, pool: &mut StringPool) -> Result<Self, ProtocolError> {
-        if let Some(result) = parse_array(string) {
-            let (name, size) = result?;
-            let name = pool.get_id(name);
-            Ok(FieldTypeNode::Array(ArrayNode::new(name, size)))
-        } else {
-            Ok(FieldTypeNode::Type(pool.get_id(string)))
+    pub fn new(token: IdentifierOrArray, pool: &mut StringPool) -> Self {
+        match token {
+            IdentifierOrArray::Identifier(ident) => FieldTypeNode::Type(pool.get_id(&ident)),
+            IdentifierOrArray::Array(ident, size) => {
+                let ident = pool.get_id(ident);
+                FieldTypeNode::Array(ArrayNode::new(ident, size))
+            }
         }
     }
 
@@ -104,10 +147,79 @@ impl FieldTypeNode {
     }
 }
 
-define_ro_struct! {
+define_readonly_struct! {
     [no_brw]
+    [element(MAX_FIELDS, FieldsRange)]
     struct FieldNode {
         name: StringId,
         kind: FieldTypeNode,
+    }
+}
+
+define_readonly_struct! {
+    [no_brw]
+    [element(MAX_FLAGS, FlagsRange)]
+    struct FlagsNode {
+        ident: StringId,
+        options: OptionsRange,
+    }
+}
+
+define_readonly_struct! {
+    [no_brw]
+    [element(MAX_OPTIONS, OptionsRange)]
+    struct OptionNode {
+        ident: StringId,
+    }
+}
+
+define_readonly_struct! {
+    [no_brw]
+    [element(MAX_BITSETS, BitsetsRange)]
+    struct BitsetNode {
+        ident: StringId,
+        values: BValuesRange,
+    }
+}
+
+define_readonly_struct! {
+    [no_brw]
+    [element(MAX_BITSET_VALUES, BValuesRange)]
+    struct BValueNode {
+        ident: StringId,
+        repr: StringId,
+        bits: usize,
+    }
+}
+
+define_readonly_struct! {
+    [no_brw]
+    struct StreamNode {
+        name: StringId,
+        timeout: u8,
+        kind: u8,
+        start: Option<FieldsRange>,
+        payload: FieldsRange,
+        end: Option<FieldsRange>,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamPayloadFieldNode {
+    Field(FieldNode),
+    Array(ArrayFieldNode),
+}
+
+impl VectorElement for StreamPayloadFieldNode {
+    const MAX_SIZE: usize = MAX_FIELDS;
+    type RangeType = StreamsFieldsRange;
+}
+
+define_readonly_struct! {
+    [no_brw]
+    struct ArrayFieldNode {
+        name: StringId,
+        kind: StringId,
+        len: StringId,
     }
 }

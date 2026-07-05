@@ -1,8 +1,9 @@
-use std::{fmt::Display, str::FromStr};
+use std::fmt::Display;
 
 use binrw::{BinRead, BinWrite};
+use miette::SourceSpan;
 
-use crate::error::ProtocolError;
+use crate::error::{Fallback, SyntaxError};
 
 #[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Version {
@@ -10,19 +11,21 @@ pub struct Version {
     pub minor: u16,
 }
 
-impl FromStr for Version {
-    type Err = ProtocolError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+impl Version {
+    pub fn new(s: &str, at_f: impl Fn() -> SourceSpan) -> Result<Self, SyntaxError> {
         let mut parts = s.split('.');
         let (major, minor) = match (parts.next(), parts.next(), parts.next()) {
             (Some(major), Some(minor), None) => (major.trim(), minor.trim()),
-            _ => return Err(ProtocolError::InvalidVersionFormat),
+            _ => return Err(SyntaxError::InvalidVersionFormat { span: at_f() }),
         };
 
         Ok(Version {
-            major: major.parse().map_err(|_| ProtocolError::InvalidMajor)?,
-            minor: minor.parse().map_err(|_| ProtocolError::InvalidMinor)?,
+            major: major
+                .parse()
+                .map_err(|_| SyntaxError::InvalidMajor { span: at_f() })?,
+            minor: minor
+                .parse()
+                .map_err(|_| SyntaxError::InvalidMinor { span: at_f() })?,
         })
     }
 }
@@ -31,5 +34,11 @@ impl FromStr for Version {
 impl Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}.{}", self.major, self.minor)
+    }
+}
+
+impl Fallback for Version {
+    fn fallback() -> Self {
+        Self::default()
     }
 }

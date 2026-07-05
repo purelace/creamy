@@ -95,6 +95,7 @@ enum State {
 impl Iterator for XMLGenerator {
     type Item = String;
 
+    #[allow(clippy::too_many_lines)]
     fn next(&mut self) -> Option<Self::Item> {
         if self.groups_created >= self.config.groups {
             return None;
@@ -103,7 +104,10 @@ impl Iterator for XMLGenerator {
         match self.state {
             State::OpenGroup => {
                 self.state = State::OpenMessage;
-                Some(format!(r#"<group name="Group{}">"#, self.groups_created))
+                Some(format!(
+                    r#"<group name="Group{}" access="Protected">"#,
+                    self.groups_created
+                ))
             }
             // --- MESSAGES ---
             State::OpenMessage => {
@@ -168,7 +172,10 @@ impl Iterator for XMLGenerator {
                 if self.enums_created < limit {
                     self.child_created = 0;
                     self.state = State::EnumVariants;
-                    Some(format!(r#"<enum name="Enum{}">"#, self.enums_created))
+                    Some(format!(
+                        r#"<enum name="Enum{}" repr="u8">"#,
+                        self.enums_created
+                    ))
                 } else {
                     self.state = State::CloseGroup;
                     self.next()
@@ -176,7 +183,10 @@ impl Iterator for XMLGenerator {
             }
             State::EnumVariants => {
                 if self.child_created < self.config.variants_per_enum {
-                    let res = format!(r#"<variant name="V{}" />"#, self.child_created);
+                    let res = format!(
+                        r#"<variant name="V{}" value="{}" />"#,
+                        self.child_created, self.child_created
+                    );
                     self.child_created += 1;
                     Some(res)
                 } else {

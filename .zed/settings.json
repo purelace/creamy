@@ -2,6 +2,9 @@
   "lsp": {
     "rust-analyzer": {
       "initialization_options": {
+        "imports": {
+          "prefix": "self",
+        },
         "check": {
           "command": "clippy",
           "extraArgs": ["--", "-W", "clippy::pedantic"],

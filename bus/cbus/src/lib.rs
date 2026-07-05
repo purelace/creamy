@@ -24,9 +24,7 @@ pub mod defines {
     pub const MB: usize = KB * KB;
     pub const DEFAULT_SLICES: usize = 256;
     pub const DEFAULT_SLICE_SIZE: usize = KB * 512;
-    pub const METADATA: usize = 64;
     pub const SPECIAL_DATA_OFFSET: usize = 64;
-    pub const TARGET_ALIGN: usize = 64;
 }
 
 pub use bus::MessageBus;

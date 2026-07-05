@@ -27,6 +27,9 @@ pub mod defines {
     /// Максимальный размер сообщения, который мы можем отправить или получить.
     /// Сообщение не может быть больше или меньше `MESSAGE_SIZE`.
     pub const MESSAGE_SIZE: usize = 32;
+
+    pub const METADATA: usize = 64;
+    pub const TARGET_ALIGN: usize = 64;
 }
 
 pub use bytemuck;
