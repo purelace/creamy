@@ -1,14 +1,14 @@
 use std::borrow::Cow;
 
-use super::{Function, add_depth};
+use super::{Const, Function, add_depth};
 use crate::generator::CodeBlock;
 
-pub struct AssociatedType<'a> {
+pub struct TraitImplAssociatedType<'a> {
     pub name: &'a str,
-    pub kind: &'a str,
+    pub kind: Cow<'a, str>,
 }
 
-impl<W: std::io::Write> CodeBlock<W> for AssociatedType<'_> {
+impl<W: std::io::Write> CodeBlock<W> for TraitImplAssociatedType<'_> {
     fn write_to(&self, writer: &mut W, depth: usize) -> Result<(), std::io::Error> {
         add_depth(writer, depth)?;
         writeln!(writer, "type {} = {};", self.name, self.kind)
@@ -17,8 +17,9 @@ impl<W: std::io::Write> CodeBlock<W> for AssociatedType<'_> {
 
 pub struct TraitImpl<'a> {
     pub trait_name: Cow<'a, str>,
-    pub target: &'a str,
-    pub associated_types: Vec<AssociatedType<'a>>,
+    pub target: Cow<'a, str>,
+    pub associated_types: Vec<TraitImplAssociatedType<'a>>,
+    pub constants: Vec<Const<'a>>,
     pub functions: Vec<Function<'a>>,
 }
 
@@ -30,6 +31,10 @@ impl TraitImpl<'_> {
     ) -> Result<(), std::io::Error> {
         add_depth(writer, depth)?;
         writeln!(writer, "impl {} for {} {{", self.trait_name, self.target)?;
+
+        for const_ in &self.constants {
+            const_.write_to(writer, depth + 1)?;
+        }
 
         for ty in &self.associated_types {
             ty.write_to(writer, depth + 1)?;

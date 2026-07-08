@@ -5,7 +5,7 @@ mod protocols;
 use creamy_sdk::{
     api::{Plugin, PluginState},
     bus::buffer::{Incoming, Outgoing},
-    declare_plugin, system,
+    declare_plugin,
 };
 
 use crate::protocols::ping::messages::{Ping, Pong};
@@ -32,14 +32,12 @@ impl Plugin<PingState> for PingPlugin {
             }
 
             let message = message.cast::<Ping>();
-            outgoing.send(&Pong {
-                dst: message.src,
-                group: 1,
-                src: 0,
-                kind: Pong::KIND,
-                serial: message.serial,
-                _padding0: [0; 24],
-            });
+            outgoing.send(
+                &Pong::PREPARED
+                    .with_dst(message.src)
+                    .with_group(1)
+                    .with_serial(message.serial),
+            );
         }
 
         incoming.clear();

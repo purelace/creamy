@@ -73,28 +73,33 @@ impl Default for StringPool {
         };
 
         //TODO: fix
-        instance.get_id("u8");
-        instance.get_id("u16");
-        instance.get_id("u32");
-        instance.get_id("u64");
-        instance.get_id("u128");
+        instance.get_id_or_add("u8");
+        instance.get_id_or_add("u16");
+        instance.get_id_or_add("u32");
+        instance.get_id_or_add("u64");
+        instance.get_id_or_add("u128");
 
-        instance.get_id("i8");
-        instance.get_id("i16");
-        instance.get_id("i32");
-        instance.get_id("i64");
-        instance.get_id("i128");
+        instance.get_id_or_add("i8");
+        instance.get_id_or_add("i16");
+        instance.get_id_or_add("i32");
+        instance.get_id_or_add("i64");
+        instance.get_id_or_add("i128");
 
-        instance.get_id("f32");
-        instance.get_id("f64");
-        instance.get_id("bool");
+        instance.get_id_or_add("f32");
+        instance.get_id_or_add("f64");
+        instance.get_id_or_add("bool");
 
         instance
     }
 }
 
 impl StringPool {
-    pub fn get_id(&mut self, string: &str) -> StringId {
+    #[must_use]
+    pub fn get_id(&self, string: &str) -> StringId {
+        *self.map.get(string).unwrap()
+    }
+
+    pub fn get_id_or_add(&mut self, string: &str) -> StringId {
         self.map.get(string).copied().unwrap_or_else(|| {
             let id = StringId(self.map.len() as u16);
             self.map.insert(string.to_string(), id);

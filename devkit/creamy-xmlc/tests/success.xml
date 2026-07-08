@@ -16,49 +16,47 @@
         <value name="data" bits="3" repr="i64" />
     </bitset>
 
-    <stream name="PlayerList">
+    <stream kind="0" name="PlayerList" timeout="8">
         <start>
             <field name="count" type="u32" />
         </start>
-        <middle>
-            <field name="len" type="u32" />
-            <remainder name="data" len="len" />
-        </middle>
+        <payload>
+            <array name="player_name" type="u8" len_type="u32" />
+        </payload>
         <end>
             <field name="checksum" type="u32" />
         </end>
     </stream>
 
     <enum name="LogType" repr="u8">
-        <variant name="Debug" />
-        <variant name="Info" />
-        <variant name="Warning" />
-        <variant name="Error" />
+        <variant name="Debug" value="0" />
+        <variant name="Info" value="1" />
+        <variant name="Warning" value="2" />
+        <variant name="Error" value="3" />
     </enum>
 
-    <stream name="Log">
+    <stream kind="1" name="Log" timeout="4">
         <start>
             <field name="kind" type="LogType" />
         </start>
-        <middle>
-            <field name="len" type="u32" />
-            <remainder name="data" len="len" />
-        </middle>
+        <payload>
+            <array name="player_name" type="u8" len_type="u32" />
+        </payload>
     </stream>
 
     <group name="first" access="Public">
-        <message name="FullHouse27">
+        <message kind="0" name="FullHouse27">
             <field name="flag" type="u8" />
             <field name="small_val" type="u16" />
             <field name="timestamp" type="u64" />
             <field name="guid" type="u128" />
         </message>
 
-        <message name="VectorArray">
+        <message kind="1" name="VectorArray">
             <field name="coordinates" type="[f32; 6]" />
         </message>
 
-        <message name="SignedLimits">
+        <message kind="2" name="SignedLimits">
             <field name="small_int" type="i16" />
             <field name="mid_int" type="i64" />
             <field name="big_int" type="i128" />
@@ -75,7 +73,7 @@
             <field name="a" type="u8" />
         </struct>
 
-        <message name="NestedValid">
+        <message kind="0" name="NestedValid">
             <field name="data" type="BucketSmall" />
             <field name="extra" type="[u8; 8]" />
         </message>
@@ -84,12 +82,12 @@
 
     <group name="third" access="Exclusive">
 
-        <message name="StatusWithData">
+        <message kind="0" name="StatusWithData">
             <field name="status" type="Status" />
             <field name="buffer" type="[u8; 26]" />
         </message>
 
-        <message name="StatusWithRemainder">
+        <message kind="1" name="StatusWithRemainder">
             <field name="status" type="Status" />
         </message>
 

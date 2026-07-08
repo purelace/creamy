@@ -5,8 +5,8 @@ use binrw::{BinRead, BinWrite};
 
 use crate::{VariantValue, error::SemanticError, model::symbols::NumericSymbol};
 
-#[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EnumRepr {
+#[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PrimitiveRepr {
     #[brw(magic = 0u8)]
     #[default]
     U8,
@@ -26,43 +26,43 @@ pub enum EnumRepr {
     I64,
 }
 
-impl EnumRepr {
+impl PrimitiveRepr {
     #[must_use]
     pub const fn as_numberic_symbol(self) -> NumericSymbol {
         match self {
-            EnumRepr::U8 => NumericSymbol::U8,
-            EnumRepr::U16 => NumericSymbol::U16,
-            EnumRepr::U32 => NumericSymbol::U32,
-            EnumRepr::U64 => NumericSymbol::U64,
-            EnumRepr::I8 => NumericSymbol::I8,
-            EnumRepr::I16 => NumericSymbol::I16,
-            EnumRepr::I32 => NumericSymbol::I32,
-            EnumRepr::I64 => NumericSymbol::I64,
+            PrimitiveRepr::U8 => NumericSymbol::U8,
+            PrimitiveRepr::U16 => NumericSymbol::U16,
+            PrimitiveRepr::U32 => NumericSymbol::U32,
+            PrimitiveRepr::U64 => NumericSymbol::U64,
+            PrimitiveRepr::I8 => NumericSymbol::I8,
+            PrimitiveRepr::I16 => NumericSymbol::I16,
+            PrimitiveRepr::I32 => NumericSymbol::I32,
+            PrimitiveRepr::I64 => NumericSymbol::I64,
         }
     }
 
     #[must_use]
     pub const fn get_min(self) -> i64 {
         match self {
-            EnumRepr::U8 | EnumRepr::U16 | EnumRepr::U32 | EnumRepr::U64 => 0,
-            EnumRepr::I8 => i8::MIN as i64,
-            EnumRepr::I16 => i16::MIN as i64,
-            EnumRepr::I32 => i32::MIN as i64,
-            EnumRepr::I64 => i64::MIN,
+            PrimitiveRepr::U8 | PrimitiveRepr::U16 | PrimitiveRepr::U32 | PrimitiveRepr::U64 => 0,
+            PrimitiveRepr::I8 => i8::MIN as i64,
+            PrimitiveRepr::I16 => i16::MIN as i64,
+            PrimitiveRepr::I32 => i32::MIN as i64,
+            PrimitiveRepr::I64 => i64::MIN,
         }
     }
 
     #[must_use]
     pub const fn get_max(self) -> u64 {
         match self {
-            EnumRepr::I8 => i8::MAX as u64,
-            EnumRepr::I16 => i16::MAX as u64,
-            EnumRepr::I32 => i32::MAX as u64,
-            EnumRepr::I64 => i64::MAX as u64,
-            EnumRepr::U8 => u8::MAX as u64,
-            EnumRepr::U16 => u16::MAX as u64,
-            EnumRepr::U32 => u32::MAX as u64,
-            EnumRepr::U64 => u64::MAX,
+            PrimitiveRepr::I8 => i8::MAX as u64,
+            PrimitiveRepr::I16 => i16::MAX as u64,
+            PrimitiveRepr::I32 => i32::MAX as u64,
+            PrimitiveRepr::I64 => i64::MAX as u64,
+            PrimitiveRepr::U8 => u8::MAX as u64,
+            PrimitiveRepr::U16 => u16::MAX as u64,
+            PrimitiveRepr::U32 => u32::MAX as u64,
+            PrimitiveRepr::U64 => u64::MAX,
         }
     }
 
@@ -70,28 +70,43 @@ impl EnumRepr {
     pub fn is_valid_value(self, value: VariantValue) -> bool {
         match value {
             VariantValue::Singed(s) => match self {
-                EnumRepr::U8 | EnumRepr::U16 | EnumRepr::U32 | EnumRepr::U64 => false,
-                EnumRepr::I8 => (i64::from(i8::MIN)..=i64::from(i8::MAX)).contains(&s),
-                EnumRepr::I16 => (i64::from(i16::MIN)..=i64::from(i16::MAX)).contains(&s),
-                EnumRepr::I32 => (i64::from(i32::MIN)..=i64::from(i32::MAX)).contains(&s),
-                EnumRepr::I64 => (i64::MIN..=i64::MAX).contains(&s),
+                PrimitiveRepr::U8
+                | PrimitiveRepr::U16
+                | PrimitiveRepr::U32
+                | PrimitiveRepr::U64 => false,
+                PrimitiveRepr::I8 => (i64::from(i8::MIN)..=i64::from(i8::MAX)).contains(&s),
+                PrimitiveRepr::I16 => (i64::from(i16::MIN)..=i64::from(i16::MAX)).contains(&s),
+                PrimitiveRepr::I32 => (i64::from(i32::MIN)..=i64::from(i32::MAX)).contains(&s),
+                PrimitiveRepr::I64 => (i64::MIN..=i64::MAX).contains(&s),
             },
             VariantValue::Unsigned(u) => match self {
-                EnumRepr::U8 => (0..=u64::from(u8::MAX)).contains(&u),
-                EnumRepr::U16 => (0..=u64::from(u16::MAX)).contains(&u),
-                EnumRepr::U32 => (0..=u64::from(u32::MAX)).contains(&u),
-                EnumRepr::U64 => (0..=u64::MAX).contains(&u),
+                PrimitiveRepr::U8 => (0..=u64::from(u8::MAX)).contains(&u),
+                PrimitiveRepr::U16 => (0..=u64::from(u16::MAX)).contains(&u),
+                PrimitiveRepr::U32 => (0..=u64::from(u32::MAX)).contains(&u),
+                PrimitiveRepr::U64 => (0..=u64::MAX).contains(&u),
 
-                EnumRepr::I8 => i8::try_from(u).is_ok(),
-                EnumRepr::I16 => i16::try_from(u).is_ok(),
-                EnumRepr::I32 => i32::try_from(u).is_ok(),
-                EnumRepr::I64 => i64::try_from(u).is_ok(),
+                PrimitiveRepr::I8 => i8::try_from(u).is_ok(),
+                PrimitiveRepr::I16 => i16::try_from(u).is_ok(),
+                PrimitiveRepr::I32 => i32::try_from(u).is_ok(),
+                PrimitiveRepr::I64 => i64::try_from(u).is_ok(),
             },
+        }
+    }
+
+    #[must_use]
+    pub const fn is_signed(self) -> bool {
+        match self {
+            PrimitiveRepr::U8 | PrimitiveRepr::U16 | PrimitiveRepr::U32 | PrimitiveRepr::U64 => {
+                false
+            }
+            PrimitiveRepr::I8 | PrimitiveRepr::I16 | PrimitiveRepr::I32 | PrimitiveRepr::I64 => {
+                true
+            }
         }
     }
 }
 
-impl TryFrom<&str> for EnumRepr {
+impl TryFrom<&str> for PrimitiveRepr {
     type Error = SemanticError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -109,17 +124,17 @@ impl TryFrom<&str> for EnumRepr {
     }
 }
 
-impl Display for EnumRepr {
+impl Display for PrimitiveRepr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EnumRepr::U8 => write!(f, "u8"),
-            EnumRepr::U16 => write!(f, "u16"),
-            EnumRepr::U32 => write!(f, "u32"),
-            EnumRepr::U64 => write!(f, "u64"),
-            EnumRepr::I8 => write!(f, "i8"),
-            EnumRepr::I16 => write!(f, "i16"),
-            EnumRepr::I32 => write!(f, "i32"),
-            EnumRepr::I64 => write!(f, "i64"),
+            PrimitiveRepr::U8 => write!(f, "u8"),
+            PrimitiveRepr::U16 => write!(f, "u16"),
+            PrimitiveRepr::U32 => write!(f, "u32"),
+            PrimitiveRepr::U64 => write!(f, "u64"),
+            PrimitiveRepr::I8 => write!(f, "i8"),
+            PrimitiveRepr::I16 => write!(f, "i16"),
+            PrimitiveRepr::I32 => write!(f, "i32"),
+            PrimitiveRepr::I64 => write!(f, "i64"),
         }
     }
 }

@@ -1,4 +1,35 @@
-use cbus_core::buffer::{Incoming, Outgoing};
+use cbus_core::{
+    UntypedMessage,
+    buffer::{Incoming, Outgoing},
+};
+
+const HEADER_MASK: u32 = 0x00_FF_00_FF;
+
+#[inline]
+const fn get_dispatch_value(message: &UntypedMessage) -> u32 {
+    u32::from_le_bytes([message.dst, message.group, message.src, message.kind]) & HEADER_MASK
+}
+
+//TODO: static dispatcher
+pub fn handle_messages(mut incoming: Incoming) {
+    for message in incoming.as_slice() {
+        if message.group != 1 {
+            continue;
+        }
+
+        let message = message.cast::<Ping>();
+        outgoing.send(
+            &Pong::PREPARED
+                .with_dst(message.src)
+                .with_group(1)
+                .with_serial(message.serial),
+        );
+    }
+
+    incoming.clear();
+}
+
+pub fn handle_message(message: UntypedMessage) {}
 
 #[macro_export]
 macro_rules! declare_plugin {

@@ -6,7 +6,7 @@ use crate::{
     utils::FieldsRange,
 };
 
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FieldType {
     #[brw(magic(0u8))]
     Type(TypeId),

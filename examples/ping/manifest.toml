@@ -11,11 +11,5 @@ path = "core.wasm"
 runtime = "wasm"
 
 [[protocols]]
-name = "system.logging"
-version = "1.0"
-group = 1
-
-[[protocols]]
 name = "ping.messages"
 version = "1.0"
-group = 2

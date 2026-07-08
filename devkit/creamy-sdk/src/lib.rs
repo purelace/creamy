@@ -5,9 +5,11 @@ pub mod api;
 pub mod export;
 mod logging;
 pub mod stream;
+pub mod utils;
 mod wasm;
 
 use cbus_core::buffer::{Incoming, Outgoing};
+
 pub mod bus {
     pub use cbus_core::*;
 }

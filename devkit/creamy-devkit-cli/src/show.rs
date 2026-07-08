@@ -63,7 +63,7 @@ fn get_group_index(
 ) -> Option<u8> {
     match key {
         StringOrNonZeroNumber::String(name) => {
-            let name_id = pool.get_id(&name);
+            let name_id = pool.get_id_or_add(&name);
             def.groups()
                 .iter()
                 .enumerate()

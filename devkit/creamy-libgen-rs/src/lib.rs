@@ -2,48 +2,69 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::missing_errors_doc)]
 
+pub mod creamy_libgen {
+    pub use creamy_libgen::*;
+}
+
 mod bit_trait_impls;
+mod builder;
 mod generator;
 mod stream;
+mod utils;
 
-use std::borrow::Cow;
+use std::{borrow::Cow, io::Write};
 
 use creamy_libgen::{
-    CodeGenerator, EnrichedSingleMessageSymbol, EnrichedStructSymbol,
-    proxy::{EnrichedFieldSymbol, EnrichedFieldType},
-};
-use creamy_utils::strpool::StringPool;
-use creamy_xmlc::{
-    ProtocolDefinition, StringPoolResolver, TypeId,
-    constraints::HEADER_BYTES,
-    model::{
-        definition::compute_layout,
-        symbols::{
-            BitsetSymbol, FieldSymbol, GroupSymbol, MessageSymbol, MessageSymbolType, StreamSymbol,
-            T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID, T_I128_ID, T_U8_ID, T_U16_ID, T_U32_ID,
-            T_U64_ID, T_U128_ID, Type,
-        },
+    CodeGenerator, EnrichedSingleMessageSymbol, EnrichedStreamMessageSymbol, EnrichedStructSymbol,
+    GenResult, SymbolIterator,
+    proxy::{
+        EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol, EnrichedFieldSymbol,
+        EnrichedFieldType, EnrichedFlagsSymbol, EnrichedVariantSymbol, FlagUnderlyingType,
     },
 };
+use creamy_xmlc::model::symbols::PrimitiveRepr;
 
+use self::{
+    builder::generate_builder_pattern,
+    utils::{generate_const_size_assert, generate_message_consts},
+};
 use crate::{
     bit_trait_impls::{generate_bitor_impl, generate_bitxor_impl},
     generator::{
         Access, Argument, Body, BodyLine, CodeBlock, Const, DeriveList, Enum, EnumVariant, Field,
         Function, Impl, Module, Pass, Repr, Struct, StructContent, TraitImpl,
     },
-    stream::generate_stream_message,
 };
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Args {
     pub eq: bool,
     pub ord: bool,
     pub hash: bool,
+    pub debug_asserts: bool,
     pub creamy_sdk_path: String,
 }
 
+impl Default for Args {
+    fn default() -> Self {
+        Self {
+            eq: true,
+            ord: true,
+            hash: true,
+            debug_asserts: true,
+            creamy_sdk_path: "creamy_sdk".into(),
+        }
+    }
+}
+
 impl Args {
+    #[must_use]
+    pub fn with_creamy_sdk_path(mut self, path: impl Into<String>) -> Self {
+        self.creamy_sdk_path = path.into();
+        self
+    }
+
     pub(crate) fn typed_message_path(&self) -> String {
         format!("{}::bus::message::TypedMessage", self.creamy_sdk_path)
     }
@@ -58,6 +79,26 @@ impl Args {
 
     pub(crate) fn stream_chunk_type_path(&self) -> String {
         format!("{}::stream::StreamChunkType", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn stream_head_trait_path(&self) -> String {
+        format!("{}::stream::StreamHead", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn stream_payload_trait_path(&self) -> String {
+        format!("{}::stream::StreamPayload", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn stream_tail_trait_path(&self) -> String {
+        format!("{}::stream::StreamTail", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn stream_message_trait_path(&self) -> String {
+        format!("{}::stream::StreamMessage", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn stream_max_payload_size_path(&self) -> String {
+        format!("{}::stream::MAX_STREAM_PAYLOAD", self.creamy_sdk_path)
     }
 }
 
@@ -106,111 +147,11 @@ fn message_header<'a>() -> Vec<Field<'a>> {
     ]
 }
 
-fn generate_single_message<'a, W: std::io::Write>(
-    args: &Args,
-    def: &ProtocolDefinition,
-    pool: &'a StringPool,
-    symbol: MessageSymbol,
-) -> Result<Struct<'a, W>, std::io::Error> {
-    let message_name = symbol.name().resolve(pool);
-    let mut struct_ = Struct::new(message_name);
-    struct_.access = Access::Pub;
-    struct_.repr = Repr::C { align: Some(32) };
-    extend_derive(&mut struct_.derives, args);
+fn build_reset_mask(bytes: u8, bits: u8, shift: u8, is_signed: bool) -> String {
+    let bytes = bytes as usize;
+    let bits = bits as usize;
+    let shift = shift as usize;
 
-    let mut fields = message_header();
-
-    let slice = def.fields_slice(symbol.fields());
-    let mut paddings = 0;
-    let total_size = compute_layout(HEADER_BYTES, slice, |f, l| {
-        if l.padding != 0 {
-            fields.push(Field {
-                access: Access::Pub,
-                name: Cow::Owned(format!("_padding{paddings}")),
-                kind: Cow::Owned(format!("[u8; {}]", l.padding)),
-                comment: None,
-            });
-            paddings += 1;
-        }
-
-        let ty = def.table().get_type(f.type_id());
-        fields.push(Field {
-            access: Access::Pub,
-            name: Cow::Borrowed(f.name().resolve(pool)),
-            kind: Cow::Borrowed(ty.ident().resolve(pool)),
-            comment: None,
-        });
-
-        Result::<(), std::io::Error>::Ok(())
-    })?;
-
-    let diff = 32 - total_size;
-    if diff != 0 {
-        let remainder_name = Cow::Owned(format!("_padding{paddings}"));
-        //let remainder_name = if let Some(name) = symbol.remainder().into_inner() {
-        //    Cow::Borrowed(name.resolve(pool))
-        //} else {
-        //    Cow::Owned(format!("_padding{paddings}"))
-        //};
-        fields.push(Field {
-            access: Access::Pub,
-            name: remainder_name,
-            kind: Cow::Owned(format!("[u8; {diff}]")),
-            comment: None,
-        });
-    }
-
-    fields[4].comment = Some(Cow::Borrowed("-------- PAYLOAD --------"));
-
-    struct_.content = StructContent::Fields(fields);
-    struct_
-        .trait_impls
-        .push(generate_message_trait_impl(args, message_name));
-    let mut impl_ = generate_builder_pattern(pool, def, message_name, slice);
-    impl_.custom.push(Box::new(Const {
-        access: Access::Pub,
-        ident: Cow::Borrowed("KIND"),
-        kind: Cow::Borrowed("u8"),
-        value: Cow::Owned(symbol.kind().to_string()),
-    }));
-
-    struct_.impls.push(impl_);
-    Ok(struct_)
-}
-
-fn generate_message<'a, W: std::io::Write>(
-    args: &Args,
-    def: &ProtocolDefinition,
-    pool: &'a StringPool,
-    symbol: MessageSymbolType,
-) -> Result<Struct<'a, W>, std::io::Error> {
-    match symbol {
-        MessageSymbolType::Single(symbol) => generate_single_message(args, def, pool, symbol),
-        MessageSymbolType::Stream(symbol) => generate_stream_message(args, def, pool, symbol),
-    }
-}
-
-const fn is_signed_type(t: TypeId) -> bool {
-    matches!(t, T_I8_ID | T_I16_ID | T_I32_ID | T_I64_ID | T_I128_ID)
-}
-
-fn get_ptr_repr(type_id: TypeId, width: u8) -> &'static str {
-    match (is_signed_type(type_id), width) {
-        (true, 1) => "i8",
-        (true, 2) => "i16",
-        (true, 3..=4) => "i32",
-        (true, 5..=8) => "i64",
-        (true, 9..=16) => "i128",
-        (false, 1) => "u8",
-        (false, 2) => "u16",
-        (false, 3..=4) => "u32",
-        (false, 5..=8) => "u64",
-        (false, 9..=16) => "u128",
-        _ => unreachable!("Unreachable width"),
-    }
-}
-
-fn build_reset_mask(bytes: usize, bits: usize, shift: usize) -> String {
     assert!(shift < bytes * 8);
     let mut bit = 0;
     let mut string = String::with_capacity(bytes * 8 + bytes + 2);
@@ -243,10 +184,17 @@ fn build_reset_mask(bytes: usize, bits: usize, shift: usize) -> String {
         string.push('1');
         bit += 1;
     }
+
+    if is_signed {
+        string.push_str("u16 as i16");
+    }
     string
 }
 
-fn build_mask(bytes: usize, bits: usize) -> String {
+fn build_mask(bytes: u8, bits: u8) -> String {
+    let bytes = bytes as usize;
+    let bits = bits as usize;
+
     let mut bit = 0;
     let mut string = String::with_capacity(bytes * 8 + bytes + 2);
     string.push('0');
@@ -269,293 +217,135 @@ fn build_mask(bytes: usize, bits: usize) -> String {
     string
 }
 
-fn generate_read_body<'a>(
-    bytes: usize,
-    width: usize,
-    bits: usize,
-    shift: usize,
-    start_pos: usize,
-    end_pos: usize,
-    ptr_repr: &str,
-    repr: TypeId,
-    repr_str: &str,
-) -> Body<'a> {
+fn generate_target_slice_variable(body: &mut Body, start: u8, end: u8) {
+    body.with_line("let target_slice = unsafe {");
+    body.with_line_depth(
+        format!(
+            "core::slice::from_raw_parts(self.data.as_ptr().add({start_pos}), {end_pos})",
+            start_pos = start,
+            end_pos = end + 1, //TODO: важно обработать переполнение
+        ),
+        1,
+    );
+    body.with_line("};");
+}
+
+fn generate_read_body<'a>(symbol: EnrichedBitsetValueSymbol) -> Body<'a> {
     let mut body = Body::default();
-    if end_pos == 0 {
+    if symbol.end_pos == 0 {
         body.with_line("let value = unsafe {")
             .with_line_depth(
-                format!("(self.data.as_ptr() as *const {ptr_repr}).read_unaligned()"),
+                format!(
+                    "(self.data.as_ptr() as *const {backing_type}).read_unaligned()",
+                    backing_type = repr_to_string(symbol.backing_type)
+                ),
                 1,
             )
             .with_line("};");
     } else {
-        body.with_line(format!(
-            "let target_slice = &self.data[{start_pos}..={end_pos}];"
-        ))
-        .with_line("let value = unsafe {")
+        generate_target_slice_variable(&mut body, symbol.start_pos, symbol.end_pos);
+        //body.with_line(format!(
+        //    "let target_slice = &self.data[{start_pos}..={end_pos}];",
+        //    start_pos = symbol.start_pos,
+        //    end_pos = symbol.end_pos,
+        //));
+        body.with_line("let value = unsafe {")
+            .with_line_depth(
+                format!(
+                    "(target_slice.as_ptr() as *const {backing_type}).read_unaligned()",
+                    backing_type = repr_to_string(symbol.backing_type)
+                ),
+                1,
+            )
+            .with_line("};");
+    }
+
+    let mask = build_mask(symbol.bytes, symbol.bits);
+    match symbol.repr {
+        PrimitiveRepr::U8 | PrimitiveRepr::U16 | PrimitiveRepr::U32 | PrimitiveRepr::U64 => {
+            body.with_line(format!(
+                "((value >> {shift}) & {mask}) as {repr}",
+                shift = symbol.shift,
+                repr = repr_to_string(symbol.repr),
+            ));
+        }
+        PrimitiveRepr::I8 | PrimitiveRepr::I16 | PrimitiveRepr::I32 | PrimitiveRepr::I64 => {
+            let sign_extension_shift = symbol.read_window_bytes * 8 - symbol.bits - symbol.shift;
+            let shift = sign_extension_shift + symbol.shift;
+            body.with_line(format!("let value = value << {sign_extension_shift};"))
+                .with_line(format!(
+                    "((value >> {shift}) & {mask}) as {repr}",
+                    repr = repr_to_string(symbol.repr)
+                ));
+        }
+    }
+    body
+}
+
+fn generate_set_body<'a>(symbol: EnrichedBitsetValueSymbol, add_debug_asserts: bool) -> Body<'a> {
+    let mut body = Body::default();
+
+    //TODO: добавить unchecked вариант
+    if add_debug_asserts {
+        let max_value = 2u64.pow(u32::from(symbol.bits));
+        if symbol.repr.is_signed() {
+            let min = -((max_value / 2).cast_signed());
+            let max = (max_value / 2).cast_signed() - 1;
+
+            let assert_body = format!(r#"value >= {min} && value <= {max}, "Value out of range""#);
+            body.with_line(format!("debug_assert!({assert_body});"));
+        } else {
+            let assert_body = format!(r#"value < {max_value}, "Value out of range""#);
+            body.with_line(format!("debug_assert!({assert_body});"));
+        }
+    }
+
+    let reset_mask = build_reset_mask(
+        symbol.read_window_bytes,
+        symbol.bits,
+        symbol.shift,
+        symbol.backing_type.is_signed(),
+    );
+    let mask = build_mask(symbol.read_window_bytes, symbol.bits);
+    body.with_line(format!(
+        "let value = (value as {backing_type} & {mask}) << {shift};",
+        backing_type = repr_to_string(symbol.backing_type),
+        shift = symbol.shift,
+    ));
+    generate_target_slice_variable(&mut body, symbol.start_pos, symbol.end_pos);
+    //body.with_line(format!(
+    //    "let target_slice = &self.data[{start_pos}..={end_pos}];",
+    //    start_pos = symbol.start_pos,
+    //    end_pos = symbol.end_pos,
+    //));
+    body.with_line("let old_value = unsafe {")
         .with_line_depth(
-            format!("(target_slice.as_ptr() as *const {ptr_repr}).read_unaligned()"),
+            format!(
+                "(target_slice.as_ptr() as *const {backing_type}).read_unaligned()",
+                backing_type = repr_to_string(symbol.backing_type)
+            ),
             1,
         )
-        .with_line("};");
-    }
-
-    let mask = build_mask(bytes, bits);
-    match repr {
-        T_I8_ID | T_I16_ID | T_I32_ID | T_I64_ID | T_I128_ID => {
-            let sign_extension_shift = width * 8 - bits - shift;
-            let shift = sign_extension_shift + shift;
-            body.with_line(format!("let value = value << {sign_extension_shift};"))
-                .with_line(format!("((value >> {shift}) & {mask}) as {repr_str}"));
-        }
-        T_U8_ID | T_U16_ID | T_U32_ID | T_U64_ID | T_U128_ID => {
-            body.with_line(format!("((value >> {shift}) & {mask}) as {repr_str}"));
-        }
-        _ => unreachable!("Unreachable type"),
-    }
-    body
-}
-
-fn generate_set_body<'a>(
-    width: usize,
-    bits: usize,
-    shift: usize,
-    start_pos: usize,
-    end_pos: usize,
-    ptr_repr: &str,
-) -> Body<'a> {
-    let mut body = Body::default();
-    let reset_mask = build_reset_mask(width, bits, shift);
-    let mask = build_mask(width, bits);
-    body.with_line(format!(
-        "let value = (value as {ptr_repr} & {mask}) << {shift};"
-    ))
-    .with_line(format!(
-        "let target_slice = &self.data[{start_pos}..={end_pos}];"
-    ))
-    .with_line("let old_value = unsafe {")
-    .with_line_depth(
-        format!("(target_slice.as_ptr() as *const {ptr_repr}).read_unaligned()"),
-        1,
-    )
-    .with_line("};")
-    .with_line(format!("let temp = old_value & {reset_mask};"))
-    .with_line("let result = temp | value;")
-    .with_line("unsafe {")
-    .with_line_depth(
-        format!("(target_slice.as_ptr() as *mut {ptr_repr}).write_unaligned(result);"),
-        1,
-    )
-    .with_line("}")
-    .with_line("self");
-    body
-}
-
-fn generate_bitset<'a, W: std::io::Write>(
-    args: &Args,
-    def: &ProtocolDefinition,
-    pool: &'a StringPool,
-    symbol: BitsetSymbol,
-) -> Struct<'a, W> {
-    let mut bitset = Struct::new(symbol.name().resolve(pool));
-    bitset.access = Access::Pub;
-    extend_derive(&mut bitset.derives, args);
-
-    let mut impl_block = Impl {
-        target: symbol.name().resolve(pool),
-        functions: vec![],
-        add_assert: false,
-        custom: vec![],
-    };
-
-    let mut bits = 0;
-    for value in def.bvalues_slice(symbol.values()) {
-        bits += value.bits();
-        let bytes = value.bits().div_ceil(8);
-
-        let end_pos = bits.div_ceil(8).saturating_sub(1);
-        let start_pos = end_pos.saturating_sub(bytes);
-        let width = end_pos - start_pos + 1;
-
-        let repr_type = def.table().get_type(value.repr());
-        let repr = repr_type.ident().resolve(pool);
-
-        let ptr_repr = get_ptr_repr(value.repr(), width);
-        let shift = (width * 8) - (bits - (start_pos * 8));
-
-        impl_block.functions.push(Function {
-            access: Access::Pub,
-            is_const: true,
-            name: Cow::Borrowed(value.name().resolve(pool)),
-            self_pass: Some(Pass::Ref),
-            arg: vec![],
-            ret: Some(Cow::Borrowed(repr)),
-            body: generate_read_body(
-                bytes as usize,
-                width as usize,
-                value.bits() as usize,
-                shift as usize,
-                start_pos as usize,
-                end_pos as usize,
-                ptr_repr,
-                value.repr(),
-                repr,
+        .with_line("};")
+        .with_line(format!("let temp = old_value & {reset_mask};"))
+        .with_line("let result = temp | value;")
+        .with_line("unsafe {")
+        .with_line_depth(
+            format!(
+                "(target_slice.as_ptr() as *mut {backing_type}).write_unaligned(result);",
+                backing_type = repr_to_string(symbol.backing_type)
             ),
-        });
-
-        impl_block.functions.push(Function {
-            access: Access::Pub,
-            is_const: true,
-            name: Cow::Owned(format!("with_{}", value.name().resolve(pool))),
-            self_pass: Some(Pass::Mut),
-            arg: vec![Argument {
-                name: "value",
-                kind: Cow::Borrowed(repr),
-                pass: Pass::Move,
-            }],
-            ret: Some(Cow::Borrowed("&mut Self")),
-            body: generate_set_body(
-                width as usize,
-                value.bits() as usize,
-                shift as usize,
-                start_pos as usize,
-                end_pos as usize,
-                ptr_repr,
-            ),
-        });
-    }
-
-    bitset.impls.push(impl_block);
-
-    let bytes = bits.div_ceil(8);
-    bitset.content = StructContent::Fields(vec![Field {
-        access: Access::Pub,
-        name: Cow::Borrowed("data"),
-        kind: Cow::Owned(format!("[u8; {bytes}]")),
-        comment: None,
-    }]);
-
-    bitset
-}
-
-fn generate_module_from_group<'a, W: std::io::Write>(
-    args: &Args,
-    pool: &'a StringPool,
-    def: &ProtocolDefinition,
-    group: GroupSymbol,
-    messages: &[MessageSymbolType],
-    types: &[Type],
-) -> Result<Module<'a, W>, std::io::Error> {
-    let mut module = Module::new(group.name().resolve(pool));
-    module.access = Access::Pub;
-
-    for ty in types {
-        match ty {
-            Type::Numeric(_) | Type::Array(_) => {}
-            Type::Struct(symbol) => {
-                module
-                    .structs
-                    .push(generate_struct(args, def, pool, *symbol));
-            }
-            Type::Enum(symbol) => {
-                module.enums.push(generate_enum(args, def, pool, *symbol));
-            }
-            Type::Flags(symbol) => {
-                module
-                    .structs
-                    .push(generate_flags(args, def, pool, *symbol));
-            }
-            Type::Bitset(symbol) => module
-                .structs
-                .push(generate_bitset(args, def, pool, *symbol)),
-        }
-    }
-
-    for message in messages {
-        module
-            .structs
-            .push(generate_message(args, def, pool, *message)?);
-    }
-
-    Ok(module)
-}
-
-#[allow(clippy::too_many_lines)]
-pub fn generate<W: std::io::Write>(
-    writer: &mut W,
-    args: Args,
-    pool: &StringPool,
-    definition: &ProtocolDefinition,
-) -> Result<(), std::io::Error> {
-    let global = definition.global();
-    let mut global_module = generate_module_from_group(
-        &args,
-        pool,
-        definition,
-        global,
-        definition.messages_slice(global.messages()),
-        definition.types_for_group(global),
-    )?;
-
-    definition.group_iter::<std::io::Error>(|group, messages, types| {
-        global_module.modules.push(generate_module_from_group(
-            &args, pool, definition, group, messages, types,
-        )?);
-        Ok(())
-    })?;
-
-    global_module.write_to(writer, 0)
-}
-
-fn generate_builder_pattern<'a, W: std::io::Write>(
-    pool: &'a StringPool,
-    definition: &ProtocolDefinition,
-    message: &'a str,
-    fields: &[FieldSymbol],
-) -> Impl<'a, W> {
-    let functions = fields
-        .iter()
-        .map(|f| {
-            let ty = definition.table().get_type(f.type_id());
-            let field_name = f.name().resolve(pool);
-            Function {
-                access: Access::Pub,
-                is_const: true,
-                name: Cow::Owned(format!("with_{field_name}")),
-                self_pass: Some(Pass::Mut),
-                arg: vec![Argument {
-                    name: "value",
-                    kind: Cow::Borrowed(ty.ident().resolve(pool)),
-                    pass: Pass::Move,
-                }],
-                ret: Some(Cow::Borrowed("&mut Self")),
-                body: Body {
-                    lines: vec![
-                        BodyLine {
-                            content: Cow::Owned(format!("self.{field_name} = value;")),
-                            depth: 0,
-                        },
-                        BodyLine {
-                            content: Cow::Borrowed("self"),
-                            depth: 0,
-                        },
-                    ],
-                },
-            }
-        })
-        .collect();
-    Impl {
-        target: message,
-        functions,
-        add_assert: true,
-        custom: vec![],
-    }
+            1,
+        )
+        .with_line("}")
+        .with_line("self");
+    body
 }
 
 fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'a> {
     TraitImpl {
         trait_name: Cow::Owned(args.typed_message_path()),
-        target: message,
+        target: message.into(),
         associated_types: vec![],
         functions: vec![
             Function::default()
@@ -574,7 +364,7 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                 name: Cow::Borrowed("with_dst"),
                 self_pass: Some(Pass::Mut),
                 arg: vec![Argument {
-                    name: "dst",
+                    name: "value",
                     kind: Cow::Borrowed("u8"),
                     pass: Pass::Move,
                 }],
@@ -618,7 +408,7 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                 name: Cow::Borrowed("with_group"),
                 self_pass: Some(Pass::Mut),
                 arg: vec![Argument {
-                    name: "group",
+                    name: "value",
                     kind: Cow::Borrowed("u8"),
                     pass: Pass::Move,
                 }],
@@ -656,7 +446,7 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                 name: Cow::Borrowed("with_kind"),
                 self_pass: Some(Pass::Mut),
                 arg: vec![Argument {
-                    name: "kind",
+                    name: "value",
                     kind: Cow::Borrowed("u8"),
                     pass: Pass::Move,
                 }],
@@ -675,32 +465,74 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                 },
             },
         ],
+        constants: vec![],
     }
 }
 
-pub struct RustGen<'a, W: std::io::Write> {
+const fn repr_to_string(repr: PrimitiveRepr) -> Cow<'static, str> {
+    Cow::Borrowed(match repr {
+        PrimitiveRepr::U8 => "u8",
+        PrimitiveRepr::U16 => "u16",
+        PrimitiveRepr::U32 => "u32",
+        PrimitiveRepr::U64 => "u64",
+        PrimitiveRepr::I8 => "i8",
+        PrimitiveRepr::I16 => "i16",
+        PrimitiveRepr::I32 => "i32",
+        PrimitiveRepr::I64 => "i64",
+    })
+}
+
+pub struct RustGen<'s, W: Write> {
     args: Args,
-    groups: Vec<Module<'a, W>>,
+    modules: Vec<Module<'s, W>>,
+    writer: W,
 }
 
-impl<'a, W: std::io::Write> CodeGenerator for RustGen<'a, W> {
-    fn start_group(&mut self, group: &str) {
-        self.groups.push(Module::new(group));
+impl<'s, W: Write> RustGen<'s, W> {
+    pub const fn new(args: Args, writer: W) -> Self {
+        Self {
+            args,
+            modules: vec![],
+            writer,
+        }
     }
 
-    fn generate_single_message<'s, I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
-    where
-        I: Iterator<Item = EnrichedFieldSymbol<'s>>,
-    {
-        let mut groups = self.groups.last_mut().unwrap();
+    fn push_struct(&mut self, struct_: Struct<'s, W>) {
+        self.modules.last_mut().unwrap().structs.push(struct_);
+    }
 
+    fn push_enum(&mut self, enum_: Enum<'s>) {
+        self.modules.last_mut().unwrap().enums.push(enum_);
+    }
+
+    fn push_module(&mut self, module: Module<'s, W>) {
+        self.modules.last_mut().unwrap().modules.push(module);
+    }
+
+    fn push_other(&mut self, other: Box<dyn CodeBlock<W> + 's>) {
+        self.modules.last_mut().unwrap().other.push(other);
+    }
+}
+
+impl<'s, W: Write + 's> CodeGenerator<'s> for RustGen<'s, W> {
+    fn start_group(&mut self, group: &'s str) {
+        let mut module = Module::new(group);
+        module.access = Access::Pub;
+        self.modules.push(module);
+    }
+
+    fn generate_single_message<I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
+    where
+        I: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    {
         let mut struct_ = Struct::new(symbol.name);
         struct_.access = Access::Pub;
         struct_.repr = Repr::C { align: Some(32) };
         extend_derive(&mut struct_.derives, &self.args);
 
-        let fields = symbol
+        let mut fields = symbol
             .fields
+            .clone()
             .map(|field| Field {
                 access: Access::Pub,
                 name: field.name,
@@ -712,121 +544,141 @@ impl<'a, W: std::io::Write> CodeGenerator for RustGen<'a, W> {
             })
             .collect::<Vec<_>>();
 
-        let diff = 32 - total_size;
-        if diff != 0 {
-            let remainder_name = Cow::Owned(format!("_padding{paddings}"));
-            //let remainder_name = if let Some(name) = symbol.remainder().into_inner() {
-            //    Cow::Borrowed(name.resolve(pool))
-            //} else {
-            //    Cow::Owned(format!("_padding{paddings}"))
-            //};
-            fields.push(Field {
-                access: Access::Pub,
-                name: remainder_name,
-                kind: Cow::Owned(format!("[u8; {diff}]")),
-                comment: None,
-            });
-        }
-
         fields[4].comment = Some(Cow::Borrowed("-------- PAYLOAD --------"));
 
         struct_.content = StructContent::Fields(fields);
         struct_
             .trait_impls
-            .push(generate_message_trait_impl(args, message_name));
-        let mut impl_ = generate_builder_pattern(pool, def, message_name, slice);
-        impl_.custom.push(Box::new(Const {
-            access: Access::Pub,
-            ident: Cow::Borrowed("KIND"),
-            kind: Cow::Borrowed("u8"),
-            value: Cow::Owned(symbol.kind().to_string()),
-        }));
+            .push(generate_message_trait_impl(&self.args, symbol.name));
+        let mut impl_ = generate_builder_pattern(symbol.fields, symbol.name);
+        impl_.custom.extend(generate_message_consts(
+            &self.args,
+            symbol.kind,
+            symbol.dispatch_value,
+        ));
 
         struct_.impls.push(impl_);
-        Ok(struct_)
+
+        self.push_other(generate_const_size_assert(
+            self.args.message_size_path(),
+            symbol.name.to_string(),
+        ));
+        self.push_struct(struct_);
     }
 
-    fn generate_stream_message<'s, F, I>(
-        &mut self,
-        symbol: creamy_libgen::EnrichedStreamMessageSymbol<'s, F, I>,
-    ) where
-        F: Iterator<Item = EnrichedFieldSymbol<'s>>,
-        I: Iterator<Item = EnrichedFieldSymbol<'s>>,
+    fn generate_stream_message<F, P, I>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, P, I>)
+    where
+        F: SymbolIterator<EnrichedFieldSymbol<'s>>,
+        P: SymbolIterator<EnrichedFieldSymbol<'s>>,
+        I: SymbolIterator<EnrichedFieldSymbol<'s>>,
     {
-        todo!()
+        let (stream, io_module) =
+            stream::generate_stream_message::<W, F, P, I>(&symbol, &self.args);
+
+        self.push_other(generate_const_size_assert(
+            self.args.message_size_path(),
+            symbol.name.to_string(),
+        ));
+        self.push_struct(stream);
+        self.push_module(io_module);
     }
 
-    fn generate_bitset(&mut self, symbol: BitsetSymbol) {
-        todo!()
+    fn generate_bitset<I>(&mut self, symbol: EnrichedBitsetSymbol<'s, I>)
+    where
+        I: SymbolIterator<EnrichedBitsetValueSymbol<'s>>,
+    {
+        let mut bitset = Struct::new(symbol.name);
+        bitset.access = Access::Pub;
+        extend_derive(&mut bitset.derives, &self.args);
+
+        let mut impl_block = Impl {
+            target: symbol.name.into(),
+            functions: vec![],
+            custom: vec![],
+        };
+
+        let mut bits = 0;
+        for symbol in symbol.values {
+            bits += symbol.bits;
+
+            impl_block.functions.push(Function {
+                access: Access::Pub,
+                is_const: true,
+                name: Cow::Borrowed(symbol.name),
+                self_pass: Some(Pass::Ref),
+                arg: vec![],
+                ret: Some(repr_to_string(symbol.repr)),
+                body: generate_read_body(symbol),
+            });
+
+            impl_block.functions.push(Function {
+                access: Access::Pub,
+                is_const: true,
+                name: Cow::Owned(format!("set_{}", symbol.name)),
+                self_pass: Some(Pass::Mut),
+                arg: vec![Argument {
+                    name: "value",
+                    kind: repr_to_string(symbol.repr),
+                    pass: Pass::Move,
+                }],
+                ret: Some(Cow::Borrowed("&mut Self")),
+                body: generate_set_body(symbol, self.args.debug_asserts),
+            });
+
+            impl_block.functions.push(Function {
+                access: Access::Pub,
+                is_const: true,
+                name: Cow::Owned(format!("with_{}", symbol.name)),
+                self_pass: Some(Pass::MutMove),
+                arg: vec![Argument {
+                    name: "value",
+                    kind: repr_to_string(symbol.repr),
+                    pass: Pass::Move,
+                }],
+                ret: Some(Cow::Borrowed("Self")),
+                body: Body {
+                    lines: vec![
+                        BodyLine {
+                            content: format!("self.set_{}(value);", symbol.name).into(),
+                            depth: 0,
+                        },
+                        BodyLine {
+                            content: "self".into(),
+                            depth: 0,
+                        },
+                    ],
+                },
+            });
+        }
+
+        bitset.impls.push(impl_block);
+
+        let bytes = bits.div_ceil(8);
+        bitset.content = StructContent::Fields(vec![Field {
+            access: Access::Pub,
+            name: Cow::Borrowed("data"),
+            kind: Cow::Owned(format!("[u8; {bytes}]")),
+            comment: None,
+        }]);
+
+        self.push_struct(bitset);
     }
 
-    fn generate_flags<'s, I>(&mut self, symbol: EnrichedFlagsSymbol<'s, I>)
+    fn generate_flags<I>(&mut self, symbol: EnrichedFlagsSymbol<'s, I>)
     where
         I: Iterator<Item = &'s str>,
     {
-        todo!()
-    }
-
-    fn generate_enum<'s, I>(&mut self, symbol: EnrichedEnumSymbol<'s, I>)
-    where
-        I: Iterator<Item = ResolvedVariant<'s>>,
-    {
-        todo!()
-    }
-
-    fn generate_struct<'s, I>(&mut self, symbol: EnrichedStructSymbol<'s, I>)
-    where
-        I: Iterator<Item = EnrichedFieldSymbol<'s>>,
-    {
-        todo!()
-    }
-
-    fn end_group(&mut self) {
-        todo!()
-    }
-}
-
-/*
-impl<'a, W: std::io::Write> CodeGenerator for RustGen<'a, W> {
-    fn start_group(&mut self, name: &str) {
-    }
-
-    fn generate_single_message<'s, I>(
-        &mut self,
-        symbol: creamy_libgen::EnrichedSingleMessageSymbol<'s, I>,
-    ) where
-        I: Iterator<Item = ResolvedFieldSymbol<'s>>,
-    {
-        todo!()
-    }
-
-    fn generate_stream_message<'s, F, I>(
-        &mut self,
-        symbol: creamy_libgen::EnrichedStreamMessageSymbol<'s, F, I>,
-    ) where
-        F: Iterator<Item = ResolvedFieldSymbol<'s>>,
-        I: Iterator<Item = ResolvedFieldSymbol<'s>>,
-    {
-        todo!()
-    }
-
-    fn generate_bitset(&mut self, symbol: BitsetSymbol) {
-        todo!()
-    }
-
-    fn generate_flags(&mut self, symbol: EnrichedFlagsSymbol<'_>) {
         let mut flags = Struct::new(symbol.name);
         flags.access = Access::Pub;
         flags.repr = Repr::Transparent;
         extend_derive(&mut flags.derives, &self.args);
 
-        let kind = match symbol.options.item_count() {
-            1..=8 => "u8",
-            9..=16 => "u16",
-            17..=32 => "u32",
-            33..=64 => "u64",
-            65..=128 => "u128",
-            other => unreachable!("Unreachable length: {other}"),
+        let kind = match symbol.underlying_type {
+            FlagUnderlyingType::U8 => "u8",
+            FlagUnderlyingType::U16 => "u16",
+            FlagUnderlyingType::U32 => "u32",
+            FlagUnderlyingType::U64 => "u64",
+            FlagUnderlyingType::U128 => "u128",
         };
         flags.content = StructContent::Tuple(vec![Cow::Borrowed(kind)]);
 
@@ -840,28 +692,31 @@ impl<'a, W: std::io::Write> CodeGenerator for RustGen<'a, W> {
                     ident: Cow::Borrowed(s),
                     kind: Cow::Borrowed("Self"),
                     value: Cow::Owned(format!("Self(1 << {shift})")),
-                }) as Box<dyn CodeBlock<W> + 'a>
+                }) as Box<dyn CodeBlock<W> + 's>
             })
             .collect::<Vec<_>>();
 
         flags.impls.push(Impl {
-            target: symbol.name,
+            target: symbol.name.into(),
             functions: vec![],
-            add_assert: false,
             custom,
         });
 
         flags
             .trait_impls
             .push(generate_bitor_impl(symbol.name, kind));
+
         flags
             .trait_impls
             .push(generate_bitxor_impl(symbol.name, kind));
 
-        self.group.structs.push(flags);
+        self.push_struct(flags);
     }
 
-    fn generate_enum(&mut self, symbol: EnrichedEnumSymbol<'s>) {
+    fn generate_enum<I>(&mut self, symbol: EnrichedEnumSymbol<'s, I>)
+    where
+        I: Iterator<Item = EnrichedVariantSymbol<'s>>,
+    {
         let mut enum_ = Enum::new(symbol.name);
         extend_derive(&mut enum_.derives, &self.args);
         enum_.access = Access::Pub;
@@ -873,10 +728,13 @@ impl<'a, W: std::io::Write> CodeGenerator for RustGen<'a, W> {
             })
             .collect();
 
-        self.group.enums.push(enum_);
+        self.push_enum(enum_);
     }
 
-    fn generate_struct(&mut self, symbol: EnrichedStructSymbol<'s>) {
+    fn generate_struct<I>(&mut self, symbol: EnrichedStructSymbol<'s, I>)
+    where
+        I: Iterator<Item = EnrichedFieldSymbol<'s>>,
+    {
         let mut struct_ = Struct::new(symbol.name);
         extend_derive(&mut struct_.derives, &self.args);
         struct_.access = Access::Pub;
@@ -888,7 +746,7 @@ impl<'a, W: std::io::Write> CodeGenerator for RustGen<'a, W> {
                     name: symbol.name,
                     kind: {
                         match symbol.kind {
-                            EnrichedFieldType::Type(name) => Cow::Borrowed(name),
+                            EnrichedFieldType::Type(name) => name,
                             EnrichedFieldType::Array { kind, len } => {
                                 Cow::Owned(format!("[{kind}; {len}]"))
                             }
@@ -899,31 +757,74 @@ impl<'a, W: std::io::Write> CodeGenerator for RustGen<'a, W> {
                 .collect(),
         );
 
-        self.group.structs.push(struct_);
+        self.push_struct(struct_);
     }
 
-    fn end_group(&mut self) {}
+    fn end_group(&mut self) {
+        if self.modules.len() <= 1 {
+            return;
+        }
+
+        let group = self.modules.pop().unwrap();
+        self.modules.last_mut().unwrap().modules.push(group);
+    }
+
+    fn flush(&mut self) -> GenResult {
+        assert_eq!(self.modules.len(), 1);
+        if let Some(global_module) = self.modules.pop() {
+            global_module.write_to(&mut self.writer, 0)?;
+            self.writer.flush()?;
+            Ok(())
+        } else {
+            panic!("Missing global group");
+        }
+    }
 }
-*/
+
 #[cfg(test)]
 mod tests {
-    use creamy_utils::strpool::StringPool;
-    use creamy_xmlc::compile;
+    use creamy_libgen::{Codegen, ProtocolLibrary};
 
-    use crate::{Args, generate};
+    use crate::{Args, RustGen};
 
     #[test]
     fn test() {
-        let content =
-            std::fs::read_to_string("/mnt/ssd/fusionwm/creamy/devkit/creamy-sdk/system.xml")
-                .unwrap();
-        //"/mnt/ssd/fusionwm/creamy/devkit/creamy-xmlc/tests/success.xml",
-        let mut pool = StringPool::default();
-        let protocol = compile(&mut pool, &content).unwrap();
+        //let content =
+        //    std::fs::read_to_string("/mnt/ssd/fusionwm/creamy/devkit/creamy-sdk/system.xml")
+        //        .unwrap();
 
-        let mut bytes = Vec::with_capacity(8192 * 2);
-        generate(&mut bytes, Args::default(), &pool, &protocol).unwrap();
-        let string = String::from_utf8(bytes).unwrap();
+        let manifest = r#"
+[package]
+id = "org.creamy.sdk"
+name = "system"
+version = "1.0.0"
+description = "Builtin package"
+repository = "https://github.com/purelace/creamy"
+authors = [ "selrisu <myirisuchan@gmail.com>" ]
+
+[core]
+path = "core.wasm"
+runtime = "wasm"
+
+[[protocols]]
+name = "system.builtin"
+version = "1.0"
+group = 1
+"#;
+
+        let mut library = ProtocolLibrary::new(manifest);
+        library.load_all("/mnt/ssd/fusionwm/creamy/devkit/creamy-sdk/");
+
+        let mut generator = Codegen::new(library);
+        let mut rs = RustGen {
+            args: Args::default(),
+            modules: vec![],
+            writer: Vec::with_capacity(8192 * 2),
+        };
+
+        generator.run("system", &mut rs).unwrap();
+        let string = String::from_utf8(rs.writer).unwrap();
+
         println!("{string}");
     }
 }

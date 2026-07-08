@@ -1,12 +1,10 @@
+use alloc::vec::Vec;
+
 use crate::{
     get_outgoing,
-    stream::{StreamChunkType, StreamId},
-    system::builtin::LogInfo,
+    stream::{StreamMessage, StreamReaderFunctions},
+    system::builtin::{LogDebug, LogInfo},
 };
-
-pub struct LogInfoPayload<'a> {
-    pub data: &'a [u8],
-}
 
 const fn empty() -> LogInfo {
     LogInfo {
@@ -19,6 +17,7 @@ const fn empty() -> LogInfo {
     }
 }
 
+/*
 fn write_log(data: impl AsRef<[u8]>) {
     let mut out = get_outgoing();
     let mut message = LogInfo {
@@ -70,10 +69,10 @@ fn write_log(data: impl AsRef<[u8]>) {
         message.data[idx] = *byte;
     }
 
-    message.with_discriminant(StreamChunkType::End);
+    message.with_discriminant(StreamChunkType::Tail);
     out.send_many_iter_exact(core::iter::once(message));
 }
-
+*/
 pub fn info(message: &str) {
     let out = get_outgoing();
     //assert!(LogInfo {
@@ -84,4 +83,28 @@ pub fn info(message: &str) {
     //    meta: todo!(),
     //    data: todo!(),
     //});
+}
+
+pub struct LogReader {
+    buffer: Vec<u8>,
+}
+
+impl StreamReaderFunctions for LogReader {
+    type Stream = LogDebug;
+
+    fn read_single(&mut self, _single: <Self::Stream as StreamMessage>::Payload) {}
+
+    fn read_head(&mut self, head: <Self::Stream as StreamMessage>::Head) {
+        if self.buffer.len() < head.length as usize {
+            self.buffer = Vec::with_capacity(head.length as usize);
+        }
+
+        self.buffer.extend(head.data);
+    }
+
+    fn read_payload(&mut self, payload: <Self::Stream as StreamMessage>::Payload) {
+        self.buffer.extend(payload.data);
+    }
+
+    fn read_tail(&mut self, _tail: <Self::Stream as StreamMessage>::Tail) {}
 }

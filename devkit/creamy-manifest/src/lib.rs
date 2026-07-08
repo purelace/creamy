@@ -29,22 +29,34 @@ pub struct Core {
 }
 
 #[derive(BinRead, BinWrite, Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Protocol {
+pub struct RequestedProtocol {
     name: BString,
     group: Option<NonZeroU8>,
+}
+
+impl RequestedProtocol {
+    #[must_use]
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    #[must_use]
+    pub const fn static_group_id(&self) -> Option<NonZeroU8> {
+        self.group
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParsedManifest {
     package: Package,
     core: Core,
-    protocols: List<Protocol>,
+    protocols: List<RequestedProtocol>,
 }
 
 #[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
 pub struct Manifest {
     package: Package,
-    protocols: List<Protocol>,
+    protocols: List<RequestedProtocol>,
 }
 
 impl Manifest {
@@ -80,7 +92,7 @@ impl Manifest {
     }
 
     #[must_use]
-    pub fn protocols(&self) -> &[Protocol] {
+    pub fn requested_protocols(&self) -> &[RequestedProtocol] {
         self.protocols.as_slice()
     }
 }
@@ -104,7 +116,7 @@ mod test {
 
     use creamy_utils::collections::List;
 
-    use crate::{Arguments, Manifest, Package, Protocol};
+    use crate::{Arguments, Manifest, Package, RequestedProtocol};
 
     const MANIFEST_VALID: &str = r#"
      [package]
@@ -143,7 +155,7 @@ mod test {
                     repository: "https://github.com/purelace/chocomint".into(),
                     authors: List::wrap(vec!["selrisu <myirisuchan@gmail.com>".into()])
                 },
-                protocols: List::wrap(vec![Protocol {
+                protocols: List::wrap(vec![RequestedProtocol {
                     name: "testcase.valid".into(),
                     group: Some(NonZeroU8::new(1).unwrap())
                 }])

@@ -9,6 +9,8 @@ use creamy_xmlc::{
     utils::{Size, strpool::StringPool},
 };
 
+use crate::SymbolIterator;
+
 #[derive(Clone)]
 pub enum EnrichedFieldType<'s> {
     Type(Cow<'s, str>),
@@ -38,23 +40,25 @@ fn get_field_kind<'a>(
 pub struct EnrichedFieldSymbol<'s> {
     pub name: Cow<'s, str>,
     pub kind: EnrichedFieldType<'s>,
+    pub is_padding: bool,
 }
 
 #[derive(Clone)]
-pub struct FieldList<'s> {
+pub struct FieldList<'s, I: Iterator<Item = FieldSymbol> + Clone> {
     pool: &'s StringPool,
     tt: &'s FinishedTypeTable,
-    layout: LayoutCalculator<'s>,
+    layout: LayoutCalculator<I>,
     padding_index: u8,
     prev: Option<FieldSymbol>,
     remainder: bool,
 }
 
-impl<'s> FieldList<'s> {
+impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
+    #[must_use]
     pub fn new(
         pool: &'s StringPool,
         tt: &'s FinishedTypeTable,
-        fields: &'s [FieldSymbol],
+        fields: I,
         reserved_bytes: u8,
     ) -> Self {
         Self {
@@ -68,7 +72,7 @@ impl<'s> FieldList<'s> {
     }
 }
 
-impl<'s> Iterator for FieldList<'s> {
+impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> {
     type Item = EnrichedFieldSymbol<'s>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -76,6 +80,7 @@ impl<'s> Iterator for FieldList<'s> {
             return Some(EnrichedFieldSymbol {
                 name: Cow::Borrowed(prev.name().resolve(self.pool)),
                 kind: get_field_kind(prev.kind(), self.tt, self.pool),
+                is_padding: false,
             });
         }
 
@@ -86,6 +91,7 @@ impl<'s> Iterator for FieldList<'s> {
                     let field = EnrichedFieldSymbol {
                         name: Cow::Owned(format!("__padding{}", self.padding_index)),
                         kind: get_field_kind(FieldType::Type(T_U8_ID), self.tt, self.pool),
+                        is_padding: true,
                     };
                     self.padding_index += 1;
                     Some(field)
@@ -93,6 +99,7 @@ impl<'s> Iterator for FieldList<'s> {
                     Some(EnrichedFieldSymbol {
                         name: Cow::Borrowed(field.name().resolve(self.pool)),
                         kind: get_field_kind(field.kind(), self.tt, self.pool),
+                        is_padding: false,
                     })
                 }
             }
@@ -100,7 +107,7 @@ impl<'s> Iterator for FieldList<'s> {
                 self.remainder = true;
                 let diff = 32 - self.layout.total_size();
                 if diff != 0 {
-                    let name = Cow::Owned(format!("_padding{}", self.padding_index));
+                    let name = Cow::Owned(format!("__padding{}", self.padding_index));
                     Some(EnrichedFieldSymbol {
                         name,
                         kind: get_field_kind(
@@ -111,6 +118,7 @@ impl<'s> Iterator for FieldList<'s> {
                             self.tt,
                             self.pool,
                         ),
+                        is_padding: true,
                     })
                 } else {
                     None
@@ -119,4 +127,9 @@ impl<'s> Iterator for FieldList<'s> {
             None => None,
         }
     }
+}
+
+impl<'s, I: Iterator<Item = FieldSymbol> + Clone> SymbolIterator<EnrichedFieldSymbol<'s>>
+    for FieldList<'s, I>
+{
 }

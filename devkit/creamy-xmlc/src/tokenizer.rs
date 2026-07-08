@@ -363,7 +363,17 @@ impl<'src> Context<'_, 'src> {
 
     fn read_u8(&self, attr: &'static str) -> u8 {
         let number = self.parse_number(attr);
-        u8::from_str(number.0).expect("Unreachable!")
+        match u8::from_str(number.0) {
+            Ok(value) => value,
+            Err(error) => {
+                //TODO: custom error
+                self.report_err(SyntaxError::IntParse {
+                    span: self.attribute_value_span(attr),
+                    error,
+                });
+                0
+            }
+        }
     }
 
     fn read_variant_value(&self, attr: &'static str) -> VariantValue {
@@ -488,7 +498,7 @@ impl<'a, 'src: 'a> Token<'src> {
 
     fn new_flags(ctx: &Context<'a, 'src>) -> Token<'src> {
         Token::Flags {
-            name: ctx.read_ident("flags"),
+            name: ctx.read_ident("name"),
             span: span_for(ctx.node),
         }
     }

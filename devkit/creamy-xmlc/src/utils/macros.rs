@@ -10,7 +10,7 @@ macro_rules! define_readonly_struct {
             )* $(,)?
         }
     } => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name {
             $(
                 $(
@@ -32,7 +32,7 @@ macro_rules! define_readonly_struct {
             )* $(,)?
         }
     } => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name {
             $(
                 $(
@@ -54,7 +54,7 @@ macro_rules! define_readonly_struct {
             )* $(,)?
         }
     } => {
-        #[derive(::binrw::BinWrite, ::binrw::BinRead, Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(::binrw::BinWrite, ::binrw::BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name {
             $(
                 $(
@@ -76,7 +76,7 @@ macro_rules! define_readonly_struct {
             )* $(,)?
         }
     } => {
-        #[derive(::binrw::BinWrite, ::binrw::BinRead, Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(::binrw::BinWrite, ::binrw::BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name {
             $(
                 $(

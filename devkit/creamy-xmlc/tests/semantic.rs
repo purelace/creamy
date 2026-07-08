@@ -50,7 +50,7 @@ fn semantic_errors() {
         </struct>
 
         <!-- Message size limit -->
-        <message name="Signal">
+        <message kind="0" name="Signal">
             <field name="value0" type="u8"/>
             <field name="value1" type="u16"/>
             <field name="value2" type="u32"/>
@@ -71,7 +71,7 @@ fn semantic_errors() {
     <!-- Zero sized types -->
     <group name="zst" access="Protected">
         <struct name="test0"/>
-        <message name="test1"/>
+        <message kind ="0" name="test1"/>
         <enum name="test2" repr="u8"/>
     </group>
 

@@ -10,9 +10,9 @@ use crate::{
     diagnostics::Diagnostics,
     error::{ProtocolErrorExt, SemanticError},
     model::symbols::{
-        ArrayFieldSymbol, ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumRepr, EnumSymbol,
-        FieldSymbol, FieldType, FlagsSymbol, GroupSymbol, MessageSymbol, MessageSymbolType,
-        NumericSymbol, OptionSymbol, StreamPayloadFieldSymbol, StreamSymbol, StructSymbol, Type,
+        ArrayFieldSymbol, ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, FieldSymbol,
+        FieldType, FlagsSymbol, GroupSymbol, MessageSymbol, MessageSymbolType, NumericSymbol,
+        OptionSymbol, PrimitiveRepr, StreamPayloadFieldSymbol, StreamSymbol, StructSymbol, Type,
         VariantSymbol,
     },
     nodes::{
@@ -55,6 +55,9 @@ pub struct DefinitionBuilder<'a> {
     options: BoundedVec<OptionSymbol>,
     variants: BoundedVec<VariantSymbol>,
     fields: BoundedVec<FieldSymbol>,
+
+    // TODO:
+    // Тут надо пересчитать максимальное количество типов.
     payload: BoundedVec<StreamPayloadFieldSymbol>,
 
     diag: &'a mut Diagnostics,
@@ -205,14 +208,14 @@ impl<'a> Resolver<'a> {
         to: &mut BoundedVec<VariantSymbol>,
     ) {
         for e in from {
-            let result = EnumRepr::try_from(e.repr().resolve(self.pool));
+            let result = PrimitiveRepr::try_from(e.repr().resolve(self.pool));
             let mut error = false;
             let repr = match result {
                 Ok(repr) => repr,
                 Err(err) => {
                     error = true;
                     self.diag.report_err(err);
-                    EnumRepr::U8
+                    PrimitiveRepr::U8
                 }
             };
 
@@ -367,7 +370,8 @@ impl<'a> Resolver<'a> {
         &mut self,
         from: &[StreamPayloadFieldNode],
         to: &mut BoundedVec<StreamPayloadFieldSymbol>,
-    ) {
+    ) -> FieldsRange {
+        let start = to.len();
         for field in from {
             match field {
                 StreamPayloadFieldNode::Field(field) => {
@@ -387,6 +391,8 @@ impl<'a> Resolver<'a> {
                 }
             }
         }
+
+        FieldsRange::new(start as u16, (to.len() - start) as u8)
     }
 
     fn resolve_stream_message(
@@ -399,12 +405,14 @@ impl<'a> Resolver<'a> {
         s_to: &mut BoundedVec<StreamPayloadFieldSymbol>,
     ) -> StreamSymbol {
         if let Some(start) = m.start() {
+            let from = &f_from[start.as_range()];
+            self.resolve_fields(from, f_to);
             //TODO
         }
 
         //check payload
         let from = &s_from[m.payload().as_range()];
-        self.resolve_payload_fields(from, s_to);
+        let payload_range = self.resolve_payload_fields(from, s_to);
 
         //let len = f_to.len() as u16;
 
@@ -419,6 +427,7 @@ impl<'a> Resolver<'a> {
             m.timeout(),
             m.kind(),
             m.start(),
+            //payload_range,
             m.payload(),
             m.end(),
         )

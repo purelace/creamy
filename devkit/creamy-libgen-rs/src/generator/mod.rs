@@ -12,7 +12,7 @@ pub use function::{Argument, Body, BodyLine, Function};
 pub use r#impl::Impl;
 pub use module::Module;
 pub use structure::{Field, Struct, StructContent};
-pub use trait_impl::{AssociatedType, TraitImpl};
+pub use trait_impl::{TraitImpl, TraitImplAssociatedType};
 
 #[derive(Default, Debug, Copy, Clone)]
 pub enum Access {
@@ -32,19 +32,10 @@ impl Display for Access {
 
 #[derive(Debug, Copy, Clone)]
 pub enum Pass {
+    MutMove,
     Move,
     Ref,
     Mut,
-}
-
-impl Display for Pass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Pass::Move => Ok(()),
-            Pass::Ref => write!(f, "&"),
-            Pass::Mut => write!(f, "&mut "),
-        }
-    }
 }
 
 pub fn add_depth<W: std::io::Write>(writer: &mut W, depth: usize) -> Result<(), std::io::Error> {

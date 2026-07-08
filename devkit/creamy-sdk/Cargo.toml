@@ -9,6 +9,7 @@ crate-type = ["rlib", "staticlib"]
 
 [dependencies]
 cbus-core.workspace = true
+thiserror.workspace = true
 rlsf = "0.2.2"
 
 [build-dependencies]

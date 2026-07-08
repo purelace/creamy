@@ -109,7 +109,7 @@ fn other() {
 
     <!-- Missing attributes -->
     <group>
-        <message>
+        <message kind="0">
             <field/>
         </message>
 
@@ -124,7 +124,7 @@ fn other() {
     </group>
 
     <group name="test" access="Private">
-        <message name="test">
+        <message kind="0" name="test">
             <field name="field0" type="[u8; should_be_a_number]"/>
             <field name="field1" type="[u8;28"/>
             <field name="field2" type="u8;28]"/>
@@ -134,7 +134,7 @@ fn other() {
     </group>
 
     <group name="42bratuha" access="Exclusive">
-        <message name="penis@gmail.com">
+        <message kind="0" name="penis@gmail.com">
             <field name="" type="u32"/>
         </message>
 

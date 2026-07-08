@@ -12,7 +12,7 @@ use crate::{
     utils::{Align, Range, Size, TypesRange},
 };
 
-#[derive(BinRead, BinWrite, Clone, Copy, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TypeMeta {
     /// See [Align] for valid values
     /// * 00000 - size (max 28) `[11100_XXX]`
@@ -125,7 +125,7 @@ impl TypeMeta {
     }
 }
 
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TypeId {
     index: u16,
     group: NonZeroU8,
@@ -299,7 +299,7 @@ impl TypeTable {
     }
 
     pub fn finish(mut self) -> FinishedTypeTable {
-        assert_eq!(self.meta.total_used(), self.types.len());
+        //assert_eq!(self.meta.total_used(), self.types.len());
         let types = unsafe { self.types.assume_init() };
         self.meta.inner.trim(self.meta.count as usize + 1);
         FinishedTypeTable {

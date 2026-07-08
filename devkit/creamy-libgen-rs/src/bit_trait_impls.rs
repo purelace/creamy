@@ -1,15 +1,17 @@
 use std::borrow::Cow;
 
-use crate::generator::{Argument, AssociatedType, Body, BodyLine, Function, Pass, TraitImpl};
+use crate::generator::{
+    Argument, Body, BodyLine, Function, Pass, TraitImpl, TraitImplAssociatedType,
+};
 
 pub fn generate_bitxor_impl<'a>(target: &'a str, kind: &'a str) -> TraitImpl<'a> {
     TraitImpl {
         trait_name: Cow::Borrowed("core::ops::BitXor"),
-        associated_types: vec![AssociatedType {
+        associated_types: vec![TraitImplAssociatedType {
             name: "Output",
-            kind,
+            kind: kind.into(),
         }],
-        target,
+        target: target.into(),
         functions: vec![
             Function::default()
                 .with_name("bitxor")
@@ -27,17 +29,18 @@ pub fn generate_bitxor_impl<'a>(target: &'a str, kind: &'a str) -> TraitImpl<'a>
                     }],
                 }),
         ],
+        constants: vec![],
     }
 }
 
 pub fn generate_bitor_impl<'a>(target: &'a str, kind: &'a str) -> TraitImpl<'a> {
     TraitImpl {
         trait_name: Cow::Borrowed("core::ops::BitOr"),
-        associated_types: vec![AssociatedType {
+        associated_types: vec![TraitImplAssociatedType {
             name: "Output",
-            kind,
+            kind: kind.into(),
         }],
-        target,
+        target: target.into(),
         functions: vec![
             Function::default()
                 .with_name("bitor")
@@ -55,5 +58,6 @@ pub fn generate_bitor_impl<'a>(target: &'a str, kind: &'a str) -> TraitImpl<'a> 
                     }],
                 }),
         ],
+        constants: vec![],
     }
 }

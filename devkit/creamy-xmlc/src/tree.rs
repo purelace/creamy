@@ -245,11 +245,11 @@ impl ProtocolTree {
         }
 
         ProtocolTree {
-            name: ctx.pool.get_id(&name),
+            name: ctx.pool.get_id_or_add(&name),
             version,
 
             global: GroupNode::new(
-                ctx.pool.get_id(&name),
+                ctx.pool.get_id_or_add(&name),
                 Access::Public, //TODO fix
                 global_message_builder.build_messages(),
                 global_struct_builder.build_structs(),

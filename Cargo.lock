@@ -110,6 +110,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.103"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
+
+[[package]]
 name = "array-init"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -672,6 +678,7 @@ dependencies = [
 name = "creamy-libgen"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "creamy-manifest",
  "creamy-xmlc",
 ]
@@ -691,6 +698,7 @@ dependencies = [
  "creamy-libgen",
  "creamy-utils",
  "creamy-xmlc",
+ "heck",
 ]
 
 [[package]]
@@ -726,6 +734,7 @@ dependencies = [
  "creamy-libgen-rs",
  "creamy-xmlc",
  "rlsf",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

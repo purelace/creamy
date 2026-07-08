@@ -238,19 +238,17 @@ pub struct LayoutStep {
 }
 
 #[derive(Clone)]
-pub struct LayoutCalculator<'a> {
+pub struct LayoutCalculator<I: Iterator<Item = FieldSymbol>> {
     total_size: u8,
-    fields: &'a [FieldSymbol],
-    index: usize,
+    fields: I,
 }
 
-impl<'a> LayoutCalculator<'a> {
+impl<I: Iterator<Item = FieldSymbol>> LayoutCalculator<I> {
     #[must_use]
-    pub const fn new(reserved: u8, fields: &'a [FieldSymbol]) -> Self {
+    pub const fn new(reserved: u8, fields: I) -> Self {
         Self {
             total_size: reserved,
             fields,
-            index: 0,
         }
     }
 
@@ -260,39 +258,39 @@ impl<'a> LayoutCalculator<'a> {
     }
 }
 
-impl Iterator for LayoutCalculator<'_> {
+impl<I: Iterator<Item = FieldSymbol>> Iterator for LayoutCalculator<I> {
     type Item = (FieldSymbol, LayoutStep);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.fields.len() {
-            return None;
+        if let Some(field) = self.fields.next() {
+            let type_id = field.type_id();
+            let align = type_id.align().value();
+
+            let size = match field.kind() {
+                FieldType::Type(sym) => sym.size().value(),
+                FieldType::Array(array) => {
+                    let kind_size = array.kind().size().value();
+                    let array_len = array.len().value();
+                    kind_size * array_len
+                }
+            };
+
+            let padding = (align - (self.total_size % align)) % align;
+
+            let step = LayoutStep {
+                size,
+                align,
+                padding,
+                offset: self.total_size + padding,
+            };
+
+            //TODO: overflow
+            self.total_size += padding + size;
+
+            Some((field, step))
+        } else {
+            None
         }
-
-        let field = self.fields[self.index];
-        let type_id = field.type_id();
-        let align = type_id.align().value();
-
-        let size = match field.kind() {
-            FieldType::Type(sym) => sym.size().value(),
-            FieldType::Array(array) => {
-                let kind_size = array.kind().size().value();
-                let array_len = array.len().value();
-                kind_size * array_len
-            }
-        };
-
-        let padding = (align - (self.total_size % align)) % align;
-
-        let step = LayoutStep {
-            size,
-            align,
-            padding,
-            offset: self.total_size + padding,
-        };
-
-        //TODO: overflow
-        self.total_size += padding + size;
-        Some((field, step))
     }
 }
 

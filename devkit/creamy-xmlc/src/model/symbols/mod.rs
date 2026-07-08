@@ -10,7 +10,7 @@ pub use enumeration::{EnumSymbol, VariantSymbol};
 pub use field::{FieldSymbol, FieldType};
 pub use numeric::*;
 pub use remainder::Remainder;
-pub use repr::EnumRepr;
+pub use repr::PrimitiveRepr;
 
 use crate::{
     Access,
@@ -114,7 +114,7 @@ define_readonly_struct! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, BinRead, BinWrite)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, BinRead, BinWrite, Hash)]
 pub enum MessageSymbolType {
     Single(MessageSymbol),
     Stream(StreamSymbol),
@@ -131,6 +131,14 @@ impl MessageSymbolType {
         match self {
             MessageSymbolType::Single(m) => m.name(),
             MessageSymbolType::Stream(s) => s.name(),
+        }
+    }
+
+    #[must_use]
+    pub const fn kind(&self) -> u8 {
+        match self {
+            MessageSymbolType::Single(s) => s.kind,
+            MessageSymbolType::Stream(s) => s.kind,
         }
     }
 }

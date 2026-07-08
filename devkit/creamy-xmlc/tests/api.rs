@@ -1,6 +1,3 @@
-use creamy_utils::strpool::StringPool;
-use creamy_xmlc::{ProtocolDefinition, compile};
-
 mod generator;
 
 fn get_xml(content: &str) -> String {

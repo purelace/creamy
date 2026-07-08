@@ -116,8 +116,8 @@ impl Iterator for XMLGenerator {
                     self.child_created = 0;
                     self.state = State::MessageFields;
                     Some(format!(
-                        r#"<message name="Message{}">"#,
-                        self.messages_created
+                        r#"<message kind="0" name="Message{value}">"#,
+                        value = self.messages_created,
                     ))
                 } else {
                     self.state = State::OpenStruct;

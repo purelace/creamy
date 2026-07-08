@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <protocol name="system" version="0.1">
 
+    <!-- TODO: добавить рефененсы на типы других протоколов -->
     <!-- Builtin group -->
     <group name="builtin" access="Exclusive">
         <message kind="0" name="PluginAppeared">
@@ -28,31 +29,64 @@
             <field name="group_id" type="u8" />
         </message>
 
-        <stream kind="5" name="LogDebug" timeout="4">
+        <message kind="5" name="StreamKeepAlive">
+            <field name="stream_kind" type="u8" />
+            <field name="stream_id" type="u8" />
+        </message>
+
+        <message kind="6" name="StreamCancel">
+            <field name="stream_kind" type="u8" />
+            <field name="stream_id" type="u8" />
+        </message>
+
+        <stream kind="7" name="LogDebug" timeout="4">
+            <start>
+                <field name="length" type="u32" />
+                <field name="data" type="[u8; 20]" />
+            </start>
             <payload>
-                <array name="data" type="u8" len_type="u32" />
+                <field name="data" type="[u8; 26]" />
             </payload>
         </stream>
 
-        <stream kind="6" name="LogInfo" timeout="4">
+        <stream kind="8" name="LogInfo" timeout="4">
+            <start>
+                <field name="length" type="u32" />
+                <field name="data" type="[u8; 20]" />
+            </start>
             <payload>
-                <array name="data" type="u8" len_type="u32" />
+                <field name="data" type="[u8; 26]" />
             </payload>
         </stream>
 
-        <stream kind="7" name="LogWarning" timeout="4">
+        <stream kind="9" name="LogWarning" timeout="4">
+            <start>
+                <field name="length" type="u32" />
+                <field name="data" type="[u8; 20]" />
+            </start>
             <payload>
-                <array name="data" type="u8" len_type="u32" />
+                <field name="data" type="[u8; 26]" />
             </payload>
         </stream>
 
-        <stream kind="8" name="LogError" timeout="4">
+        <stream kind="10" name="LogError" timeout="4">
+            <start>
+                <field name="length" type="u32" />
+                <field name="data" type="[u8; 20]" />
+            </start>
             <payload>
-                <array name="data" type="u8" len_type="u32" />
+                <field name="data" type="[u8; 26]" />
             </payload>
         </stream>
 
         <!--
+
+        <bitset name="TypeMeta">
+            <value name="len" bits="5" repr="u8" />
+            <value name="size" bits="10" repr="i32" />
+            <value name="data" bits="3" repr="i64" />
+        </bitset>
+
         <obsolete until="2.0" reason="Test" replaced_by="ProtocolRedeclared">
             <message kind="4" name="ProtocolRedeclaredOld">
                 <field name="version" type="u32" />

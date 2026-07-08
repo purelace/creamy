@@ -7,3 +7,4 @@ license.workspace = true
 [dependencies]
 creamy-manifest.workspace = true
 creamy-xmlc.workspace = true
+anyhow.workspace = true

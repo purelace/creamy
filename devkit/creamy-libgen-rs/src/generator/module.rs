@@ -1,22 +1,26 @@
-use crate::generator::{Access, Enum, Struct, add_depth};
+use std::borrow::Cow;
+
+use crate::generator::{Access, CodeBlock, Enum, Struct, add_depth};
 
 pub struct Module<'a, W: std::io::Write> {
     pub access: Access,
-    pub name: &'a str,
+    pub name: Cow<'a, str>,
     pub enums: Vec<Enum<'a>>,
     pub structs: Vec<Struct<'a, W>>,
     pub modules: Vec<Module<'a, W>>,
+    pub other: Vec<Box<dyn CodeBlock<W> + 'a>>,
 }
 
 impl<'a, W: std::io::Write> Module<'a, W> {
     #[must_use]
-    pub const fn new(name: &'a str) -> Self {
+    pub fn new(name: impl Into<Cow<'a, str>>) -> Self {
         Self {
             access: Access::None,
-            name,
+            name: name.into(),
             enums: vec![],
             structs: vec![],
             modules: vec![],
+            other: vec![],
         }
     }
 
@@ -34,6 +38,10 @@ impl<'a, W: std::io::Write> Module<'a, W> {
 
         for module in &self.modules {
             module.write_to(writer, depth + 1)?;
+        }
+
+        for other in &self.other {
+            other.write_to(writer, depth + 1)?;
         }
 
         add_depth(writer, depth)?;

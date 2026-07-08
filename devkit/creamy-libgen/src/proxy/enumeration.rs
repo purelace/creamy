@@ -1,15 +1,16 @@
-use creamy_xmlc::{VariantValue, model::symbols::EnumRepr};
+use creamy_xmlc::{VariantValue, model::symbols::PrimitiveRepr};
 
-pub struct ResolvedVariant<'s> {
+#[derive(Clone)]
+pub struct EnrichedVariantSymbol<'s> {
     pub name: &'s str,
     pub value: VariantValue,
 }
 
 pub struct EnrichedEnumSymbol<'s, I>
 where
-    I: Iterator<Item = ResolvedVariant<'s>>,
+    I: Iterator<Item = EnrichedVariantSymbol<'s>>,
 {
     pub name: &'s str,
-    pub repr: EnumRepr,
+    pub repr: PrimitiveRepr,
     pub variants: I,
 }

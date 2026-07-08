@@ -12,7 +12,7 @@ pub trait StringPoolIntern {
 
 impl StringPoolIntern for String {
     fn intern(&self, pool: &mut StringPool) -> StringId {
-        pool.get_id(self)
+        pool.get_id_or_add(self)
     }
 
     fn intern_non_zero(&self, pool: &mut StringPool) -> NonZeroStringId {
@@ -22,7 +22,7 @@ impl StringPoolIntern for String {
 
 impl StringPoolIntern for &str {
     fn intern(&self, pool: &mut StringPool) -> StringId {
-        pool.get_id(self)
+        pool.get_id_or_add(self)
     }
 
     fn intern_non_zero(&self, pool: &mut StringPool) -> NonZeroStringId {

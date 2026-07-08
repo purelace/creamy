@@ -38,7 +38,7 @@ define_readonly_struct! {
     }
 }
 
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum VariantValue {
     #[brw(magic = 0u8)]
     Singed(i64),
@@ -122,7 +122,7 @@ define_readonly_struct! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FieldTypeNode {
     Type(StringId),
     Array(ArrayNode),
@@ -131,9 +131,9 @@ pub enum FieldTypeNode {
 impl FieldTypeNode {
     pub fn new(token: IdentifierOrArray, pool: &mut StringPool) -> Self {
         match token {
-            IdentifierOrArray::Identifier(ident) => FieldTypeNode::Type(pool.get_id(&ident)),
+            IdentifierOrArray::Identifier(ident) => FieldTypeNode::Type(pool.get_id_or_add(&ident)),
             IdentifierOrArray::Array(ident, size) => {
-                let ident = pool.get_id(ident);
+                let ident = pool.get_id_or_add(ident);
                 FieldTypeNode::Array(ArrayNode::new(ident, size))
             }
         }

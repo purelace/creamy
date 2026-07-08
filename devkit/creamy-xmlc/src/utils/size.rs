@@ -8,7 +8,7 @@ use crate::{
 };
 
 /// This struct is guaranteed that size is non-zero and equal to or less than [`Self::MAX_VALUE`];
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Size(NonZeroU8);
 impl Size {
     #[allow(clippy::cast_possible_truncation)]

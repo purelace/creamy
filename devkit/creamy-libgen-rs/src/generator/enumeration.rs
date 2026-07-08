@@ -1,4 +1,4 @@
-use creamy_xmlc::{VariantValue, model::symbols::EnumRepr};
+use creamy_xmlc::{VariantValue, model::symbols::PrimitiveRepr};
 
 use crate::generator::{Access, DeriveList, add_depth};
 
@@ -21,7 +21,7 @@ impl EnumVariant<'_> {
 pub struct Enum<'a> {
     pub derives: DeriveList<'a>,
     pub access: Access,
-    pub repr: EnumRepr,
+    pub repr: PrimitiveRepr,
     pub name: &'a str,
     pub variants: Vec<EnumVariant<'a>>,
 }
@@ -32,7 +32,7 @@ impl<'a> Enum<'a> {
         Self {
             derives: DeriveList::new(),
             access: Access::None,
-            repr: EnumRepr::U8,
+            repr: PrimitiveRepr::U8,
             name,
             variants: vec![],
         }

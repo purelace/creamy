@@ -28,6 +28,7 @@ impl<'a> Function<'a> {
 
         if let Some(pass) = self.self_pass {
             let arg = match pass {
+                Pass::MutMove => "mut self",
                 Pass::Move => "self",
                 Pass::Ref => "&self",
                 Pass::Mut => "&mut self",
@@ -98,7 +99,12 @@ pub struct Argument<'a> {
 
 impl Argument<'_> {
     pub fn write_to<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
-        write!(writer, "{}: {}{}", self.name, self.pass, self.kind)
+        let pass = match self.pass {
+            Pass::Move | Pass::MutMove => "",
+            Pass::Ref => "&",
+            Pass::Mut => "&mut ",
+        };
+        write!(writer, "{}: {}{}", self.name, pass, self.kind)
     }
 }
 

@@ -68,7 +68,7 @@ pub fn show_one_group_by_idx(def: &ProtocolDefinition, pool: &StringPool, idx: N
 }
 
 pub fn show_one_group_by_name(def: &ProtocolDefinition, pool: &mut StringPool, name: &str) {
-    let name_id = pool.get_id(name);
+    let name_id = pool.get_id_or_add(name);
     if let Some(idx) = def
         .groups()
         .iter()

@@ -4,7 +4,7 @@ use crate::{
     constraints::{MAX_ENUMS, MAX_VARIANTS},
     define_readonly_struct,
     error::SemanticError,
-    model::symbols::EnumRepr,
+    model::symbols::PrimitiveRepr,
     nodes::VariantValue,
     table::TypeMeta,
     utils::{EnumsRange, VariantsRange},
@@ -22,7 +22,7 @@ define_readonly_struct! {
     [element(MAX_ENUMS, EnumsRange)]
     struct EnumSymbol {
         name: StringId,
-        repr: EnumRepr,
+        repr: PrimitiveRepr,
         variants: VariantsRange,
     }
 }
