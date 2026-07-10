@@ -95,15 +95,25 @@ pub trait StreamReaderFunctions {
 
 pub trait StreamWriterFunctions {
     type Stream: StreamMessage;
-    type Object;
+    type Object<'a>: ?Sized
+    where
+        Self: 'a;
 
     //fn read_single(&mut self, single: <Self::Stream as StreamMessage>::Payload);
-    fn write_head(&mut self, object: &Self::Object) -> <Self::Stream as StreamMessage>::Head;
-    fn write_payload(
+    fn write_head<'a>(
         &mut self,
-        object: &Self::Object,
+        object: &'a Self::Object<'a>,
+    ) -> <Self::Stream as StreamMessage>::Head;
+
+    fn write_payload<'a>(
+        &mut self,
+        object: &'a Self::Object<'a>,
     ) -> Option<<Self::Stream as StreamMessage>::Payload>;
-    fn write_tail(&mut self, object: &Self::Object) -> <Self::Stream as StreamMessage>::Tail;
+
+    fn write_tail<'a>(
+        &mut self,
+        object: &'a Self::Object<'a>,
+    ) -> <Self::Stream as StreamMessage>::Tail;
 }
 
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -221,6 +231,7 @@ pub struct StreamWriter<W: StreamWriterFunctions> {
     writer: W,
     frame: u8,
     id: StreamId,
+    //_phantom: PhantomData<'a>,
     //state: StreamChunkType,
 }
 
@@ -234,7 +245,7 @@ impl<W: StreamWriterFunctions> StreamWriter<W> {
         }
     }
 
-    pub fn write(&mut self, object: &W::Object) {
+    pub fn write<'a>(&mut self, object: &'a W::Object<'a>) {
         let mut outgoing = get_outgoing();
 
         let mut message = Log::PREPARED;

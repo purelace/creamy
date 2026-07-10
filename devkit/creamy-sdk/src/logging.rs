@@ -1,4 +1,5 @@
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
+use core::fmt::Arguments;
 
 use crate::{
     stream::{StreamMessage, StreamReaderFunctions, StreamWriterFunctions},
@@ -45,9 +46,12 @@ impl LogWriter {
 
 impl StreamWriterFunctions for LogWriter {
     type Stream = Log;
-    type Object = String;
+    type Object<'a> = str;
 
-    fn write_head(&mut self, object: &Self::Object) -> <Self::Stream as StreamMessage>::Head {
+    fn write_head<'a>(
+        &mut self,
+        object: &'a Self::Object<'a>,
+    ) -> <Self::Stream as StreamMessage>::Head {
         let mut data = [0u8; 20];
 
         let to_read = object.len().min(20);
@@ -64,9 +68,9 @@ impl StreamWriterFunctions for LogWriter {
         }
     }
 
-    fn write_payload(
+    fn write_payload<'a>(
         &mut self,
-        object: &Self::Object,
+        object: &'a Self::Object<'a>,
     ) -> Option<<Self::Stream as StreamMessage>::Payload> {
         if self.sent == object.len() {
             return None;
@@ -88,7 +92,10 @@ impl StreamWriterFunctions for LogWriter {
         Some(LogPayload { __unused: 0, data })
     }
 
-    fn write_tail(&mut self, object: &Self::Object) -> <Self::Stream as StreamMessage>::Tail {
+    fn write_tail<'a>(
+        &mut self,
+        object: &'a Self::Object<'a>,
+    ) -> <Self::Stream as StreamMessage>::Tail {
         let mut data = [0; 27];
         let slice = &object.as_bytes()[self.sent..];
         let to_read = slice.len().min(27);
@@ -98,17 +105,50 @@ impl StreamWriterFunctions for LogWriter {
     }
 }
 
+pub fn send_log(string: Arguments, log_type: LogType) {
+    let writer = LogWriter::new(log_type);
+    let mut stream = crate::stream::StreamWriter::new(writer, crate::stream::StreamId::new(0));
+    if let Some(string) = string.as_str() {
+        stream.write(string);
+    }
+}
+
 #[macro_export]
-macro_rules! info {
+macro_rules! debug {
     ($($arg:tt)*) => {
-        use alloc::string::ToString;
-        let string = format_args!($($arg)*);
-        let writer = $crate::logging::LogWriter::new($crate::system::builtin::LogType::Info);
-        let mut stream = $crate::stream::StreamWriter::new(writer, $crate::stream::StreamId::new(0));
-        stream.write(&(string.to_string()));
+        $crate::logging::send_log(
+            format_args!($($arg)*),
+            $crate::logging::LogType::Debug
+        );
     };
 }
 
-fn test() {
-    info!("xdd");
+#[macro_export]
+macro_rules! info {
+    ($($arg:tt)*) => {
+        $crate::logging::send_log(
+            format_args!($($arg)*),
+            $crate::logging::LogType::Info
+        );
+    };
+}
+
+#[macro_export]
+macro_rules! warn {
+    ($($arg:tt)*) => {
+        $crate::logging::send_log(
+            format_args!($($arg)*),
+            $crate::logging::LogType::Warn
+        );
+    };
+}
+
+#[macro_export]
+macro_rules! error {
+    ($($arg:tt)*) => {
+        $crate::logging::send_log(
+            format_args!($($arg)*),
+            $crate::logging::LogType::Error
+        );
+    };
 }
