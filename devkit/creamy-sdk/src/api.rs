@@ -3,59 +3,64 @@ use cbus_core::{
     buffer::{Incoming, Outgoing},
 };
 
-const HEADER_MASK: u32 = 0x00_FF_00_FF;
+use crate::dispatcher::MessageHandler;
 
-#[inline]
-const fn get_dispatch_value(message: &UntypedMessage) -> u32 {
-    u32::from_le_bytes([message.dst, message.group, message.src, message.kind]) & HEADER_MASK
+pub trait Plugin: Sized + CustomHandler {
+    fn init(outgoing: Outgoing) -> Option<Self>;
 }
 
-//TODO: static dispatcher
-pub fn handle_messages(mut incoming: Incoming) {
-    for message in incoming.as_slice() {
-        if message.group != 1 {
-            continue;
-        }
+pub trait CustomHandler {
+    fn handle_message(&mut self, dispatch_value: u32, message: UntypedMessage);
+}
 
-        let message = message.cast::<Ping>();
-        outgoing.send(
-            &Pong::PREPARED
-                .with_dst(message.src)
-                .with_group(1)
-                .with_serial(message.serial),
-        );
+const HEADER_MASK: u32 = 0x00_FF_00_FF;
+pub fn handle_incoming<H: MessageHandler>(handler: &mut H, mut incoming: Incoming) {
+    for &message in incoming.as_slice() {
+        let dispatch_value = {
+            let message: &UntypedMessage = &message;
+            u32::from_le_bytes([message.dst, message.group, message.src, message.kind])
+                & HEADER_MASK
+        };
+        handler.handle_message(dispatch_value, message);
     }
 
     incoming.clear();
 }
 
-pub fn handle_message(message: UntypedMessage) {}
-
 #[macro_export]
 macro_rules! declare_plugin {
-    ($s:ty, $t:ty) => {
+    ($plugin:ty, $($dispatcher_module:ident)::+) => {
+        static STATE: $crate::spin::Mutex<Option<$crate::state::InnerState<$plugin>>> =
+            $crate::spin::Mutex::new(None);
+
         #[unsafe(no_mangle)]
-        #[allow(clippy::missing_safety_doc)]
         pub unsafe extern "C" fn init_plugin() -> u8 {
-            let state = <$s>::init();
-            <$t as $crate::api::Plugin<$s>>::init(state)
+            let outgoing = $crate::get_outgoing();
+            if let Some(plugin) = <$plugin as $crate::api::Plugin>::init(outgoing) {
+                let state = $crate::state::InnerState::new(plugin);
+                let mut lock = STATE.lock();
+                *lock = Some(state);
+
+                0
+            } else {
+                1
+            }
         }
 
         #[unsafe(no_mangle)]
-        #[allow(clippy::missing_safety_doc)]
         pub unsafe extern "C" fn notify() {
             let incoming = $crate::get_incoming();
-            let outgoing = $crate::get_outgoing();
-            <$t as $crate::api::Plugin<$s>>::notify(incoming, outgoing);
+            let mut lock = STATE.lock();
+            if let Some(ref mut state) = *lock {
+                $crate::api::handle_incoming(state, incoming);
+            }
+        }
+
+        impl $crate::api::CustomHandler for $plugin {
+            #[inline(always)]
+            fn handle_message(&mut self, dispatch_value: u32, message: UntypedMessage) {
+                $($dispatcher_module)::+::dispatch_message(dispatch_value, message, self);
+            }
         }
     };
-}
-
-pub trait PluginState {
-    fn init() -> Self;
-}
-
-pub trait Plugin<S: PluginState> {
-    fn init(state: S) -> u8;
-    fn notify(incoming: Incoming, outgoing: Outgoing);
 }

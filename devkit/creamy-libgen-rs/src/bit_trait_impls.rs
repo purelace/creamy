@@ -16,11 +16,7 @@ pub fn generate_bitxor_impl<'a>(target: &'a str, kind: &'a str) -> TraitImpl<'a>
             Function::default()
                 .with_name("bitxor")
                 .with_self_pass(Pass::Move)
-                .with_arg(Argument {
-                    name: "rhs",
-                    kind: Cow::Borrowed("Self"),
-                    pass: Pass::Move,
-                })
+                .with_arg(Argument::new("rhs", Cow::Borrowed("Self"), Pass::Move))
                 .with_ret("Self::Output")
                 .with_body(Body {
                     lines: vec![BodyLine {
@@ -45,11 +41,7 @@ pub fn generate_bitor_impl<'a>(target: &'a str, kind: &'a str) -> TraitImpl<'a> 
             Function::default()
                 .with_name("bitor")
                 .with_self_pass(Pass::Move)
-                .with_arg(Argument {
-                    name: "rhs",
-                    kind: Cow::Borrowed("Self"),
-                    pass: Pass::Move,
-                })
+                .with_arg(Argument::new("rhs", Cow::Borrowed("Self"), Pass::Move))
                 .with_ret("Self::Output")
                 .with_body(Body {
                     lines: vec![BodyLine {

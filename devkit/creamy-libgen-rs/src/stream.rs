@@ -31,7 +31,7 @@ fn generate_stream_trait_impl<'s>(
                 is_const: false,
                 name: Cow::Borrowed("discriminant"),
                 self_pass: Some(Pass::Ref),
-                arg: vec![],
+                args: vec![],
                 ret: Some(Cow::Owned(args.stream_chunk_type_path())),
                 body: Body {
                     lines: vec![
@@ -56,13 +56,14 @@ fn generate_stream_trait_impl<'s>(
                         },
                     ],
                 },
+                inline: false,
             },
             Function {
                 access: Access::None,
                 is_const: false,
                 name: Cow::Borrowed("stream_id"),
                 self_pass: Some(Pass::Ref),
-                arg: vec![],
+                args: vec![],
                 ret: Some(Cow::Owned(args.stream_id_path())),
                 body: Body {
                     lines: vec![BodyLine {
@@ -73,6 +74,7 @@ fn generate_stream_trait_impl<'s>(
                         depth: 0,
                     }],
                 },
+                inline: false,
             },
         ],
         constants: vec![Const {
@@ -84,7 +86,35 @@ fn generate_stream_trait_impl<'s>(
     }
 }
 
+fn generate_stream_data_trait_impl<'s>(
+    args: &Args,
+    target: impl Into<Cow<'s, str>>,
+) -> TraitImpl<'s> {
+    TraitImpl {
+        trait_name: args.stream_data_trait_path().into(),
+        target: target.into(),
+        associated_types: vec![],
+        constants: vec![],
+        functions: vec![Function {
+            access: Access::None,
+            is_const: false,
+            name: "cast_to_array".into(),
+            self_pass: Some(Pass::Move),
+            args: vec![],
+            ret: Some("[u8; 28]".into()),
+            body: Body {
+                lines: vec![BodyLine {
+                    content: "unsafe { core::mem::transmute(self) }".into(),
+                    depth: 0,
+                }],
+            },
+            inline: true,
+        }],
+    }
+}
+
 fn generate_part<'s, I, W: Write + 's>(
+    args: &Args,
     part_name: String,
     trait_marker: String,
     fields: I,
@@ -109,14 +139,17 @@ where
         .collect();
 
     part.content = StructContent::Fields(fields);
-    part.trait_impls.push(TraitImpl {
-        trait_name: trait_marker.into(),
-        //TODO нет смысла хранить target
-        target: part_name.clone().into(),
-        associated_types: vec![],
-        functions: vec![],
-        constants: vec![],
-    });
+    part.trait_impls = vec![
+        TraitImpl {
+            trait_name: trait_marker.into(),
+            //TODO нет смысла хранить target
+            target: part_name.clone().into(),
+            associated_types: vec![],
+            functions: vec![],
+            constants: vec![],
+        },
+        generate_stream_data_trait_impl(args, part_name),
+    ];
 
     part
 }
@@ -145,9 +178,12 @@ where
             args.stream_max_payload_size_path(),
             name.clone(),
         ));
-        module
-            .structs
-            .push(generate_part(name, args.stream_head_trait_path(), head));
+        module.structs.push(generate_part(
+            args,
+            name,
+            args.stream_head_trait_path(),
+            head,
+        ));
     } else {
         stream_trait.associated_types.push(TraitImplAssociatedType {
             name: "Head",
@@ -165,6 +201,7 @@ where
         payload_name.clone(),
     ));
     module.structs.push(generate_part(
+        args,
         payload_name,
         args.stream_payload_trait_path(),
         symbol.payload.clone(),
@@ -180,9 +217,12 @@ where
             args.stream_max_payload_size_path(),
             name.clone(),
         ));
-        module
-            .structs
-            .push(generate_part(name, args.stream_tail_trait_path(), tail));
+        module.structs.push(generate_part(
+            args,
+            name,
+            args.stream_tail_trait_path(),
+            tail,
+        ));
     } else {
         stream_trait.associated_types.push(TraitImplAssociatedType {
             name: "Tail",
@@ -232,11 +272,11 @@ where
                 is_const: true,
                 name: Cow::Borrowed("with_discriminant"),
                 self_pass: Some(Pass::Mut),
-                arg: vec![Argument {
-                    name: "value",
-                    kind: Cow::Owned(args.stream_chunk_type_path()),
-                    pass: Pass::Move,
-                }],
+                args: vec![Argument::new(
+                    "value",
+                    args.stream_chunk_type_path(),
+                    Pass::Move,
+                )],
                 ret: Some(Cow::Borrowed("&mut Self")),
                 body: Body {
                     lines: vec![
@@ -269,17 +309,14 @@ where
                         },
                     ],
                 },
+                inline: false,
             },
             Function {
                 access: Access::Pub,
                 is_const: true,
                 name: Cow::Borrowed("with_stream_id"),
                 self_pass: Some(Pass::Mut),
-                arg: vec![Argument {
-                    name: "value",
-                    kind: Cow::Owned(args.stream_id_path()),
-                    pass: Pass::Move,
-                }],
+                args: vec![Argument::new("value", args.stream_id_path(), Pass::Move)],
                 ret: Some(Cow::Borrowed("&mut Self")),
                 body: Body {
                     lines: vec![
@@ -297,10 +334,12 @@ where
                         },
                     ],
                 },
+
+                inline: false,
             },
         ],
 
-        custom: generate_message_consts(args, symbol.kind, symbol.dispatch_value),
+        custom: generate_message_consts(args, symbol.group, symbol.kind, symbol.dispatch_value),
     });
 
     struct_

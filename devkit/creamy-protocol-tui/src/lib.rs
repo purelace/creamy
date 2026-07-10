@@ -10,7 +10,7 @@ use creamy_utils::strpool::StringPool;
 use creamy_xmlc::{
     ProtocolDefinition, StringPoolResolver,
     constraints::HEADER_BYTES,
-    model::symbols::{FieldSymbol, FieldType, Type},
+    model::symbols::{FieldSymbol, FieldType, MessageSymbolType, Type},
 };
 
 use crate::memory::{ArrayField, MemoryReport, SimpleField};
@@ -103,7 +103,11 @@ pub fn show_memory_layout(
     let group = &def.groups()[group.get() as usize - 1];
     let messages = def.messages_slice(group.messages());
     let message = messages[msg as usize];
-    let fields = def.fields_slice(message.fields());
+    let field_range = match message {
+        MessageSymbolType::Single(s) => s.fields(),
+        MessageSymbolType::Stream(s) => s.payload(), //TODO: support stream messages in memory report
+    };
+    let fields = def.fields_slice(field_range);
 
     let mut report = MemoryReport::new(message.name().resolve(pool));
     if flat {

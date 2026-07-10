@@ -42,20 +42,26 @@ pub fn generate_const_size_assert<'s, W: Write + 's>(
 
 pub fn generate_message_consts<'s, W: Write + 's>(
     args: &Args,
+    group: u8,
     kind: u8,
-    dispatch_value: Option<u32>,
+    dispatch_value: u32,
 ) -> Vec<Box<dyn CodeBlock<W> + 's>> {
-    let mut vec: Vec<Box<dyn CodeBlock<W> + 's>> = vec![
+    vec![
+        Box::new(generate_message_group_const(group)),
         Box::new(generate_message_kind_const(kind)),
         Box::new(generate_zeroed_message_const(args)),
         Box::new(generate_prepared_message_const()),
-    ];
+        Box::new(generate_dispatch_value_const(dispatch_value)),
+    ]
+}
 
-    if let Some(dispatch_value) = dispatch_value {
-        vec.push(Box::new(generate_dispatch_value_const(dispatch_value)));
+pub fn generate_message_group_const(group: u8) -> Const<'static> {
+    Const {
+        access: Access::Pub,
+        ident: Cow::Borrowed("GROUP"),
+        kind: Cow::Borrowed("u8"),
+        value: Cow::Owned(group.to_string()),
     }
-
-    vec
 }
 
 pub fn generate_message_kind_const(kind: u8) -> Const<'static> {
@@ -76,7 +82,7 @@ pub fn generate_zeroed_message_const<'s>(args: &Args) -> Const<'s> {
         value: format!(
             "
             unsafe {{
-                core::mem::transmute::<_, Self>([0; {message_size}])
+                core::mem::transmute::<_, Self>([0u8; {message_size}])
             }}
         ",
             message_size = args.message_size_path()
@@ -90,7 +96,13 @@ pub fn generate_prepared_message_const<'s>() -> Const<'s> {
         access: Access::Pub,
         ident: "PREPARED".into(),
         kind: "Self".into(),
-        value: "Self::ZEROED.with_kind(Self::KIND)".into(),
+        value: "{
+            let mut value = Self::ZEROED;
+            value.group = Self::GROUP;
+            value.kind = Self::KIND;
+            value
+        }"
+        .into(),
     }
 }
 

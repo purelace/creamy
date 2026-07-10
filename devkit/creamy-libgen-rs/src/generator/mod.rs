@@ -3,6 +3,7 @@ mod function;
 mod r#impl;
 mod module;
 mod structure;
+mod r#trait;
 mod trait_impl;
 
 use std::{borrow::Cow, fmt::Display};
@@ -12,6 +13,7 @@ pub use function::{Argument, Body, BodyLine, Function};
 pub use r#impl::Impl;
 pub use module::Module;
 pub use structure::{Field, Struct, StructContent};
+pub use r#trait::{FunctionDefinition, Trait, TraitAssociatedType};
 pub use trait_impl::{TraitImpl, TraitImplAssociatedType};
 
 #[derive(Default, Debug, Copy, Clone)]

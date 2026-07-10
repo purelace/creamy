@@ -17,6 +17,22 @@ pub enum EnrichedFieldType<'s> {
     Array { kind: Cow<'s, str>, len: u8 },
 }
 
+fn get_padding_kind<'a>(
+    padding: u8,
+    tt: &FinishedTypeTable,
+    pool: &'a StringPool,
+) -> EnrichedFieldType<'a> {
+    if padding <= 1 {
+        EnrichedFieldType::Type(Cow::Borrowed(tt.get_type(T_U8_ID).ident().resolve(pool)))
+    } else {
+        let kind = tt.get_type(T_U8_ID).ident().resolve(pool);
+        EnrichedFieldType::Array {
+            kind: Cow::Borrowed(kind),
+            len: padding,
+        }
+    }
+}
+
 fn get_field_kind<'a>(
     kind: FieldType,
     tt: &FinishedTypeTable,
@@ -90,7 +106,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
                     self.prev = Some(field);
                     let field = EnrichedFieldSymbol {
                         name: Cow::Owned(format!("__padding{}", self.padding_index)),
-                        kind: get_field_kind(FieldType::Type(T_U8_ID), self.tt, self.pool),
+                        kind: get_padding_kind(step.padding, self.tt, self.pool),
                         is_padding: true,
                     };
                     self.padding_index += 1;

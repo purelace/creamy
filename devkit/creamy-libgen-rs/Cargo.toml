@@ -10,3 +10,6 @@ creamy-xmlc.workspace = true
 creamy-utils.workspace = true
 
 heck = "0.5.0"
+
+[features]
+sdk_internal_use = ["creamy-libgen/sdk_internal_use"]

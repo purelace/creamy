@@ -1,30 +1,33 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, io::Write};
 
-use super::{Access, Pass, add_depth};
+use super::{Access, CodeBlock, Pass, add_depth};
 
+//TODO: remove Default
 #[derive(Default)]
 pub struct Function<'a> {
     pub access: Access,
     pub is_const: bool,
     pub name: Cow<'a, str>,
     pub self_pass: Option<Pass>,
-    pub arg: Vec<Argument<'a>>,
+    pub args: Vec<Argument<'a>>,
     pub ret: Option<Cow<'a, str>>,
     pub body: Body<'a>,
+    pub inline: bool,
 }
 
-impl<'a> Function<'a> {
-    pub fn write_to<W: std::io::Write>(
-        &self,
-        writer: &mut W,
-        depth: usize,
-    ) -> Result<(), std::io::Error> {
+impl<'a, W: Write + 'a> CodeBlock<W> for Function<'a> {
+    fn write_to(&self, writer: &mut W, depth: usize) -> Result<(), std::io::Error> {
+        add_depth(writer, depth)?;
+        if self.inline {
+            writeln!(writer, "#[inline(always)]")?;
+        }
+
         add_depth(writer, depth)?;
         write!(writer, "{}", self.access)?;
         if self.is_const {
             write!(writer, " const ")?;
         }
-        write!(writer, "fn {}(", self.name)?;
+        write!(writer, " fn {}(", self.name)?;
 
         if let Some(pass) = self.self_pass {
             let arg = match pass {
@@ -36,11 +39,14 @@ impl<'a> Function<'a> {
             write!(writer, "{arg}")?;
         }
 
-        if !self.arg.is_empty() {
-            write!(writer, ", ")?;
-            for (idx, arg) in self.arg.iter().enumerate() {
+        if !self.args.is_empty() {
+            if self.self_pass.is_some() {
+                write!(writer, ", ")?;
+            }
+
+            for (idx, arg) in self.args.iter().enumerate() {
                 arg.write_to(writer)?;
-                if idx != self.arg.len() - 1 {
+                if idx != self.args.len() - 1 {
                     write!(writer, ", ")?;
                 }
             }
@@ -59,7 +65,9 @@ impl<'a> Function<'a> {
         add_depth(writer, depth)?;
         writeln!(writer, "}}\n")
     }
+}
 
+impl<'a> Function<'a> {
     pub fn with_name(mut self, value: impl Into<Cow<'a, str>>) -> Self {
         self.name = value.into();
         self
@@ -86,18 +94,26 @@ impl<'a> Function<'a> {
     }
 
     pub fn with_arg(mut self, arg: Argument<'a>) -> Self {
-        self.arg.push(arg);
+        self.args.push(arg);
         self
     }
 }
 
 pub struct Argument<'a> {
-    pub name: &'a str,
+    pub name: Cow<'a, str>,
     pub kind: Cow<'a, str>,
     pub pass: Pass,
 }
 
-impl Argument<'_> {
+impl<'a> Argument<'a> {
+    pub fn new(name: impl Into<Cow<'a, str>>, kind: impl Into<Cow<'a, str>>, pass: Pass) -> Self {
+        Self {
+            name: name.into(),
+            kind: kind.into(),
+            pass,
+        }
+    }
+
     pub fn write_to<W: std::io::Write>(&self, writer: &mut W) -> Result<(), std::io::Error> {
         let pass = match self.pass {
             Pass::Move | Pass::MutMove => "",

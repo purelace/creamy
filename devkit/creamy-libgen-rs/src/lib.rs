@@ -9,11 +9,13 @@ pub mod creamy_libgen {
 mod bit_trait_impls;
 mod builder;
 mod generator;
+pub mod script;
 mod stream;
 mod utils;
 
-use std::{borrow::Cow, io::Write};
+use std::{borrow::Cow, fmt::Write as FmtWrite, io::Write as IoWrite};
 
+use ::creamy_libgen::Path;
 use creamy_libgen::{
     CodeGenerator, EnrichedSingleMessageSymbol, EnrichedStreamMessageSymbol, EnrichedStructSymbol,
     GenResult, SymbolIterator,
@@ -23,9 +25,11 @@ use creamy_libgen::{
     },
 };
 use creamy_xmlc::model::symbols::PrimitiveRepr;
+use heck::ToSnakeCase;
 
 use self::{
     builder::generate_builder_pattern,
+    generator::{FunctionDefinition, Trait},
     utils::{generate_const_size_assert, generate_message_consts},
 };
 use crate::{
@@ -65,12 +69,20 @@ impl Args {
         self
     }
 
-    pub(crate) fn typed_message_path(&self) -> String {
+    pub(crate) fn typed_message_trait_path(&self) -> String {
         format!("{}::bus::message::TypedMessage", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn untyped_message_path(&self) -> String {
+        format!("{}::bus::UntypedMessage", self.creamy_sdk_path)
     }
 
     pub(crate) fn message_size_path(&self) -> String {
         format!("{}::bus::defines::MESSAGE_SIZE", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn custom_message_handler_trait_path(&self) -> String {
+        format!("{}::api::CustomHandler", self.creamy_sdk_path)
     }
 
     pub(crate) fn stream_id_path(&self) -> String {
@@ -99,6 +111,10 @@ impl Args {
 
     pub(crate) fn stream_max_payload_size_path(&self) -> String {
         format!("{}::stream::MAX_STREAM_PAYLOAD", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn stream_data_trait_path(&self) -> String {
+        format!("{}::stream::StreamData", self.creamy_sdk_path)
     }
 }
 
@@ -344,7 +360,7 @@ fn generate_set_body<'a>(symbol: EnrichedBitsetValueSymbol, add_debug_asserts: b
 
 fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'a> {
     TraitImpl {
-        trait_name: Cow::Owned(args.typed_message_path()),
+        trait_name: Cow::Owned(args.typed_message_trait_path()),
         target: message.into(),
         associated_types: vec![],
         functions: vec![
@@ -363,8 +379,8 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                 is_const: false,
                 name: Cow::Borrowed("with_dst"),
                 self_pass: Some(Pass::Mut),
-                arg: vec![Argument {
-                    name: "value",
+                args: vec![Argument {
+                    name: "value".into(),
                     kind: Cow::Borrowed("u8"),
                     pass: Pass::Move,
                 }],
@@ -381,6 +397,7 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                         },
                     ],
                 },
+                inline: false,
             },
             Function::default()
                 .with_name("src")
@@ -407,8 +424,8 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                 is_const: false,
                 name: Cow::Borrowed("with_group"),
                 self_pass: Some(Pass::Mut),
-                arg: vec![Argument {
-                    name: "value",
+                args: vec![Argument {
+                    name: "value".into(),
                     kind: Cow::Borrowed("u8"),
                     pass: Pass::Move,
                 }],
@@ -425,13 +442,14 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                         },
                     ],
                 },
+                inline: false,
             },
             Function {
                 access: Access::None,
                 is_const: false,
                 name: Cow::Borrowed("kind"),
                 self_pass: Some(Pass::Ref),
-                arg: vec![],
+                args: vec![],
                 ret: Some(Cow::Borrowed("u8")),
                 body: Body {
                     lines: vec![BodyLine {
@@ -439,14 +457,15 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                         depth: 0,
                     }],
                 },
+                inline: false,
             },
             Function {
                 access: Access::None,
                 is_const: false,
                 name: Cow::Borrowed("with_kind"),
                 self_pass: Some(Pass::Mut),
-                arg: vec![Argument {
-                    name: "value",
+                args: vec![Argument {
+                    name: "value".into(),
                     kind: Cow::Borrowed("u8"),
                     pass: Pass::Move,
                 }],
@@ -463,6 +482,7 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
                         },
                     ],
                 },
+                inline: false,
             },
         ],
         constants: vec![],
@@ -482,13 +502,13 @@ const fn repr_to_string(repr: PrimitiveRepr) -> Cow<'static, str> {
     })
 }
 
-pub struct RustGen<'s, W: Write> {
+pub struct RustGen<'s, W: IoWrite> {
     args: Args,
     modules: Vec<Module<'s, W>>,
     writer: W,
 }
 
-impl<'s, W: Write> RustGen<'s, W> {
+impl<'s, W: IoWrite> RustGen<'s, W> {
     pub const fn new(args: Args, writer: W) -> Self {
         Self {
             args,
@@ -506,7 +526,11 @@ impl<'s, W: Write> RustGen<'s, W> {
     }
 
     fn push_module(&mut self, module: Module<'s, W>) {
-        self.modules.last_mut().unwrap().modules.push(module);
+        if let Some(parent) = self.modules.last_mut() {
+            parent.modules.push(module);
+        } else {
+            self.modules.push(module);
+        }
     }
 
     fn push_other(&mut self, other: Box<dyn CodeBlock<W> + 's>) {
@@ -514,7 +538,7 @@ impl<'s, W: Write> RustGen<'s, W> {
     }
 }
 
-impl<'s, W: Write + 's> CodeGenerator<'s> for RustGen<'s, W> {
+impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
     fn start_group(&mut self, group: &'s str) {
         let mut module = Module::new(group);
         module.access = Access::Pub;
@@ -553,6 +577,7 @@ impl<'s, W: Write + 's> CodeGenerator<'s> for RustGen<'s, W> {
         let mut impl_ = generate_builder_pattern(symbol.fields, symbol.name);
         impl_.custom.extend(generate_message_consts(
             &self.args,
+            symbol.group,
             symbol.kind,
             symbol.dispatch_value,
         ));
@@ -606,9 +631,10 @@ impl<'s, W: Write + 's> CodeGenerator<'s> for RustGen<'s, W> {
                 is_const: true,
                 name: Cow::Borrowed(symbol.name),
                 self_pass: Some(Pass::Ref),
-                arg: vec![],
+                args: vec![],
                 ret: Some(repr_to_string(symbol.repr)),
                 body: generate_read_body(symbol),
+                inline: false,
             });
 
             impl_block.functions.push(Function {
@@ -616,13 +642,14 @@ impl<'s, W: Write + 's> CodeGenerator<'s> for RustGen<'s, W> {
                 is_const: true,
                 name: Cow::Owned(format!("set_{}", symbol.name)),
                 self_pass: Some(Pass::Mut),
-                arg: vec![Argument {
-                    name: "value",
+                args: vec![Argument {
+                    name: "value".into(),
                     kind: repr_to_string(symbol.repr),
                     pass: Pass::Move,
                 }],
                 ret: Some(Cow::Borrowed("&mut Self")),
                 body: generate_set_body(symbol, self.args.debug_asserts),
+                inline: false,
             });
 
             impl_block.functions.push(Function {
@@ -630,8 +657,8 @@ impl<'s, W: Write + 's> CodeGenerator<'s> for RustGen<'s, W> {
                 is_const: true,
                 name: Cow::Owned(format!("with_{}", symbol.name)),
                 self_pass: Some(Pass::MutMove),
-                arg: vec![Argument {
-                    name: "value",
+                args: vec![Argument {
+                    name: "value".into(),
                     kind: repr_to_string(symbol.repr),
                     pass: Pass::Move,
                 }],
@@ -648,6 +675,7 @@ impl<'s, W: Write + 's> CodeGenerator<'s> for RustGen<'s, W> {
                         },
                     ],
                 },
+                inline: false,
             });
         }
 
@@ -769,6 +797,89 @@ impl<'s, W: Write + 's> CodeGenerator<'s> for RustGen<'s, W> {
         self.modules.last_mut().unwrap().modules.push(group);
     }
 
+    fn generate_dispatcher<I>(&mut self, messages: I)
+    where
+        I: Iterator<Item = ::creamy_libgen::Path>,
+    {
+        //let mut branches = vec![];
+        let mut match_string = "match dispatch_value {".to_string();
+
+        let mut t = Trait::new("MessageHandler");
+        t.bound = Some(self.args.custom_message_handler_trait_path().into());
+        //t.types = vec![TraitAssociatedType {
+        //    name: "Next".into(),
+        //    bound: self.args.custom_message_handler_trait_path().into(),
+        //}];
+
+        for path in messages {
+            let function_name = format!(
+                "handle_{}",
+                path.components().last().unwrap().to_snake_case()
+            );
+            let mut function = FunctionDefinition::new(function_name.clone());
+            function.set_self(Pass::Mut);
+            function.add_argument(Argument {
+                name: "message".into(),
+                kind: path_to_string(&path).into(),
+                pass: Pass::Move,
+            });
+            t.add_function(function);
+
+            let _ = write!(
+                match_string,
+                r"
+                {path}::DISPATCH_VALUE => {{
+                    handler.{function_name}(message.cast());
+                }},
+                ",
+                path = path_to_string(&path)
+            );
+        }
+
+        match_string.push_str("_ => handler.handle_unknown_message(dispatch_value, message) }");
+
+        let mut last_function = FunctionDefinition::new("handle_unknown_message");
+        last_function.set_self(Pass::Mut);
+        last_function.add_argument(Argument {
+            name: "dispatch_value".into(),
+            kind: "u32".into(),
+            pass: Pass::Move,
+        });
+        last_function.add_argument(Argument {
+            name: "message".into(),
+            kind: self.args.untyped_message_path().into(),
+            pass: Pass::Move,
+        });
+
+        t.functions.push(last_function);
+
+        let function = Function {
+            access: Access::Pub,
+            is_const: false,
+            name: "dispatch_message".into(),
+            self_pass: None,
+            args: vec![
+                Argument::new("dispatch_value", "u32", Pass::Move),
+                Argument::new("message", self.args.untyped_message_path(), Pass::Move),
+                Argument::new("handler", "impl MessageHandler", Pass::Mut),
+            ],
+            ret: None,
+            body: Body {
+                lines: vec![BodyLine {
+                    content: match_string.into(),
+                    depth: 0,
+                }],
+            },
+            inline: true,
+        };
+
+        let mut module = Module::new("dispatcher");
+        module.other.push(Box::new(function));
+        module.other.push(Box::new(t));
+
+        self.push_module(module);
+    }
+
     fn flush(&mut self) -> GenResult {
         assert_eq!(self.modules.len(), 1);
         if let Some(global_module) = self.modules.pop() {
@@ -781,6 +892,10 @@ impl<'s, W: Write + 's> CodeGenerator<'s> for RustGen<'s, W> {
     }
 }
 
+fn path_to_string(path: &Path) -> String {
+    format!("crate::{}", path.components().join("::"))
+}
+
 #[cfg(test)]
 mod tests {
     use creamy_libgen::{Codegen, ProtocolLibrary};
@@ -789,10 +904,6 @@ mod tests {
 
     #[test]
     fn test() {
-        //let content =
-        //    std::fs::read_to_string("/mnt/ssd/fusionwm/creamy/devkit/creamy-sdk/system.xml")
-        //        .unwrap();
-
         let manifest = r#"
 [package]
 id = "org.creamy.sdk"
@@ -806,14 +917,14 @@ authors = [ "selrisu <myirisuchan@gmail.com>" ]
 path = "core.wasm"
 runtime = "wasm"
 
-[[protocols]]
-name = "system.builtin"
-version = "1.0"
-group = 1
+[protocols]
+system = { version = "1.0", groups=["builtin"]}
 "#;
 
         let mut library = ProtocolLibrary::new(manifest);
-        library.load_all("/mnt/ssd/fusionwm/creamy/devkit/creamy-sdk/");
+        library
+            .load_all("/mnt/ssd/fusionwm/creamy/devkit/creamy-sdk/")
+            .unwrap();
 
         let mut generator = Codegen::new(library);
         let mut rs = RustGen {
@@ -822,7 +933,8 @@ group = 1
             writer: Vec::with_capacity(8192 * 2),
         };
 
-        generator.run("system", &mut rs).unwrap();
+        generator.run(&mut rs).unwrap();
+
         let string = String::from_utf8(rs.writer).unwrap();
 
         println!("{string}");

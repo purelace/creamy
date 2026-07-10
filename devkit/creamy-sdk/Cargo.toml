@@ -11,7 +11,9 @@ crate-type = ["rlib", "staticlib"]
 cbus-core.workspace = true
 thiserror.workspace = true
 rlsf = "0.2.2"
+spin = "0.12.1"
+bit-set = "0.11.1"
 
 [build-dependencies]
-creamy-libgen-rs.workspace = true
+creamy-libgen-rs = { workspace = true, features = ["sdk_internal_use"] }
 creamy-xmlc.workspace = true

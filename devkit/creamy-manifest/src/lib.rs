@@ -1,6 +1,6 @@
 mod error;
 
-use std::num::NonZeroU8;
+use std::collections::HashMap;
 
 use binrw::{BinRead, BinWrite};
 use creamy_utils::{
@@ -30,19 +30,19 @@ pub struct Core {
 
 #[derive(BinRead, BinWrite, Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestedProtocol {
-    name: BString,
-    group: Option<NonZeroU8>,
+    version: BString,
+    groups: List<BString>,
 }
 
 impl RequestedProtocol {
     #[must_use]
-    pub fn name(&self) -> &str {
-        self.name.as_str()
+    pub fn version(&self) -> &str {
+        &self.version
     }
 
     #[must_use]
-    pub const fn static_group_id(&self) -> Option<NonZeroU8> {
-        self.group
+    pub fn groups(&self) -> &[BString] {
+        &self.groups
     }
 }
 
@@ -50,13 +50,34 @@ impl RequestedProtocol {
 pub struct ParsedManifest {
     package: Package,
     core: Core,
-    protocols: List<RequestedProtocol>,
+    protocols: HashMap<BString, RequestedProtocol>,
 }
 
-#[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
+#[derive(BinRead, BinWrite)]
+struct MapEntry {
+    key: BString,
+    value: RequestedProtocol,
+}
+
+#[binrw::binrw]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Manifest {
     package: Package,
-    protocols: List<RequestedProtocol>,
+
+    #[br(temp)]
+    #[bw(calc = u32::try_from(protocols.len()).unwrap())]
+    entry_count: u32,
+
+    #[br(
+        count = entry_count,
+        map = |vec: Vec<MapEntry>| vec.into_iter().map(|e| (e.key, e.value)).collect::<HashMap<_, _>>()
+    )]
+    #[bw(
+        map = |map: &HashMap<BString, RequestedProtocol>| {
+            map.iter().map(|(key, value)| MapEntry { key: key.clone(), value: value.clone() }).collect::<Vec<_>>()
+        }
+    )]
+    protocols: HashMap<BString, RequestedProtocol>,
 }
 
 impl Manifest {
@@ -92,8 +113,8 @@ impl Manifest {
     }
 
     #[must_use]
-    pub fn requested_protocols(&self) -> &[RequestedProtocol] {
-        self.protocols.as_slice()
+    pub const fn requested_groups(&self) -> &HashMap<BString, RequestedProtocol> {
+        &self.protocols
     }
 }
 
@@ -112,7 +133,7 @@ pub struct Arguments {
 
 #[cfg(test)]
 mod test {
-    use std::num::NonZeroU8;
+    use std::collections::HashMap;
 
     use creamy_utils::collections::List;
 
@@ -131,9 +152,8 @@ mod test {
      path = "core.wasm"
      runtime = "wasm"
 
-     [[protocols]]
-     name = "testcase.valid"
-     group = 1
+     [protocols]
+     testcase = { version = "1.0", groups=["valid"]}
      "#;
 
     #[test]
@@ -155,10 +175,17 @@ mod test {
                     repository: "https://github.com/purelace/chocomint".into(),
                     authors: List::wrap(vec!["selrisu <myirisuchan@gmail.com>".into()])
                 },
-                protocols: List::wrap(vec![RequestedProtocol {
-                    name: "testcase.valid".into(),
-                    group: Some(NonZeroU8::new(1).unwrap())
-                }])
+                protocols: {
+                    let mut map = HashMap::new();
+                    map.insert(
+                        "testcase".into(),
+                        RequestedProtocol {
+                            version: "1.0".into(),
+                            groups: List::wrap(vec!["valid".into()]),
+                        },
+                    );
+                    map
+                }
             }
         );
 

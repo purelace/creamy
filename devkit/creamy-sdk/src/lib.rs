@@ -1,14 +1,20 @@
+#![allow(clippy::inline_always)]
 #![no_std]
 
 extern crate alloc;
 pub mod api;
 pub mod export;
 mod logging;
+pub mod state;
 pub mod stream;
 pub mod utils;
 mod wasm;
 
 use cbus_core::buffer::{Incoming, Outgoing};
+
+pub mod spin {
+    pub use spin::*;
+}
 
 pub mod bus {
     pub use cbus_core::*;

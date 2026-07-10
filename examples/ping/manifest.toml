@@ -10,6 +10,5 @@ authors = [ "selrisu <myirisuchan@gmail.com>" ]
 path = "core.wasm"
 runtime = "wasm"
 
-[[protocols]]
-name = "ping.messages"
-version = "1.0"
+[protocols]
+ping = { version = "1.0", groups = [ "messages" ] }

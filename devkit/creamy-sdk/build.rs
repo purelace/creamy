@@ -1,29 +1,31 @@
-use std::process::Command;
-
-use creamy_libgen_rs::{Args, RustGen, creamy_libgen::Codegen};
+use creamy_libgen_rs::{Args, script::generate_code};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let Some(outdir) = std::env::var_os("OUT_DIR") else {
         return Ok(());
     };
 
-    let content = std::fs::read_to_string("system.xml")?;
+    let manifest = r#"
+[package]
+id = "org.creamy.sdk"
+name = "system"
+version = "1.0.0"
+description = "Builtin package"
+repository = "https://github.com/purelace/creamy"
+authors = [ "selrisu <myirisuchan@gmail.com>" ]
 
-    let mut codegen = Codegen::new(&content);
-    let mut outdir = outdir.clone();
-    outdir.push("/");
-    outdir.push(codegen.protocol_name());
-    outdir.push(".rs");
+[core]
+path = "core.wasm"
+runtime = "wasm"
 
-    let mut rs_gen = RustGen::new(
+[protocols]
+system = { version = "1.0", groups=["builtin"]}
+"#;
+
+    generate_code(
+        "./",
+        outdir,
+        manifest,
         Args::default().with_creamy_sdk_path("crate"),
-        std::fs::File::create(&outdir)?,
-    );
-
-    codegen.run(&mut rs_gen)?;
-
-    let _ = Command::new("rustfmt").arg(outdir).status();
-
-    println!("cargo:rerun-if-changed=system.xml");
-    Ok(())
+    )
 }

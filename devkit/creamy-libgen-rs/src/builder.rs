@@ -30,11 +30,7 @@ where
                     is_const: true,
                     name: Cow::Owned(format!("set_{field_name}")),
                     self_pass: Some(Pass::Mut),
-                    arg: vec![Argument {
-                        name: "value",
-                        kind: kind.clone(),
-                        pass: Pass::Move,
-                    }],
+                    args: vec![Argument::new("value", kind.clone(), Pass::Move)],
                     ret: Some(Cow::Borrowed("&mut Self")),
                     body: Body {
                         lines: vec![
@@ -48,17 +44,14 @@ where
                             },
                         ],
                     },
+                    inline: false,
                 },
                 Function {
                     access: Access::Pub,
                     is_const: true,
                     name: Cow::Owned(format!("with_{field_name}")),
                     self_pass: Some(Pass::MutMove),
-                    arg: vec![Argument {
-                        name: "value",
-                        kind,
-                        pass: Pass::Move,
-                    }],
+                    args: vec![Argument::new("value", kind, Pass::Move)],
                     ret: Some(Cow::Borrowed("Self")),
                     body: Body {
                         lines: vec![
@@ -72,6 +65,7 @@ where
                             },
                         ],
                     },
+                    inline: false,
                 },
             ))
         })

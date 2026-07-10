@@ -11,14 +11,14 @@ creamy-protocol-tui.workspace = true
 creamy-xmlc.workspace = true
 creamy-utils.workspace = true
 clap.workspace = true
-rustyline = "18.0.0"
+rustyline = "18.0.1"
 
 [dev-dependencies]
-assert_cmd = "2.2.1"
+assert_cmd = "2.2.2"
 
 [build-dependencies]
 clap.workspace = true
-clap_complete = "4.6.4"
+clap_complete = "4.6.7"
 
 [[bin]]
 name = "creamy"

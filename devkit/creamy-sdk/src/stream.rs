@@ -3,13 +3,23 @@ use core::fmt::Display;
 use cbus_core::message::TypedMessage;
 use thiserror::Error;
 
-use crate::utils::extract_payload;
+use crate::{get_outgoing, system::builtin::Log, utils::extract_payload};
 
 pub const MAX_STREAM_PAYLOAD: usize = 28;
 
-pub trait StreamHead {}
-pub trait StreamPayload {}
-pub trait StreamTail {}
+pub trait StreamData {
+    fn cast_to_array(self) -> [u8; 28];
+}
+
+impl StreamData for () {
+    fn cast_to_array(self) -> [u8; 28] {
+        [0; 28]
+    }
+}
+
+pub trait StreamHead: StreamData {}
+pub trait StreamPayload: StreamData {}
+pub trait StreamTail: StreamData {}
 
 impl StreamHead for () {}
 impl StreamTail for () {}
@@ -74,13 +84,6 @@ impl Display for StreamId {
     }
 }
 
-pub struct StreamReader<R: StreamReaderFunctions> {
-    reader: R,
-    frame: u8,
-    id: StreamId,
-    state: StreamChunkType,
-}
-
 pub trait StreamReaderFunctions {
     type Stream: StreamMessage;
 
@@ -88,6 +91,19 @@ pub trait StreamReaderFunctions {
     fn read_head(&mut self, head: <Self::Stream as StreamMessage>::Head);
     fn read_payload(&mut self, payload: <Self::Stream as StreamMessage>::Payload);
     fn read_tail(&mut self, tail: <Self::Stream as StreamMessage>::Tail);
+}
+
+pub trait StreamWriterFunctions {
+    type Stream: StreamMessage;
+    type Object;
+
+    //fn read_single(&mut self, single: <Self::Stream as StreamMessage>::Payload);
+    fn write_head(&mut self, object: &Self::Object) -> <Self::Stream as StreamMessage>::Head;
+    fn write_payload(
+        &mut self,
+        object: &Self::Object,
+    ) -> Option<<Self::Stream as StreamMessage>::Payload>;
+    fn write_tail(&mut self, object: &Self::Object) -> <Self::Stream as StreamMessage>::Tail;
 }
 
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -107,6 +123,13 @@ pub enum StreamReaderError {
 
     #[error("stream {stream_id} is already closed")]
     StreamAlreadyClosed { stream_id: StreamId },
+}
+
+pub struct StreamReader<R: StreamReaderFunctions> {
+    reader: R,
+    frame: u8,
+    id: StreamId,
+    state: StreamChunkType,
 }
 
 impl<R: StreamReaderFunctions> StreamReader<R> {
@@ -191,5 +214,66 @@ impl<R: StreamReaderFunctions> StreamReader<R> {
 
     pub fn into_reader(self) -> R {
         self.reader
+    }
+}
+
+pub struct StreamWriter<W: StreamWriterFunctions> {
+    writer: W,
+    frame: u8,
+    id: StreamId,
+    //state: StreamChunkType,
+}
+
+impl<W: StreamWriterFunctions> StreamWriter<W> {
+    #[must_use]
+    pub const fn new(writer: W, id: StreamId) -> Self {
+        Self {
+            writer,
+            frame: 0,
+            id,
+        }
+    }
+
+    pub fn write(&mut self, object: &W::Object) {
+        let mut outgoing = get_outgoing();
+
+        let mut message = Log::PREPARED;
+        message.with_stream_id(self.id);
+
+        let mut write_and_send = |data: [u8; 28], state: StreamChunkType| {
+            let data = data[1..].try_into().unwrap();
+            message.data = data;
+            message.with_discriminant(state);
+            assert!(outgoing.send(&message));
+        };
+
+        let head = self.writer.write_head(object);
+        let data = head.cast_to_array();
+        write_and_send(data, StreamChunkType::Head);
+
+        if let Some(payload) = self.writer.write_payload(object) {
+            let data = payload.cast_to_array();
+            write_and_send(data, StreamChunkType::Payload);
+        } else {
+            let tail = self.writer.write_tail(object);
+            let data = tail.cast_to_array();
+            write_and_send(data, StreamChunkType::Tail);
+        }
+    }
+
+    pub const fn tick(&mut self) {
+        self.frame = self.frame.saturating_add(1);
+    }
+
+    pub const fn is_timed_out(&self) -> bool {
+        self.frame >= <W::Stream as StreamMessage>::TIMEOUT
+    }
+
+    pub const fn reset_frame_timer(&mut self) {
+        self.frame = 0;
+    }
+
+    pub fn into_writer(self) -> W {
+        self.writer
     }
 }

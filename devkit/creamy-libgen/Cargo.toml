@@ -8,3 +8,6 @@ license.workspace = true
 creamy-manifest.workspace = true
 creamy-xmlc.workspace = true
 anyhow.workspace = true
+
+[features]
+sdk_internal_use = []

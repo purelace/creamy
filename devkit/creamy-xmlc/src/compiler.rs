@@ -370,8 +370,7 @@ impl<'a> Resolver<'a> {
         &mut self,
         from: &[StreamPayloadFieldNode],
         to: &mut BoundedVec<StreamPayloadFieldSymbol>,
-    ) -> FieldsRange {
-        let start = to.len();
+    ) {
         for field in from {
             match field {
                 StreamPayloadFieldNode::Field(field) => {
@@ -391,8 +390,6 @@ impl<'a> Resolver<'a> {
                 }
             }
         }
-
-        FieldsRange::new(start as u16, (to.len() - start) as u8)
     }
 
     fn resolve_stream_message(
@@ -410,9 +407,18 @@ impl<'a> Resolver<'a> {
             //TODO
         }
 
-        //check payload
-        let from = &s_from[m.payload().as_range()];
-        let payload_range = self.resolve_payload_fields(from, s_to);
+        // check payload
+        {
+            let from = &s_from[m.payload().as_range()];
+            self.resolve_payload_fields(from, s_to);
+        }
+
+        // check tail
+        if let Some(end) = m.end() {
+            let from = &f_from[end.as_range()];
+            self.resolve_fields(from, f_to);
+            //TODO
+        }
 
         //let len = f_to.len() as u16;
 

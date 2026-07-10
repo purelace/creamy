@@ -1,96 +1,19 @@
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 
 use crate::{
-    get_outgoing,
-    stream::{StreamMessage, StreamReaderFunctions},
-    system::builtin::{LogDebug, LogInfo},
+    stream::{StreamMessage, StreamReaderFunctions, StreamWriterFunctions},
+    system::builtin::{
+        Log, LogType,
+        log::{LogHead, LogPayload, LogTail},
+    },
 };
-
-const fn empty() -> LogInfo {
-    LogInfo {
-        dst: 0,
-        group: 0,
-        src: 0,
-        kind: LogInfo::KIND,
-        meta: 0,
-        data: [0u8; 27],
-    }
-}
-
-/*
-fn write_log(data: impl AsRef<[u8]>) {
-    let mut out = get_outgoing();
-    let mut message = LogInfo {
-        dst: 0,
-        group: 0,
-        src: 0,
-        kind: LogInfo::KIND,
-        meta: 0,
-        data: [0u8; 27],
-    };
-    message.with_stream_id(StreamId::new_trim(1));
-
-    let data = data.as_ref();
-    let len = data.len();
-
-    let len_bytes = len.to_le_bytes();
-    for (idx, byte) in len_bytes.into_iter().enumerate() {
-        message.data[idx] = byte;
-    }
-
-    if len <= 27 - 4 {
-        for (idx, byte) in data.iter().enumerate() {
-            message.data[idx + 4] = *byte;
-        }
-        message.with_discriminant(StreamChunkType::Single);
-        out.send_many_iter_exact(core::iter::once(message));
-        return;
-    }
-
-    {
-        let first_part = data.as_array::<23>().unwrap();
-        for (idx, byte) in first_part.iter().enumerate() {
-            message.data[idx + 4] = *byte;
-        }
-        message.with_discriminant(StreamChunkType::Payload);
-        out.send_many_iter_exact(core::iter::once(message));
-    }
-
-    let (chunks, remainder) = data[23..].as_chunks::<27>();
-    for chunk in chunks {
-        for (idx, byte) in chunk.iter().enumerate() {
-            message.data[idx] = *byte;
-        }
-        message.with_discriminant(StreamChunkType::Payload);
-        out.send_many_iter_exact(core::iter::once(message));
-    }
-
-    for (idx, byte) in remainder.iter().enumerate() {
-        message.data[idx] = *byte;
-    }
-
-    message.with_discriminant(StreamChunkType::Tail);
-    out.send_many_iter_exact(core::iter::once(message));
-}
-*/
-pub fn info(message: &str) {
-    let out = get_outgoing();
-    //assert!(LogInfo {
-    //    dst: todo!(),
-    //    group: todo!(),
-    //    src: todo!(),
-    //    kind: todo!(),
-    //    meta: todo!(),
-    //    data: todo!(),
-    //});
-}
 
 pub struct LogReader {
     buffer: Vec<u8>,
 }
 
 impl StreamReaderFunctions for LogReader {
-    type Stream = LogDebug;
+    type Stream = Log;
 
     fn read_single(&mut self, _single: <Self::Stream as StreamMessage>::Payload) {}
 
@@ -107,4 +30,85 @@ impl StreamReaderFunctions for LogReader {
     }
 
     fn read_tail(&mut self, _tail: <Self::Stream as StreamMessage>::Tail) {}
+}
+
+pub struct LogWriter {
+    sent: usize,
+    kind: LogType,
+}
+
+impl LogWriter {
+    pub const fn new(kind: LogType) -> Self {
+        Self { sent: 0, kind }
+    }
+}
+
+impl StreamWriterFunctions for LogWriter {
+    type Stream = Log;
+    type Object = String;
+
+    fn write_head(&mut self, object: &Self::Object) -> <Self::Stream as StreamMessage>::Head {
+        let mut data = [0u8; 20];
+
+        let to_read = object.len().min(20);
+        data[..to_read].copy_from_slice(&object.as_bytes()[..to_read]);
+
+        self.sent = to_read;
+
+        LogHead {
+            __unused: 0,
+            log_type: self.kind,
+            __padding0: [0, 0],
+            length: self.sent as u32,
+            data,
+        }
+    }
+
+    fn write_payload(
+        &mut self,
+        object: &Self::Object,
+    ) -> Option<<Self::Stream as StreamMessage>::Payload> {
+        if self.sent == object.len() {
+            return None;
+        }
+
+        const DATA_SIZE: usize = 27;
+
+        let mut data = [0; DATA_SIZE];
+        let slice = &object.as_bytes()[self.sent..];
+        let to_read = slice.len().min(DATA_SIZE);
+
+        if to_read <= DATA_SIZE {
+            // We will send a remainder in tail part
+            return None;
+        }
+
+        data[..to_read].copy_from_slice(&slice[..to_read]);
+
+        Some(LogPayload { __unused: 0, data })
+    }
+
+    fn write_tail(&mut self, object: &Self::Object) -> <Self::Stream as StreamMessage>::Tail {
+        let mut data = [0; 27];
+        let slice = &object.as_bytes()[self.sent..];
+        let to_read = slice.len().min(27);
+        data[..to_read].copy_from_slice(&slice[..to_read]);
+
+        LogTail { __unused: 0, data }
+    }
+}
+
+#[macro_export]
+macro_rules! info {
+    ($($arg:tt)*) => {
+        use alloc::string::ToString;
+        let string = format_args!($($arg)*);
+        let writer = $crate::logging::LogWriter::new($crate::system::builtin::LogType::Info);
+        let mut stream = $crate::stream::StreamWriter::new(writer, $crate::stream::StreamId::new(0));
+        stream.write(&(string.to_string()));
+    };
+}
+
+fn test() {
+    info!("xdd");
 }

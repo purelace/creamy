@@ -13,7 +13,7 @@ tracing-subscriber.workspace = true
 tracing-tracy.workspace = true
 
 futures-util = "0.3.32"
-memmap2 = "0.9.10"
+memmap2 = "0.9.11"
 creamy-devkit.workspace = true
 
 [dependencies.async_zip]
@@ -22,13 +22,13 @@ default-features = false
 features = ["tokio", "bzip2", "deflate", "lzma", "zstd", "xz"]
 
 [dependencies.garde]
-version = "0.22.1"
+version = "0.23.0"
 features = ["derive"]
 
 [dependencies.inotify]
-version = "0.11.1"
+version = "0.11.4"
 
 [dependencies.tokio]
-version = "1.52.2"
+version = "1.52.3"
 default-features = false
 features = ["fs", "rt", "io-util", "macros", "sync"]

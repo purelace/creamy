@@ -122,7 +122,6 @@ impl MessageParser {
             match iter.peek() {
                 Some(Token::StreamStart { .. }) if start.is_none() => {
                     let _ = iter.next();
-                    let range_start = ctx.field.vec.len();
                     assert!(
                         ctx.field.vec.push(FieldNode::new(
                             ctx.pool.get_id_or_add("__unused"),
@@ -130,8 +129,8 @@ impl MessageParser {
                         )),
                         "исправить ебучий костыль"
                     );
-                    let range = ctx.field.parse_fields(ctx.diag, ctx.pool, iter);
-                    start = Some(FieldsRange::new(range_start as u16, range.len() + 1));
+                    ctx.field.builder.next();
+                    start = Some(ctx.field.parse_fields(ctx.diag, ctx.pool, iter));
                 }
                 Some(Token::StreamPayload { .. }) if payload.is_none() => {
                     let _ = iter.next();
@@ -139,7 +138,6 @@ impl MessageParser {
                 }
                 Some(Token::StreamEnd { .. }) if end.is_none() => {
                     let _ = iter.next();
-                    let range_start = ctx.field.vec.len();
                     assert!(
                         ctx.field.vec.push(FieldNode::new(
                             ctx.pool.get_id_or_add("__unused"),
@@ -147,8 +145,8 @@ impl MessageParser {
                         )),
                         "исправить ебучий костыль"
                     );
-                    let range = ctx.field.parse_fields(ctx.diag, ctx.pool, iter);
-                    end = Some(FieldsRange::new(range_start as u16, range.len() + 1));
+                    ctx.field.builder.next();
+                    end = Some(ctx.field.parse_fields(ctx.diag, ctx.pool, iter));
                 }
                 _ => {
                     if payload.is_some() {
