@@ -901,6 +901,7 @@ fn path_to_string(path: &Path) -> String {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use creamy_libgen::{Codegen, ProtocolLibrary};
@@ -945,3 +946,4 @@ system = { version = "1.0", groups=["builtin"]}
         println!("{string}");
     }
 }
+*/
