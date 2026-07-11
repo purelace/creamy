@@ -15,10 +15,9 @@ mod utils;
 
 use std::{borrow::Cow, fmt::Write as FmtWrite, io::Write as IoWrite};
 
-use ::creamy_libgen::Path;
 use creamy_libgen::{
     CodeGenerator, EnrichedSingleMessageSymbol, EnrichedStreamMessageSymbol, EnrichedStructSymbol,
-    GenResult, SymbolIterator,
+    GenResult, Path, SymbolIterator,
     proxy::{
         EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol, EnrichedFieldSymbol,
         EnrichedFieldType, EnrichedFlagsSymbol, EnrichedVariantSymbol, FlagUnderlyingType,
@@ -561,7 +560,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
                 access: Access::Pub,
                 name: field.name,
                 kind: match field.kind {
-                    EnrichedFieldType::Type(cow) => cow,
+                    EnrichedFieldType::Type { name } => path_to_string(&name).into(),
                     EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]").into(),
                 },
                 comment: None,
@@ -774,7 +773,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
                     name: symbol.name,
                     kind: {
                         match symbol.kind {
-                            EnrichedFieldType::Type(name) => name,
+                            EnrichedFieldType::Type { name } => path_to_string(&name).into(),
                             EnrichedFieldType::Array { kind, len } => {
                                 Cow::Owned(format!("[{kind}; {len}]"))
                             }
@@ -812,10 +811,11 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         //}];
 
         for path in messages {
-            let function_name = format!(
-                "handle_{}",
-                path.components().last().unwrap().to_snake_case()
-            );
+            let postfix = match &path {
+                Path::Global { name } => name.to_snake_case(),
+                Path::Absolute { components } => components.last().unwrap().to_snake_case(),
+            };
+            let function_name = format!("handle_{postfix}");
             let mut function = FunctionDefinition::new(function_name.clone());
             function.set_self(Pass::Mut);
             function.add_argument(Argument {
@@ -893,7 +893,12 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
 }
 
 fn path_to_string(path: &Path) -> String {
-    format!("crate::{}", path.components().join("::"))
+    match path {
+        Path::Global { name } => name.clone(),
+        Path::Absolute { components } => {
+            format!("crate::{}", components.join("::"))
+        }
+    }
 }
 
 #[cfg(test)]

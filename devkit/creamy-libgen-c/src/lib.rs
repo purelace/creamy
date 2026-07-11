@@ -1,3 +1,4 @@
+/*
 #![allow(clippy::missing_errors_doc)]
 
 use std::{io::Write, path::Path};
@@ -77,13 +78,15 @@ pub fn generate(
         for message in messages {
             let message_name = message.name().resolve(pool);
             writeln!(header, "typedef struct {message_name} {{")?;
-            writeln!(header, "    /* -------- HEADER -------- */")?;
+            writeln!(header, "    /* -------- HEADER -------- */
+")?;
             writeln!(header, "    u8 dst;")?;
             writeln!(header, "    u8 group;")?;
             writeln!(header, "    u8 src;")?;
             writeln!(header, "    u8 kind;")?;
 
-            writeln!(header, "    /* -------- PAYLOAD -------- */")?;
+writeln!(header, " /* -------- PAYLOAD -------- */
+")?;
             write_fields(
                 true,
                 HEADER_BYTES,
@@ -177,3 +180,4 @@ mod tests {
         generate("/tmp/cmy_msg", &pool, &protocol, true).unwrap();
     }
 }
+*/

@@ -13,7 +13,7 @@ pub use function::{Argument, Body, BodyLine, Function};
 pub use r#impl::Impl;
 pub use module::Module;
 pub use structure::{Field, Struct, StructContent};
-pub use r#trait::{FunctionDefinition, Trait, TraitAssociatedType};
+pub use r#trait::{FunctionDefinition, Trait};
 pub use trait_impl::{TraitImpl, TraitImplAssociatedType};
 
 #[derive(Default, Debug, Copy, Clone)]

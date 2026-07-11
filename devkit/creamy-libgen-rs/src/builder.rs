@@ -5,7 +5,10 @@ use creamy_libgen::{
     proxy::{EnrichedFieldSymbol, EnrichedFieldType},
 };
 
-use crate::generator::{Access, Argument, Body, BodyLine, Function, Impl, Pass};
+use crate::{
+    generator::{Access, Argument, Body, BodyLine, Function, Impl, Pass},
+    path_to_string,
+};
 
 pub fn generate_builder_pattern<'s, W, I>(fields: I, message: &'s str) -> Impl<'s, W>
 where
@@ -20,7 +23,7 @@ where
 
             let field_name = &f.name;
             let kind = match f.kind {
-                EnrichedFieldType::Type(cow) => cow,
+                EnrichedFieldType::Type { name } => path_to_string(&name),
                 EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]").into(),
             };
 

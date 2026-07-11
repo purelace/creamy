@@ -65,10 +65,10 @@ impl<'s> FunctionDefinition<'s> {
         self
     }
 
-    pub fn set_return(&mut self, value: impl Into<Cow<'s, str>>) -> &mut Self {
-        self.ret = Some(value.into());
-        self
-    }
+    //pub fn set_return(&mut self, value: impl Into<Cow<'s, str>>) -> &mut Self {
+    //    self.ret = Some(value.into());
+    //    self
+    //}
 }
 
 pub struct TraitAssociatedType<'s> {

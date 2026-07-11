@@ -2,8 +2,8 @@
 #![allow(clippy::missing_panics_doc)]
 
 pub mod proxy;
-
-use std::{collections::HashMap, ffi::OsString, str::FromStr};
+mod utils;
+use std::{borrow::Cow, collections::HashMap, ffi::OsString, str::FromStr};
 
 use creamy_manifest::Manifest;
 use creamy_xmlc::{
@@ -12,11 +12,15 @@ use creamy_xmlc::{
     model::symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
     utils::strpool::{StringId, StringPool},
 };
+pub use utils::Path;
 
-use self::proxy::{
-    BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
-    EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedVariantSymbol, FieldList,
-    FlagUnderlyingType, OptionList,
+use self::{
+    proxy::{
+        BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
+        EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedVariantSymbol,
+        FieldList, FlagUnderlyingType, OptionList,
+    },
+    utils::AbsolutePath,
 };
 
 pub type GenResult = anyhow::Result<()>;
@@ -68,17 +72,6 @@ pub trait CodeGenerator<'s> {
         I: Iterator<Item = Path>;
 
     fn flush(&mut self) -> anyhow::Result<()>;
-}
-
-pub struct Path {
-    components: Vec<String>,
-}
-
-impl Path {
-    #[must_use]
-    pub const fn components(&self) -> &[String] {
-        self.components.as_slice()
-    }
 }
 
 pub struct ProtocolLibrary {
@@ -157,6 +150,7 @@ impl Codegen {
             manifest,
             inner,
         } = &mut self.library;
+        #[allow(clippy::explicit_counter_loop)]
         for (protocol, groups) in manifest.requested_groups() {
             let definition = inner.get(protocol.as_str()).unwrap();
 
@@ -168,6 +162,7 @@ impl Codegen {
                 pool,
                 definition,
                 &HashMap::new(),
+                AbsolutePath::from_iter([protocol.as_str(), global_group_name]),
                 definition.types_for_group(global_group),
                 definition.messages_slice(global_group.messages()),
                 generator,
@@ -190,19 +185,18 @@ impl Codegen {
                         u32::from(group_id) << 16 | u32::from(message_symbol.kind());
                     dispatch_values.insert(message_symbol.name(), (group_id, dispatch_value));
 
-                    paths.push(Path {
-                        components: vec![
-                            protocol.to_string(),
-                            group_name.to_string(),
-                            message_symbol.name().resolve(pool).to_string(),
-                        ],
-                    });
+                    paths.push(Path::from_absolute(AbsolutePath::from_iter([
+                        protocol.as_str(),
+                        group_name.as_str(),
+                        message_symbol.name().resolve(pool),
+                    ])));
                 }
 
                 Self::generate_group(
                     pool,
                     definition,
                     &dispatch_values,
+                    AbsolutePath::from_iter([protocol.as_str(), group_name.as_str()]),
                     definition.types_for_group(group_symbol),
                     definition.messages_slice(group_symbol.messages()),
                     generator,
@@ -227,6 +221,7 @@ impl Codegen {
         pool: &'s StringPool,
         definition: &'s ProtocolDefinition,
         dispatch_value_table: &HashMap<StringId, (u8, u32)>, //group, value
+        module_path: AbsolutePath,
         types: &[Type],
         messages: &[MessageSymbolType],
         generator: &mut G,
@@ -238,7 +233,13 @@ impl Codegen {
                     let fields = definition.fields_slice(symbol.fields());
                     let symbol = EnrichedStructSymbol {
                         name: symbol.name().resolve(pool),
-                        fields: FieldList::new(pool, definition.table(), fields.iter().copied(), 0),
+                        fields: FieldList::new(
+                            module_path.clone(),
+                            pool,
+                            definition.table(),
+                            fields.iter().copied(),
+                            0,
+                        ),
                     };
                     generator.generate_struct(symbol);
                 }
@@ -299,6 +300,7 @@ impl Codegen {
                         fields: std::iter::chain(
                             message_header(),
                             FieldList::new(
+                                module_path.clone(),
                                 pool,
                                 definition.table(),
                                 definition.fields_slice(symbol.fields()).iter().copied(),
@@ -330,6 +332,7 @@ impl Codegen {
                         fields: std::iter::chain(message_header(), std::iter::once(data_array())),
                         head: symbol.head().map(|fields| {
                             FieldList::new(
+                                module_path.clone(),
                                 pool,
                                 definition.table(),
                                 definition.fields_slice(fields).iter().copied(),
@@ -337,6 +340,7 @@ impl Codegen {
                             )
                         }),
                         payload: FieldList::new(
+                            module_path.clone(),
                             pool,
                             definition.table(),
                             //TODO: allow arrays
@@ -345,6 +349,7 @@ impl Codegen {
                         ),
                         tail: symbol.tail().map(|fields| {
                             FieldList::new(
+                                module_path.clone(),
                                 pool,
                                 definition.table(),
                                 definition.fields_slice(fields).iter().copied(),
@@ -396,33 +401,42 @@ where
 fn message_header() -> [EnrichedFieldSymbol<'static>; 4] {
     [
         EnrichedFieldSymbol {
-            name: "dst".into(),
-            kind: EnrichedFieldType::Type("u8".into()),
+            name: Cow::Borrowed("dst"),
+            kind: EnrichedFieldType::Type {
+                name: Path::from_global("u8"),
+            },
             is_padding: false,
         },
         EnrichedFieldSymbol {
-            name: "group".into(),
-            kind: EnrichedFieldType::Type("u8".into()),
+            name: Cow::Borrowed("group"),
+            kind: EnrichedFieldType::Type {
+                name: Path::from_global("u8"),
+            },
             is_padding: false,
         },
         EnrichedFieldSymbol {
-            name: "src".into(),
-            kind: EnrichedFieldType::Type("u8".into()),
+            name: Cow::Borrowed("src"),
+            kind: EnrichedFieldType::Type {
+                name: Path::from_global("u8"),
+            },
             is_padding: false,
         },
         EnrichedFieldSymbol {
-            name: "kind".into(),
-            kind: EnrichedFieldType::Type("u8".into()),
+            name: Cow::Borrowed("kind"),
+            kind: EnrichedFieldType::Type {
+                name: Path::from_global("u8"),
+            },
             is_padding: false,
         },
     ]
 }
 
-fn data_array() -> EnrichedFieldSymbol<'static> {
+const fn data_array() -> EnrichedFieldSymbol<'static> {
     EnrichedFieldSymbol {
-        name: "data".into(),
+        name: Cow::Borrowed("data"),
         kind: EnrichedFieldType::Array {
-            kind: "u8".into(),
+            kind: Cow::Borrowed("u8"),
+            #[allow(clippy::cast_possible_truncation)]
             len: MAX_PAYLOAD as u8,
         },
         is_padding: false,

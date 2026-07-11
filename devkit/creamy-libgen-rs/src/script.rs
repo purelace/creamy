@@ -1,4 +1,4 @@
-use std::{ffi::OsString, path::PathBuf, process::Command, str::FromStr};
+use std::{ffi::OsStr, path::PathBuf, process::Command};
 
 use creamy_libgen::{Codegen, ProtocolLibrary};
 
@@ -29,7 +29,7 @@ pub fn generate_code(
 
     for entry in std::fs::read_dir(protocols)?.filter_map(|result| {
         if let Ok(entry) = result
-            && entry.path().extension() == Some(&OsString::from_str("xml").unwrap())
+            && entry.path().extension() == Some(OsStr::new("xml"))
         {
             return Some(entry);
         }

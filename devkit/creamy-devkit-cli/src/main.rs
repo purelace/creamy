@@ -10,11 +10,11 @@ use std::path::PathBuf;
 use clap::Parser;
 use creamy_devkit::compile_to_binary;
 use creamy_utils::strpool::StringPool;
-use creamy_xmlc::ProtocolDefinition;
+use creamy_xmlc::{ProtocolDefinition, compile};
 
 use crate::{
     cli::{Args, Command, Validate},
-    generate::generate_headers,
+    //generate::generate_headers,
     init::init_template,
     show::execute_show_cmd,
 };
@@ -25,11 +25,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match args.command {
         Some(command) => match command {
             Command::Init => init_template(get_workdir(None)?),
-            Command::Generate {
-                xml_file,
-                output,
-                rewrite,
-            } => generate_headers(xml_file, get_workdir(output)?, rewrite),
+            //Command::Generate {
+            //    xml_file,
+            //    output,
+            //    rewrite,
+            //} => generate_headers(xml_file, get_workdir(output)?, rewrite),
             Command::Show(list) => execute_show_cmd(list),
             Command::Build { workdir, output } => build(workdir, output),
             Command::Validate(args) => validate(args),
@@ -43,8 +43,7 @@ fn compile_protocol(
     xml_file: String,
 ) -> Result<ProtocolDefinition, Box<dyn std::error::Error>> {
     let content = std::fs::read_to_string(xml_file)?;
-    let mut c = creamy_xmlc::ProtocolCompiler::new(pool);
-    Ok(c.compile(&content).unwrap())
+    Ok(compile(pool, &content).unwrap())
 }
 
 fn get_workdir(workdir: Option<String>) -> Result<PathBuf, Box<dyn std::error::Error>> {

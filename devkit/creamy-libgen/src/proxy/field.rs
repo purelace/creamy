@@ -4,53 +4,52 @@ use creamy_xmlc::{
     FinishedTypeTable, StringPoolResolver,
     model::{
         definition::LayoutCalculator,
-        symbols::{ArraySymbol, FieldSymbol, FieldType, T_U8_ID},
+        symbols::{
+            ArraySymbol, FieldSymbol, FieldType, T_U8_ID, get_builtin_type_name, is_builtin_type,
+        },
     },
     utils::{Size, strpool::StringPool},
 };
 
-use crate::SymbolIterator;
+use crate::{Path, SymbolIterator, utils::AbsolutePath};
 
 #[derive(Clone)]
 pub enum EnrichedFieldType<'s> {
-    Type(Cow<'s, str>),
+    Type { name: Path },
     Array { kind: Cow<'s, str>, len: u8 },
 }
 
-fn get_padding_kind<'a>(
-    padding: u8,
-    tt: &FinishedTypeTable,
-    pool: &'a StringPool,
-) -> EnrichedFieldType<'a> {
+fn get_padding_kind<'a>(padding: u8) -> EnrichedFieldType<'a> {
     if padding <= 1 {
-        EnrichedFieldType::Type(Cow::Borrowed(tt.get_type(T_U8_ID).ident().resolve(pool)))
+        EnrichedFieldType::Type {
+            name: Path::from_global("u8"),
+        }
     } else {
-        let kind = tt.get_type(T_U8_ID).ident().resolve(pool);
         EnrichedFieldType::Array {
-            kind: Cow::Borrowed(kind),
+            kind: Cow::Borrowed("u8"),
             len: padding,
         }
     }
 }
 
-fn get_field_kind<'a>(
-    kind: FieldType,
-    tt: &FinishedTypeTable,
-    pool: &'a StringPool,
-) -> EnrichedFieldType<'a> {
-    match kind {
-        FieldType::Type(id) => {
-            EnrichedFieldType::Type(Cow::Borrowed(tt.get_type(id).ident().resolve(pool)))
-        }
-        FieldType::Array(symbol) => {
-            let kind = tt.get_type(symbol.kind()).ident().resolve(pool);
-            EnrichedFieldType::Array {
-                kind: Cow::Borrowed(kind),
-                len: symbol.len().value(),
-            }
-        }
-    }
-}
+//fn get_field_kind<'a>(
+//    kind: FieldType,
+//    tt: &FinishedTypeTable,
+//    pool: &'a StringPool,
+//) -> EnrichedFieldType<'a> {
+//    match kind {
+//        FieldType::Type(id) => EnrichedFieldType::Type {
+//            name: Cow::Borrowed(tt.get_type(id).ident().resolve(pool)),
+//        },
+//        FieldType::Array(symbol) => {
+//            let kind = tt.get_type(symbol.kind()).ident().resolve(pool);
+//            EnrichedFieldType::Array {
+//                kind: Cow::Borrowed(kind),
+//                len: symbol.len().value(),
+//            }
+//        }
+//    }
+//}
 
 #[derive(Clone)]
 pub struct EnrichedFieldSymbol<'s> {
@@ -61,6 +60,7 @@ pub struct EnrichedFieldSymbol<'s> {
 
 #[derive(Clone)]
 pub struct FieldList<'s, I: Iterator<Item = FieldSymbol> + Clone> {
+    module_path: AbsolutePath,
     pool: &'s StringPool,
     tt: &'s FinishedTypeTable,
     layout: LayoutCalculator<I>,
@@ -70,14 +70,40 @@ pub struct FieldList<'s, I: Iterator<Item = FieldSymbol> + Clone> {
 }
 
 impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
+    fn get_field_kind(&self, kind: FieldType) -> EnrichedFieldType<'s> {
+        match kind {
+            FieldType::Type(id) => {
+                let path = if is_builtin_type(id) {
+                    let name = get_builtin_type_name(id).resolve(self.pool);
+                    Path::from_global(name)
+                } else {
+                    let component = self.tt.get_type(id).ident().resolve(self.pool);
+                    Path::from_absolute(self.module_path.push(component))
+                };
+                EnrichedFieldType::Type { name: path }
+            }
+            FieldType::Array(symbol) => {
+                let kind = self.tt.get_type(symbol.kind()).ident().resolve(self.pool);
+                EnrichedFieldType::Array {
+                    kind: Cow::Borrowed(kind),
+                    len: symbol.len().value(),
+                }
+            }
+        }
+    }
+}
+
+impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
     #[must_use]
-    pub fn new(
+    pub const fn new(
+        module_path: AbsolutePath,
         pool: &'s StringPool,
         tt: &'s FinishedTypeTable,
         fields: I,
         reserved_bytes: u8,
     ) -> Self {
         Self {
+            module_path,
             pool,
             tt,
             layout: LayoutCalculator::new(reserved_bytes, fields),
@@ -95,7 +121,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
         if let Some(prev) = self.prev.take() {
             return Some(EnrichedFieldSymbol {
                 name: Cow::Borrowed(prev.name().resolve(self.pool)),
-                kind: get_field_kind(prev.kind(), self.tt, self.pool),
+                kind: self.get_field_kind(prev.kind()),
                 is_padding: false,
             });
         }
@@ -106,7 +132,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
                     self.prev = Some(field);
                     let field = EnrichedFieldSymbol {
                         name: Cow::Owned(format!("__padding{}", self.padding_index)),
-                        kind: get_padding_kind(step.padding, self.tt, self.pool),
+                        kind: get_padding_kind(step.padding),
                         is_padding: true,
                     };
                     self.padding_index += 1;
@@ -114,7 +140,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
                 } else {
                     Some(EnrichedFieldSymbol {
                         name: Cow::Borrowed(field.name().resolve(self.pool)),
-                        kind: get_field_kind(field.kind(), self.tt, self.pool),
+                        kind: self.get_field_kind(field.kind()),
                         is_padding: false,
                     })
                 }
@@ -126,14 +152,11 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
                     let name = Cow::Owned(format!("__padding{}", self.padding_index));
                     Some(EnrichedFieldSymbol {
                         name,
-                        kind: get_field_kind(
-                            FieldType::Array(ArraySymbol::new(
-                                T_U8_ID,
-                                Size::new(diff).expect("Unreachable!"),
-                            )),
-                            self.tt,
-                            self.pool,
-                        ),
+                        //TODO: use get_padding_kind function
+                        kind: self.get_field_kind(FieldType::Array(ArraySymbol::new(
+                            T_U8_ID,
+                            Size::new(diff).expect("Unreachable!"),
+                        ))),
                         is_padding: true,
                     })
                 } else {

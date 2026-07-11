@@ -2,6 +2,7 @@ use creamy_xmlc::{
     StringPoolResolver, TypeId,
     model::symbols::{
         BitsetValueSymbol, PrimitiveRepr, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID, T_I128_ID,
+        T_U8_ID, T_U16_ID, T_U32_ID, T_U64_ID,
     },
     utils::strpool::StringPool,
 };

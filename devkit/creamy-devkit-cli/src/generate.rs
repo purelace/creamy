@@ -1,3 +1,4 @@
+/*
 use std::path::Path;
 
 use creamy_utils::strpool::StringPool;
@@ -19,3 +20,4 @@ pub fn generate_headers(
 
     Ok(())
 }
+*/

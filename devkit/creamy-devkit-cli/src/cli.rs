@@ -25,18 +25,17 @@ pub struct Args {
 pub enum Command {
     Init,
 
-    Generate {
-        /// Target XML file
-        xml_file: String,
+    //Generate {
+    //    /// Target XML file
+    //    xml_file: String,
 
-        /// Output directory
-        #[arg(short, long)]
-        output: Option<String>,
+    //    /// Output directory
+    //    #[arg(short, long)]
+    //    output: Option<String>,
 
-        #[arg(short, long)]
-        rewrite: bool,
-    },
-
+    //    #[arg(short, long)]
+    //    rewrite: bool,
+    //},
     #[command(subcommand)]
     Show(ShowCommand),
 

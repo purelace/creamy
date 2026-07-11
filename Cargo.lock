@@ -710,7 +710,6 @@ dependencies = [
  "clap",
  "clap_complete",
  "creamy-devkit",
- "creamy-libgen-c",
  "creamy-protocol-tui",
  "creamy-utils",
  "creamy-xmlc",

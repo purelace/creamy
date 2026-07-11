@@ -12,7 +12,7 @@ use crate::{
         Access, Argument, Body, BodyLine, Const, Field, Function, Impl, Module, Pass, Repr, Struct,
         StructContent, TraitImpl, TraitImplAssociatedType,
     },
-    message_header,
+    message_header, path_to_string,
     utils::{generate_const_size_assert, generate_message_consts},
 };
 
@@ -131,7 +131,7 @@ where
             access: Access::Pub,
             name: field.name,
             kind: match field.kind {
-                EnrichedFieldType::Type(cow) => cow,
+                EnrichedFieldType::Type { name } => path_to_string(&name).into(),
                 EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]").into(),
             },
             comment: None,

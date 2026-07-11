@@ -30,6 +30,7 @@ mod tests {
     use crate::{config::CreamyConfig, engine::PluginEngine};
 
     #[tokio::test]
+    #[ignore = "Only runs locally"]
     async fn test() {
         let config = CreamyConfig::new("/home/selrisu/creamy_test");
         let mut engine = PluginEngine::new(config).unwrap();
@@ -39,6 +40,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Only runs locally"]
     fn mmap() {
         let file = File::open("/home/selrisu/creamy_test/ping.cmy").unwrap();
 

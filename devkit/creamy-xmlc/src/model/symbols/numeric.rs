@@ -47,6 +47,43 @@ pub const T_I128_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(9), U128_
 pub const T_F32_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(10), U32_META);
 pub const T_F64_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(11), U64_META);
 
+#[must_use]
+pub const fn is_builtin_type(ty: TypeId) -> bool {
+    matches!(
+        ty,
+        T_U8_ID
+            | T_U16_ID
+            | T_U32_ID
+            | T_U64_ID
+            | T_U128_ID
+            | T_I8_ID
+            | T_I16_ID
+            | T_I32_ID
+            | T_I64_ID
+            | T_I128_ID
+    )
+}
+
+/// # Panics
+///
+/// Panics if a specified type is not a built-in type.
+#[must_use]
+pub const fn get_builtin_type_name(ty: TypeId) -> StringId {
+    match ty {
+        T_U8_ID => U8_ID,
+        T_U16_ID => U16_ID,
+        T_U32_ID => U32_ID,
+        T_U64_ID => U64_ID,
+        T_U128_ID => U128_ID,
+        T_I8_ID => I8_ID,
+        T_I16_ID => I16_ID,
+        T_I32_ID => I32_ID,
+        T_I64_ID => I64_ID,
+        T_I128_ID => I128_ID,
+        _ => panic!("not a builtin type"),
+    }
+}
+
 #[derive(EnumCount, BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NumericSymbol {
     #[brw(magic(0u8))]
