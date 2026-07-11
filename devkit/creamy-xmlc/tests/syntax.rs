@@ -146,15 +146,14 @@ fn other() {
 </protocol>
     "#;
 
-    miette::set_hook(Box::new(|_| {
+    let _ = miette::set_hook(Box::new(|_| {
         Box::new(
             miette::MietteHandlerOpts::new()
                 .with_syntax_highlighting(miette::highlighters::SyntectHighlighter::default())
                 .context_lines(2)
                 .build(),
         )
-    }))
-    .unwrap();
+    }));
 
     let result = compile(CONTENT);
     let Err(errors) = result else {
