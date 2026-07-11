@@ -2,26 +2,26 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
-  
+
 permissions:
   contents: read
   pages: write
   id-token: write
 
-jobs:         
+jobs:
   Tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
           submodules: true
-        
+
       - name: Install Rust
         run: rustup update stable
 
@@ -29,20 +29,20 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-        
+
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
-        
+
       - name: Generate code coverage
         run: RUSTFLAGS="-C instrument-coverage -C target-cpu=native" cargo llvm-cov --html
-          
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './target/llvm-cov/html'
+          path: "./target/llvm-cov/html"
 
       - name: Deploy to GitHub Pages
         id: deployment
