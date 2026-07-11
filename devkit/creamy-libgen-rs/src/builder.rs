@@ -24,7 +24,7 @@ where
             let field_name = &f.name;
             let kind = match f.kind {
                 EnrichedFieldType::Type { name } => path_to_string(&name),
-                EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]").into(),
+                EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]"),
             };
 
             Some((
