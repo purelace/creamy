@@ -1,11 +1,10 @@
 use core::arch::x86_64::{
     __m512i, _kand_mask16, _mm512_add_epi32, _mm512_and_si512, _mm512_cmpneq_epi32_mask,
-    _mm512_i32gather_epi32, _mm512_mask_blend_epi32, _mm512_mask_expand_epi32,
+    _mm512_i32gather_epi32, _mm512_loadu_si512, _mm512_mask_blend_epi32, _mm512_mask_expand_epi32,
     _mm512_maskz_compress_epi32, _mm512_maskz_mov_epi32, _mm512_or_si512, _mm512_permutexvar_epi32,
     _mm512_set_epi32, _mm512_set1_epi32, _mm512_setzero_si512, _mm512_slli_epi32,
-    _mm512_sllv_epi32, _mm512_srli_epi32,
+    _mm512_sllv_epi32, _mm512_srli_epi32, _mm512_storeu_si512,
 };
-use std::arch::x86_64::{_mm512_loadu_si512, _mm512_storeu_si512};
 
 use as_guard::AsGuard;
 
@@ -207,12 +206,12 @@ fn cast(from: &[UntypedMessage; 16]) -> [*const __m512i; 8] {
     let base_ptr: *const UntypedMessage = from.as_ptr();
 
     // 2. Строим массив указателей, отталкиваясь ТОЛЬКО от базового сырого указателя
-    std::array::from_fn(|i| unsafe { base_ptr.add(i * 2).cast::<__m512i>() })
+    core::array::from_fn(|i| unsafe { base_ptr.add(i * 2).cast::<__m512i>() })
 }
 
 #[inline(always)]
 fn cast_mut(from: &mut [UntypedMessage; 16]) -> [*mut __m512i; 8] {
-    std::array::from_fn(|i| (&raw mut from[i * 2]).cast::<__m512i>())
+    core::array::from_fn(|i| (&raw mut from[i * 2]).cast::<__m512i>())
 }
 
 impl InstructionSet<16> for Avx512FInstructionSet {

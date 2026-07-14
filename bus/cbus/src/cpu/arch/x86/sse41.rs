@@ -2,7 +2,7 @@ use core::arch::x86_64::__m128i;
 #[cfg(target_feature = "avx2")]
 pub use core::arch::x86_64::_mm_blend_epi32;
 #[cfg(not(target_feature = "avx2"))]
-pub use std::arch::x86_64::{_mm_blend_ps, _mm_castps_si128, _mm_castsi128_ps};
+pub use core::arch::x86_64::{_mm_blend_ps, _mm_castps_si128, _mm_castsi128_ps};
 
 mod sse41_reexports {
     pub use core::arch::x86_64::_mm_extract_epi32;
@@ -217,7 +217,7 @@ impl InstructionSet<4> for Sse41InstructionSet {
     fn send_exactly(read: &[UntypedMessage; 4], write: &mut [UntypedMessage; 4]) {
         unsafe {
             let dst_ptr = write.as_mut_ptr().cast::<__m128i>();
-            let chunk_ptr = std::ptr::from_ref(read).cast::<__m128i>();
+            let chunk_ptr = core::ptr::from_ref(read).cast::<__m128i>();
 
             let dst0 = dst_ptr;
             let dst1 = dst_ptr.add(2);
@@ -267,7 +267,7 @@ impl InstructionSet<4> for Sse41InstructionSet {
     ) {
         unsafe {
             let dst_ptr = write.as_mut_ptr().cast::<__m128i>();
-            let chunk_ptr = std::ptr::from_ref(read).cast::<__m128i>();
+            let chunk_ptr = core::ptr::from_ref(read).cast::<__m128i>();
 
             let dst0 = dst_ptr;
             let dst1 = dst_ptr.add(2);
@@ -321,7 +321,7 @@ impl InstructionRunner<4> for Sse41InstructionSet {
         chunk: &mut [UntypedMessage; 4],
     ) {
         unsafe {
-            let chunk_ptr = std::ptr::from_ref(chunk).cast::<__m128i>();
+            let chunk_ptr = core::ptr::from_ref(chunk).cast::<__m128i>();
 
             // SSE обрабатывает всего лишь 128 бит,
             // поэтому нам нужно получить указатели на каждую половину сообщения

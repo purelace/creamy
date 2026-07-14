@@ -196,12 +196,12 @@ impl Avx2InstructionSet {
 
 #[inline(always)]
 fn cast(from: &[UntypedMessage; 8]) -> [*const __m256i; 8] {
-    std::array::from_fn(|i| (&raw const from[i]).cast::<__m256i>())
+    core::array::from_fn(|i| (&raw const from[i]).cast::<__m256i>())
 }
 
 #[inline(always)]
 fn cast_mut(from: &mut [UntypedMessage; 8]) -> [*mut __m256i; 8] {
-    std::array::from_fn(|i| (&raw mut from[i]).cast::<__m256i>())
+    core::array::from_fn(|i| (&raw mut from[i]).cast::<__m256i>())
 }
 
 impl InstructionSet<8> for Avx2InstructionSet {
@@ -248,7 +248,7 @@ impl InstructionRunner<8> for Avx2InstructionSet {
         chunk: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
         unsafe {
-            let chunk_ptr = std::ptr::from_ref(chunk).cast::<UntypedMessage>();
+            let chunk_ptr = core::ptr::from_ref(chunk).cast::<UntypedMessage>();
 
             let msg0 = chunk_ptr.cast::<__m256i>();
             let msg1 = msg0.add(1);
