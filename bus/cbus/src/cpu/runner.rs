@@ -5,7 +5,7 @@ use crate::{
 };
 
 pub trait InstructionRunner<const CHUNK_SIZE: usize>: InstructionSet<CHUNK_SIZE> {
-    //TODO: fix warning
+    #[allow(unused)]
     fn prepare_and_send_chunk_to_unknown(
         data: &mut PipelineData,
         src: usize,

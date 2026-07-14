@@ -41,7 +41,7 @@ impl<D: BusDriver> Driver<D> {
         self.lookup_table.remove(id, iter);
     }
 
-    pub fn process_messages(&mut self, memory: MemoryPools, range: RangeInclusive<usize>) {
+    pub fn process_messages(&mut self, memory: MemoryPools, range: RangeInclusive<u8>) {
         let mut data = PipelineData {
             lookup_table: &self.lookup_table,
             memory,

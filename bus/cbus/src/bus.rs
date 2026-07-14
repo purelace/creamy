@@ -200,9 +200,8 @@ where
     // Попробовать подготовить данные так, чтобы можно было одной операцией их отправить
     // Обрабатывать возможное переполнение
 
-    const fn subscriber_range(&self) -> RangeInclusive<usize> {
-        //TODO fix
-        0..=self.mint.last() as usize
+    const fn subscriber_range(&self) -> RangeInclusive<u8> {
+        0..=self.mint.last()
     }
 
     pub fn tick(&mut self) {

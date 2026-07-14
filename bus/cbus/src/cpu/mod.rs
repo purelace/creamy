@@ -135,11 +135,8 @@ impl PipelinePlan {
         self.offsets.reset();
         self.indices = [0; 256];
 
-        //TODO fix
-        //let count = data.memory.read.u_count_for(0);
-        //S::add_offset(&mut self.offsets, count);
         for src in data.subscriber_range.clone() {
-            let count = data.memory.read.u_count_for(src);
+            let count = data.memory.read.count_for(src);
             S::add_offset(&mut self.offsets, count);
         }
 
@@ -148,11 +145,11 @@ impl PipelinePlan {
 
         // 3. Заполняем массив indices, используя смещения
         for src in data.subscriber_range.clone() {
-            let count = data.memory.read.u_count_for(src);
+            let count = data.memory.read.count_for(src);
             let bucket_idx = S::get_bucket_idx(count);
 
             let pos = write_ptr[bucket_idx];
-            self.indices[pos as usize] = src as u8;
+            self.indices[pos as usize] = src;
             write_ptr[bucket_idx] += 1; // Сдвигаемся внутри бакета
         }
     }
@@ -170,13 +167,6 @@ pub struct MessagePipeline {
 
 impl MessagePipeline {
     pub fn new(max_subscribers: u8) -> Self {
-        //println!("[MessageBus] Arch: {ARCH}");
-        //println!("[MessageBus] Stragegy: {}", AvailableStrategy::name());
-        //println!(
-        //    "[MessageBus] Features in use: {}",
-        //    AvailableStrategy::features()
-        //);
-
         Self {
             plan: PipelinePlan::new(),
             batch: Vec::with_capacity(max_subscribers as usize),
@@ -223,7 +213,7 @@ impl MessagePipeline {
 pub struct PipelineData<'a> {
     pub(crate) lookup_table: &'a LookupTable,
     pub(crate) memory: MemoryPools<'a>,
-    pub(crate) subscriber_range: RangeInclusive<usize>,
+    pub(crate) subscriber_range: RangeInclusive<u8>,
 }
 
 pub struct MemoryPools<'a> {

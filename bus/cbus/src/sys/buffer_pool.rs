@@ -21,8 +21,8 @@ impl Header {
     pub const fn write_raw_mut_ptr(ptr: *mut Self) -> *mut UntypedMessage {
         unsafe {
             let count = (*ptr).count as usize;
-            let data_ptr = ptr.add(1).cast::<u8>();
-            let write_ptr = data_ptr.add(count * MESSAGE_SIZE);
+            let data_ptr = ptr.add(1).cast::<UntypedMessage>();
+            let write_ptr = data_ptr.add(count);
             write_ptr.cast::<UntypedMessage>()
         }
     }
@@ -35,20 +35,17 @@ impl Header {
 
         unsafe {
             // Считаем начало данных: адрес header + 1 (размер Header)
-            let data_start = ptr.add(1).cast::<u8>();
-
-            let slice_start = data_start
-                .add((capacity - count - 1) * MESSAGE_SIZE)
-                .cast::<UntypedMessage>();
+            let data_start = ptr.add(1).cast::<UntypedMessage>();
+            let slice_start = data_start.add(capacity - count - 1);
 
             // Создаем слайс только в самом конце
             core::slice::from_raw_parts_mut(slice_start, count)
         }
     }
 
-    pub const fn set_count(ptr: *mut Header, count: usize) {
+    pub const fn set_count(ptr: *mut Header, count: u32) {
         unsafe {
-            (*ptr).count = count as u32;
+            (*ptr).count = count;
         }
     }
 
@@ -104,23 +101,29 @@ impl<O> BufferPool<O> {
         self.capacity
     }
 
-    #[inline(always)]
-    #[cfg_attr(coverage_nightly, coverage(off))]
-    pub const fn u_count_for(&self, src: usize) -> usize {
+    //#[inline(always)]
+    //#[cfg_attr(coverage_nightly, coverage(off))]
+    //pub const fn u_count_for(&self, src: usize) -> usize {
+    //    unsafe {
+    //        // В начале каждого отрезка памяти находится счетчик сообщений (4 байта + 60 байт отступ)
+    //        self.u_slice_for(src).cast::<u32>().read() as usize
+    //    }
+    //}
+
+    pub const fn count_for(&self, src: u8) -> usize {
         unsafe {
             // В начале каждого отрезка памяти находится счетчик сообщений (4 байта + 60 байт отступ)
-            self.u_slice_for(src).cast::<u32>().read() as usize
+            self.slice_for(src).cast::<u32>().read() as usize
         }
     }
 
     /// Возвращает указатель на начало слайса, привязанного к конкретному подписчику
-    /// Принимает dst как usize
-    #[inline(always)]
-    #[cfg_attr(coverage_nightly, coverage(off))]
-    pub const fn u_slice_for(&self, src: usize) -> NonNull<u8> {
+    //#[inline(always)]
+    //#[cfg_attr(coverage_nightly, coverage(off))]
+    pub const fn slice_for(&self, src: u8) -> NonNull<u8> {
         unsafe {
             // Считаем глобальный адрес нужного отрезка памяти.
-            self.bytes.add(src * self.slice_size)
+            self.bytes.add(src as usize * self.slice_size)
         }
     }
 

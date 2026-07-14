@@ -1,4 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
+#![allow(clippy::many_single_char_names)]
 
 use cbus::{
     BusDriver, DataIterator, OldDataIterator, SubscriberLookupData, SubscriberOldLookupData,
@@ -56,15 +57,23 @@ impl<const A: usize> TestListener<A> {
 
 impl<const A: usize> Subscriber for TestListener<A> {
     fn notify(&mut self) {
-        self.total_messages += self.incoming.count() as usize;
-        //let mut version = 0;
         while let Some(message) = self.incoming.pop() {
             assert_eq!(message.dst, 2);
             assert_eq!(message.src, 1);
             assert_eq!(message.group, 1);
             assert_eq!(message.kind, 1);
-            //assert_eq!(message.version, version);
-            //version += 1;
+
+            let [a, b, c, d] = message.payload[0..4].try_into().unwrap();
+            let zeros: [u8; 20] = message.payload[4..24].try_into().unwrap();
+            let [e, f, g, h] = message.payload[24..28].try_into().unwrap();
+
+            assert_eq!(zeros, [0; 20]);
+            assert_eq!(
+                usize::from_le_bytes([a, b, c, d, e, f, g, h]),
+                self.total_messages
+            );
+
+            self.total_messages += 1;
         }
     }
 }
@@ -91,13 +100,20 @@ impl<const A: usize> TestSender<A> {
 
 impl<const A: usize> Subscriber for TestSender<A> {
     fn notify(&mut self) {
-        //TODO
-        let iter = (0..A).map(|_i| UntypedMessage {
+        let iter = (0..A).map(|i| UntypedMessage {
             dst: 2,
             group: 1,
             src: 0,
             kind: 1,
-            payload: [0; 28],
+            payload: {
+                let [a, b, c, d, e, f, g, h] = i.to_le_bytes();
+                [
+                    a, b, c, d, 0, 0, 0, 0, //
+                    0, 0, 0, 0, 0, 0, 0, 0, //
+                    0, 0, 0, 0, 0, 0, 0, 0, //
+                    e, f, g, h, //
+                ]
+            },
         });
 
         assert!(self.outgoing.send_many_iter_exact(iter));
