@@ -1,17 +1,10 @@
 use alloc::boxed::Box;
-use core::{
-    any::Any,
-    fmt::Display,
-    ops::{Deref, DerefMut},
-};
+use core::any::Any;
 
-use bytemuck::{Pod, Zeroable};
 use downcast_rs::{Downcast, impl_downcast};
 
-use crate::Destination;
-
 #[repr(transparent)]
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Zeroable, Pod)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SubscriberId(u8);
 
 impl SubscriberId {
@@ -34,21 +27,15 @@ impl SubscriberId {
     pub const fn cast_usize(self) -> usize {
         self.0 as usize
     }
-
-    #[must_use]
-    #[inline(always)]
-    pub const fn as_dst(self) -> Destination {
-        Destination::new(self.0)
-    }
 }
 
-impl Display for SubscriberId {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+//impl Display for SubscriberId {
+//    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+//        write!(f, "{}", self.0)
+//    }
+//}
 
-impl Deref for SubscriberId {
+impl core::ops::Deref for SubscriberId {
     type Target = u8;
 
     fn deref(&self) -> &Self::Target {
@@ -56,7 +43,7 @@ impl Deref for SubscriberId {
     }
 }
 
-impl DerefMut for SubscriberId {
+impl core::ops::DerefMut for SubscriberId {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

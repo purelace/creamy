@@ -1,6 +1,5 @@
 use core::fmt::Debug;
 
-use bytemuck::{Pod, Zeroable};
 use static_assertions::assert_eq_size;
 
 use crate::{defines::MESSAGE_SIZE, message::TypedMessage};
@@ -50,9 +49,6 @@ impl TypedMessage for UntypedMessage {
         self
     }
 }
-
-unsafe impl Zeroable for UntypedMessage {}
-unsafe impl Pod for UntypedMessage {}
 
 impl UntypedMessage {
     #[must_use]

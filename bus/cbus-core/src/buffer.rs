@@ -7,13 +7,6 @@ use crate::{UntypedMessage, message::TypedMessage};
 pub type Outgoing = Buffer<Write>;
 pub type Incoming = Buffer<Read>;
 
-//#[repr(C)]
-//struct Header {
-//    count: u32,
-//    ignore: u32,
-//    _padding: [u8; 56],
-//}
-
 #[derive(Clone, Copy)]
 pub struct Buffer<O> {
     count: NonNull<u32>,
@@ -24,16 +17,6 @@ pub struct Buffer<O> {
 
 unsafe impl<O> Send for Buffer<O> {}
 unsafe impl<O> Sync for Buffer<O> {}
-
-//impl<O> Drop for Buffer<O> {
-//    fn drop(&mut self) {
-//        unsafe {
-//            let header = &mut *self.count.as_ptr().cast::<Header>();
-//            header.count = 0;
-//            header.ignore = 1;
-//        }
-//    }
-//}
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl<O> Buffer<O> {

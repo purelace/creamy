@@ -14,8 +14,6 @@ resolver = "2"
 members = [
     "bus/cbus",
     "bus/cbus-core",
-    "bus/cbus-core-macros",
-    "bus/macro-utils",
     "devkit/creamy-devkit",
     "devkit/creamy-devkit-cli",
     "devkit/creamy-libgen",
@@ -34,8 +32,6 @@ members = [
 [workspace.dependencies]
 cbus = { path = "bus/cbus" }
 cbus-core = { path = "bus/cbus-core" }
-cbus-core-macros = { path = "bus/cbus-core-macros" }
-macro-utils = { path = "bus/macro-utils" }
 
 creamy-devkit = { path = "devkit/creamy-devkit" }
 creamy-libgen = { path = "devkit/creamy-libgen" }

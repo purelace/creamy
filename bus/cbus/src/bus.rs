@@ -1,13 +1,14 @@
 use alloc::{boxed::Box, vec, vec::Vec};
 use core::ops::RangeInclusive;
 
+use cbus_core::SubscriberId;
 use idmint::StackMint;
 
 use crate::{
     BusDriver, BusError,
     config::{BusConfig, ValidConfig},
     core::{
-        Subscriber, SubscriberId,
+        Subscriber,
         buffer::{Incoming, Outgoing, Read, Write},
     },
     cpu::MemoryPools,
