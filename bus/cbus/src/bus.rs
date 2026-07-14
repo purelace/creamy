@@ -1,4 +1,5 @@
-use std::ops::RangeInclusive;
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::ops::RangeInclusive;
 
 use idmint::StackMint;
 
@@ -89,7 +90,7 @@ where
             config.max_subscribers(),
         );
 
-        let subscribers = std::iter::repeat_with(|| None)
+        let subscribers = core::iter::repeat_with(|| None)
             .take(max_subscribers)
             .collect::<Vec<_>>();
 
@@ -142,7 +143,7 @@ where
     }
 
     fn init_subscribers(&mut self) {
-        let uninit = std::mem::take(&mut self.uninit);
+        let uninit = core::mem::take(&mut self.uninit);
         for (id, sub) in uninit {
             assert!(
                 self.subscribers[id.cast_usize()].is_none(),
@@ -175,7 +176,7 @@ where
     }
 
     pub fn removed(&mut self) -> Vec<S> {
-        std::mem::take(&mut self.removed)
+        core::mem::take(&mut self.removed)
     }
 
     fn handle_remove_requests(&mut self) {

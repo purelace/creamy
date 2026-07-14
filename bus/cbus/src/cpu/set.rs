@@ -52,7 +52,7 @@ pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
     /// Читает сообщения из глобального буфера и пишет их в буферы подписчиков
     #[inline(always)]
     fn send_batches(pipeline: &mut MessagePipeline, data: &mut PipelineData) {
-        let mut batch = std::mem::take(&mut pipeline.batch);
+        let mut batch = core::mem::take(&mut pipeline.batch);
 
         for (dst, len, ptr_location) in batch.drain(..) {
             let read = data.memory.message.slice(len as usize, ptr_location);
@@ -66,7 +66,7 @@ pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
             }
         }
 
-        let _ = std::mem::replace(&mut pipeline.batch, batch);
+        let _ = core::mem::replace(&mut pipeline.batch, batch);
     }
 
     /// Делит оба слайса на равные чанки и передает их в `InstructionSet::send_exaclty`.

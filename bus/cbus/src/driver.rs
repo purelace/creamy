@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use core::ops::RangeInclusive;
 
 use crate::{
     cpu::{MemoryPools, MessagePipeline, PipelineData},
@@ -15,6 +15,7 @@ pub trait BusDriver {
     fn on_subscribe(&mut self, id: u8) -> impl DataIterator;
     fn on_unsubscribe(&mut self, id: u8) -> impl OldDataIterator;
 }
+
 pub struct Driver<D: BusDriver> {
     lookup_table: LookupTable,
     pipeline: MessagePipeline,

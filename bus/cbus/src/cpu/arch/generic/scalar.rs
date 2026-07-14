@@ -32,7 +32,7 @@ impl ScalarInstructionSet {
 
     #[inline(always)]
     pub fn send_to(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
-        let len = std::cmp::min(read.len(), write.len());
+        let len = core::cmp::min(read.len(), write.len());
         let read = &read[..len];
         let write = &mut write[..len];
 
@@ -50,7 +50,7 @@ impl ScalarInstructionSet {
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        let len = std::cmp::min(read.len(), write.len());
+        let len = core::cmp::min(read.len(), write.len());
         let read = &read[..len];
         let write = &mut write[..len];
 
@@ -111,9 +111,9 @@ impl InstructionRunner<1> for ScalarInstructionSet {
             Self::prepare_single_message(data.lookup_table, src, message);
             let header = data.memory.write.header_mut_ptr_for(message.dst as usize);
             let write_ptr = Header::write_raw_mut_ptr(header);
-            let read_ptr = std::ptr::from_ref(message);
+            let read_ptr = core::ptr::from_ref(message);
             unsafe {
-                std::ptr::copy_nonoverlapping(read_ptr, write_ptr, 1);
+                core::ptr::copy_nonoverlapping(read_ptr, write_ptr, 1);
 
                 // Инкрементируем count если dst не равен 0
                 // Это нужно чтобы все сообщения с dst == 0 отправлялись в мусорку (/dev/null)

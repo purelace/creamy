@@ -1,4 +1,4 @@
-use std::{alloc::Layout, ptr::NonNull};
+use core::{alloc::Layout, ptr::NonNull};
 
 use crate::{core::UntypedMessage, sys::layout::alloc_pool};
 
@@ -22,12 +22,12 @@ impl MessagePool {
 
     #[inline(always)]
     pub const fn as_slice(&self) -> &[UntypedMessage] {
-        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.count) }
+        unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), self.count) }
     }
 
     #[inline(always)]
     pub const fn as_mut_slice(&mut self) -> &mut [UntypedMessage] {
-        unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.count) }
+        unsafe { core::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.count) }
     }
 
     //#[inline(always)]
@@ -43,7 +43,7 @@ impl MessagePool {
     pub const fn reserve_slice(&mut self, count: usize) -> &mut [UntypedMessage] {
         unsafe {
             let ptr = self.ptr.add(self.count).as_ptr();
-            let slice = std::slice::from_raw_parts_mut(ptr, count);
+            let slice = core::slice::from_raw_parts_mut(ptr, count);
             self.count += count;
             slice
         }
@@ -67,7 +67,7 @@ impl MessagePool {
     pub const fn slice(&mut self, len: usize, ptr_location: usize) -> &[UntypedMessage] {
         unsafe {
             let ptr = self.ptr.add(ptr_location).as_ptr();
-            std::slice::from_raw_parts(ptr, len)
+            core::slice::from_raw_parts(ptr, len)
         }
     }
 }
@@ -75,7 +75,7 @@ impl MessagePool {
 impl Drop for MessagePool {
     fn drop(&mut self) {
         unsafe {
-            std::alloc::dealloc(self.ptr.as_ptr().cast::<u8>(), self.layout);
+            alloc::alloc::dealloc(self.ptr.as_ptr().cast::<u8>(), self.layout);
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::{alloc::Layout, marker::PhantomData, ptr::NonNull};
+use core::{alloc::Layout, marker::PhantomData, ptr::NonNull};
 
 use as_guard::AsGuard;
 
@@ -42,7 +42,7 @@ impl Header {
                 .cast::<UntypedMessage>();
 
             // Создаем слайс только в самом конце
-            std::slice::from_raw_parts_mut(slice_start, count)
+            core::slice::from_raw_parts_mut(slice_start, count)
         }
     }
 
@@ -55,7 +55,7 @@ impl Header {
     pub const fn write_slice_mut(ptr: *mut Self, count: usize) -> &'static mut [UntypedMessage] {
         unsafe {
             let ptr = Header::write_raw_mut_ptr(ptr);
-            std::slice::from_raw_parts_mut(ptr, count)
+            core::slice::from_raw_parts_mut(ptr, count)
         }
     }
 }
@@ -72,7 +72,7 @@ pub struct BufferPool<O> {
 impl<O> Drop for BufferPool<O> {
     fn drop(&mut self) {
         unsafe {
-            std::alloc::dealloc(self.bytes.as_ptr(), self.layout);
+            alloc::alloc::dealloc(self.bytes.as_ptr(), self.layout);
         }
     }
 }

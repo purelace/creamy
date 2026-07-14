@@ -22,7 +22,7 @@ fn value_too_small_max_messages() {
     assert_eq!(
         result.err().unwrap(),
         BusError::ValueTooSmall {
-            name: "max_messages".to_string(),
+            name: "max_messages",
             current: 0,
             min: 1024
         }
@@ -43,7 +43,7 @@ fn value_is_not_multiple_of_2_max_messages() {
     assert_eq!(
         result.err().unwrap(),
         BusError::ValueIsNotMultipleOf2 {
-            name: "max_messages".to_string()
+            name: "max_messages"
         }
     );
 }
@@ -62,7 +62,7 @@ fn value_too_small_max_subscribers() {
     assert_eq!(
         result.err().unwrap(),
         BusError::ValueTooSmall {
-            name: "max_subscribers".to_string(),
+            name: "max_subscribers",
             current: 0,
             min: 2
         }
@@ -83,7 +83,7 @@ fn value_is_not_multiple_of_2_max_subscribers() {
     assert_eq!(
         result.err().unwrap(),
         BusError::ValueIsNotMultipleOf2 {
-            name: "max_subscribers".to_string()
+            name: "max_subscribers"
         }
     );
 }
@@ -136,7 +136,7 @@ fn max_messages_value_too_big_generic<C: BusConfig>(config: C) {
     assert_eq!(
         result.err().unwrap(),
         BusError::ValueTooBig {
-            name: "max_messages".to_string()
+            name: "max_messages"
         }
     );
 }

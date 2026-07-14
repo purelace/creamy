@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use core::ops::Deref;
 
 use cbus_core::defines::MESSAGE_SIZE;
 
@@ -43,7 +43,7 @@ impl<C: BusConfig> ValidConfig<C> {
 
         if config.max_subscribers() == 0 {
             return Err(BusError::ValueTooSmall {
-                name: "max_subscribers".to_string(),
+                name: "max_subscribers",
                 current: 0,
                 min: 2,
             });
@@ -51,13 +51,13 @@ impl<C: BusConfig> ValidConfig<C> {
 
         if !config.max_subscribers().is_multiple_of(2) {
             return Err(BusError::ValueIsNotMultipleOf2 {
-                name: "max_subscribers".to_string(),
+                name: "max_subscribers",
             });
         }
 
         if config.max_messages() < 1024 {
             return Err(BusError::ValueTooSmall {
-                name: "max_messages".to_string(),
+                name: "max_messages",
                 current: config.max_messages(),
                 min: 1024,
             });
@@ -65,25 +65,25 @@ impl<C: BusConfig> ValidConfig<C> {
 
         if !config.max_messages().is_multiple_of(2) {
             return Err(BusError::ValueIsNotMultipleOf2 {
-                name: "max_messages".to_string(),
+                name: "max_messages",
             });
         }
 
         let Some(slice_size) = config.max_messages().checked_mul(MESSAGE_SIZE) else {
             return Err(BusError::ValueTooBig {
-                name: "max_messages".to_string(),
+                name: "max_messages",
             });
         };
 
         let Some(slice_size) = slice_size.checked_add(METADATA) else {
             return Err(BusError::ValueTooBig {
-                name: "max_messages".to_string(),
+                name: "max_messages",
             });
         };
 
         let Some(total_size) = slice_size.checked_mul(config.max_subscribers() as usize) else {
             return Err(BusError::ValueTooBig {
-                name: "max_messages".to_string(),
+                name: "max_messages",
             });
         };
 

@@ -1,8 +1,11 @@
+#![no_std]
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 //#![deny(clippy::unwrap_used)]
 #![allow(clippy::cast_ptr_alignment)]
 #![allow(clippy::inline_always)]
 #![allow(clippy::cast_possible_truncation)]
+
+extern crate alloc;
 
 mod bus;
 pub mod config;

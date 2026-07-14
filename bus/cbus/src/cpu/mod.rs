@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::ops::RangeInclusive;
 
 use as_guard::AsGuard;
@@ -99,7 +100,7 @@ macro_rules! define_strategy {
                     ($inner_field: ident) => {{
                         let offset = pipeline.plan.offsets.$inner_field as usize;
                         let indices_slice = &pipeline.plan.indices[total_offset..total_offset + offset];
-                        let indices_slice = unsafe {&*std::ptr::from_ref(indices_slice)};
+                        let indices_slice = unsafe {&*core::ptr::from_ref(indices_slice)};
                         #[allow(unused_assignments)]
                         {
                             total_offset += offset;
