@@ -34,10 +34,7 @@ impl<P: Plugin> MessageHandler for InnerState<P> {
     fn handle_plugin_disappeared(&mut self, message: PluginDisappeared) {}
 
     #[inline(always)]
-    fn handle_protocol_declared(&mut self, message: ProtocolDeclared) {
-        let x: Option<u8>;
-        let y: u8;
-    }
+    fn handle_protocol_declared(&mut self, message: ProtocolDeclared) {}
 
     #[inline(always)]
     fn handle_protocol_undeclared(&mut self, message: ProtocolUndeclared) {}

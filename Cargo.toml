@@ -22,13 +22,12 @@ members = [
     "devkit/creamy-libgen-c",
     "devkit/creamy-libgen-rs",
     "devkit/creamy-manifest",
-    "devkit/creamy-protocol",
     "devkit/creamy-protocol-tui",
     "devkit/creamy-sdk",
     "devkit/creamy-utils",
     "devkit/creamy-xmlc",
     "engine/creamy",
-    "engine/creamy-cbus-driver",
+    "engine/creamy-cbus-driver", "engine/creamy-engine-core",
     "examples/ping/plugin",
 ]
 
@@ -43,11 +42,13 @@ creamy-libgen = { path = "devkit/creamy-libgen" }
 creamy-libgen-c = { path = "devkit/creamy-libgen-c" }
 creamy-libgen-rs = { path = "devkit/creamy-libgen-rs" }
 creamy-manifest = { path = "devkit/creamy-manifest" }
-creamy-protocol = { path = "devkit/creamy-protocol" }
 creamy-protocol-tui = { path = "devkit/creamy-protocol-tui" }
 creamy-utils = { path = "devkit/creamy-utils" }
 creamy-xmlc = { path = "devkit/creamy-xmlc" }
 creamy-sdk = { path = "devkit/creamy-sdk" }
+
+# Engine
+creamy-cbus-driver = { path = "engine/creamy-cbus-driver" }
 
 anyhow = "1.0.103"
 as-guard = "0.1.0"

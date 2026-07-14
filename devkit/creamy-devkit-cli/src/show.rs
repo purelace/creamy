@@ -12,7 +12,7 @@ use crate::{
     compile_protocol,
 };
 
-pub fn execute_show_cmd(show: ShowCommand) -> Result<(), Box<dyn std::error::Error>> {
+pub fn execute_show_cmd(show: ShowCommand) -> anyhow::Result<()> {
     let mut pool = StringPool::default();
     match show {
         ShowCommand::Group { group, xml_file } => {

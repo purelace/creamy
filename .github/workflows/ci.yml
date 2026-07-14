@@ -25,10 +25,19 @@ jobs:
       - name: Install Rust
         run: rustup update stable
 
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+
+      - name: Install creamy cli tool
+        run: cargo install --path devkit/creamy-devkit-cli
+
+      - name: Install wasm-opt
+        run: cargo install wasm-opt
 
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov

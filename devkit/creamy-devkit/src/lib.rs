@@ -5,12 +5,13 @@ mod error;
 mod load;
 mod write;
 
-use std::{collections::HashMap, ffi::OsString, fs::DirEntry, path::Path, str::FromStr};
+use std::{collections::HashMap, ffi::OsString, path::Path, str::FromStr};
 
 use binrw::binrw;
 use creamy_manifest::{Arguments, Manifest};
 use creamy_utils::{collections::List, strpool::StringPool, version::Version};
 use creamy_xmlc::{ProtocolDefinition, compile};
+use fs_err as fs;
 
 use crate::error::DevKitError;
 
@@ -27,14 +28,32 @@ pub struct BinaryPlugin {
 
 impl BinaryPlugin {
     #[must_use]
-    pub fn name(&self) -> &str {
-        self.manifest.name()
+    pub const fn version(&self) -> &Version {
+        &self.version
+    }
+
+    #[must_use]
+    pub const fn manifest(&self) -> &Manifest {
+        &self.manifest
+    }
+
+    #[must_use]
+    pub const fn string_pool(&self) -> &StringPool {
+        &self.pool
+    }
+
+    #[must_use]
+    pub fn core(&self) -> &[u8] {
+        self.core.as_slice()
     }
 }
 
-pub fn compile_to_binary(plugin_dir: impl AsRef<Path>) -> Result<BinaryPlugin, DevKitError> {
+pub fn compile_to_binary(
+    plugin_dir: impl AsRef<Path>,
+    module: Vec<u8>,
+) -> Result<BinaryPlugin, DevKitError> {
     let plugin_dir = plugin_dir.as_ref();
-    let files = std::fs::read_dir(plugin_dir)?
+    let files = fs::read_dir(plugin_dir)?
         .flatten()
         .map(|dir| (dir.file_name(), dir))
         .collect::<HashMap<_, _>>();
@@ -42,9 +61,7 @@ pub fn compile_to_binary(plugin_dir: impl AsRef<Path>) -> Result<BinaryPlugin, D
     let manifest_file = files
         .get(&OsString::from("manifest.toml"))
         .ok_or(DevKitError::MissingManifest)?;
-    let (arguments, manifest) = compile_manifest(manifest_file)?;
-
-    let core = read_core(plugin_dir, &arguments)?;
+    let (_, manifest) = compile_manifest(manifest_file)?;
 
     let mut pool = StringPool::default();
 
@@ -59,28 +76,28 @@ pub fn compile_to_binary(plugin_dir: impl AsRef<Path>) -> Result<BinaryPlugin, D
         manifest,
         pool,
         definitions,
-        core,
+        core: List::wrap(module),
     })
 }
 
-fn compile_manifest(entry: &DirEntry) -> Result<(Arguments, Manifest), DevKitError> {
+fn compile_manifest(entry: &fs::DirEntry) -> Result<(Arguments, Manifest), DevKitError> {
     if !entry.file_type()?.is_file() {
         return Err(DevKitError::NotAFile("manifest.toml".to_string()));
     }
-    let manifest_content = std::fs::read_to_string(entry.path())?;
+    let manifest_content = fs::read_to_string(entry.path())?;
 
     Ok(Manifest::read_manifest(&manifest_content)?)
 }
 
 fn compile_protocols(
-    entry: &DirEntry,
+    entry: &fs::DirEntry,
     pool: &mut StringPool,
 ) -> Result<List<ProtocolDefinition>, DevKitError> {
     if !entry.file_type()?.is_dir() {
         return Err(DevKitError::NotADirectory("definitions".to_string()));
     }
 
-    let definitions_dir = std::fs::read_dir(entry.path())?;
+    let definitions_dir = fs::read_dir(entry.path())?;
     let files = definitions_dir
         .flatten()
         .filter(|e| e.path().extension().is_some_and(|p| p == "xml"))
@@ -89,21 +106,9 @@ fn compile_protocols(
 
     let mut protocols = List::with_capacity(files.len() as u32);
     for path in files {
-        let content = std::fs::read_to_string(path)?;
+        let content = fs::read_to_string(path)?;
         protocols.push(compile(pool, &content).unwrap());
     }
 
     Ok(protocols)
-}
-
-fn read_core(source: impl AsRef<Path>, arguments: &Arguments) -> Result<List<u8>, DevKitError> {
-    let path = source.as_ref().join(&arguments.core);
-    if path.is_file() {
-        let mut header = arguments.runtime.as_bytes().to_vec();
-        let data = std::fs::read(path)?;
-        header.extend_from_slice(&data);
-        Ok(List::wrap(header))
-    } else {
-        unimplemented!()
-    }
 }

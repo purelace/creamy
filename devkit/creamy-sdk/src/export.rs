@@ -1,4 +1,4 @@
 unsafe extern "C" {
-    pub fn init_plugin() -> u8;
+    pub fn init() -> u32;
     pub fn notify();
 }

@@ -168,7 +168,7 @@ fn bus_exceed_error() {
     for _ in 0..max_subs {
         bus.add_subscriber(|_, _| EmptySubscriber).unwrap();
     }
-    assert_eq!(bus.subscribers(), Legacy.max_subscribers() as usize);
+    assert_eq!(bus.subscribers(), Legacy.max_subscribers());
     let result = bus.add_subscriber(|_, _| EmptySubscriber);
     assert!(result.is_err());
     assert_eq!(

@@ -1,5 +1,5 @@
 [package]
-name = "creamy-protocol"
+name = "creamy-engine-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,4 +1,5 @@
-use std::str::FromStr;
+/// TODO: replace with `semver` crate
+use std::{fmt::Display, str::FromStr};
 
 use binrw::binrw;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -51,4 +52,10 @@ where
 {
     let s = String::deserialize(deserializer)?;
     Version::from_str(&s).map_err(serde::de::Error::custom)
+}
+
+impl Display for Version {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
 }

@@ -4,10 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 creamy-sdk.workspace = true
 
 [build-dependencies]
-creamy-utils.workspace = true
 creamy-libgen-rs.workspace = true
-creamy-xmlc.workspace = true

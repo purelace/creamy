@@ -27,7 +27,7 @@ authors = [""]
     )
 }
 
-pub fn init_template(workdir: impl AsRef<Path>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init_template(workdir: impl AsRef<Path>) -> anyhow::Result<()> {
     let input = read_user_manifest()?;
     let workdir = workdir.as_ref();
     let path = workdir.join(&input.name);
@@ -54,7 +54,7 @@ pub fn init_template(workdir: impl AsRef<Path>) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-fn read_user_manifest() -> Result<UserInput, Box<dyn std::error::Error>> {
+fn read_user_manifest() -> anyhow::Result<UserInput> {
     let mut rl = rustyline::DefaultEditor::new()?;
     let id = rl.readline(">> ID: ")?;
     let name = rl.readline(">> Name: ")?;

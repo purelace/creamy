@@ -1,0 +1,3 @@
+command = "cargo build --target wasm32-unknown-unknown --release -p plugin"
+input = "../../target/wasm32-unknown-unknown/release/plugin.wasm"
+output="../../target/creamy"

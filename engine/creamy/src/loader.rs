@@ -1,72 +1,30 @@
 use std::{
-    collections::HashMap,
-    ffi::OsString,
-    io::Cursor,
+    ffi::{OsStr, OsString},
     path::PathBuf,
     sync::{Arc, atomic::AtomicUsize},
 };
 
-use async_zip::tokio::read::seek::ZipFileReader;
+use creamy_devkit::BinaryPlugin;
 use inotify::{Event, EventMask};
 use tokio::{
     io::AsyncReadExt,
     sync::{RwLock, Semaphore},
+    task::JoinHandle,
 };
 
 use crate::{
-    PACKAGE_FILE_EXTENSION, config::CreamyConfig, progress::ProgressReader, watcher::FileWatcher,
+    PACKAGE_FILE_EXTENSION, config::GeneralConfig, progress::ProgressReader,
+    utils::to_absolute_path, watcher::FileWatcher,
 };
 
-pub enum LoadedCore {
-    Directory,
-    File(Vec<u8>),
-}
-
-pub struct LoadedPackage {
-    manifest: String,
-    core: LoadedCore,
-    proto: Option<Vec<u8>>,
-}
-
-impl LoadedPackage {
-    pub async fn new(data: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
-        let cursor = Cursor::new(data);
-        let mut reader = ZipFileReader::with_tokio(cursor).await?;
-        let map = reader
-            .file()
-            .entries()
-            .iter()
-            .enumerate()
-            .map(|(index, entry)| (entry.filename().clone().into_string().unwrap(), index))
-            .collect::<HashMap<_, _>>();
-
-        let manifest_index = map.get("manifest.toml").unwrap();
-        let mut manifest_reader = reader.reader_with_entry(*manifest_index).await?;
-        let mut manifest =
-            String::with_capacity(manifest_reader.entry().uncompressed_size() as usize);
-        manifest_reader
-            .read_to_string_checked(&mut manifest)
-            .await?;
-
-        let proto = if let Some(proto_index) = map.get("proto.bin") {
-            let mut proto_reader = reader.reader_with_entry(*proto_index).await?;
-            let mut proto = Vec::with_capacity(proto_reader.entry().uncompressed_size() as usize);
-            proto_reader.read_to_end_checked(&mut proto).await?;
-            Some(proto)
-        } else {
-            None
-        };
-
-        if let Some(x) = map.get("core") {}
-
-        println!("Loaded with manifest:  {manifest}");
-
-        Ok(Self {
-            manifest,
-            core: LoadedCore::Directory,
-            proto,
-        })
-    }
+fn load_package(data: &[u8]) -> Result<BinaryPlugin, Box<dyn std::error::Error>> {
+    let package = BinaryPlugin::load_from_bytes(data)?;
+    tracing::info!(
+        "[Loader] Plugin '{name}@{version}' loaded",
+        name = package.manifest().name(),
+        version = package.version()
+    );
+    Ok(package)
 }
 
 pub struct LoadingInProgress {
@@ -79,26 +37,61 @@ pub struct PluginLoader {
     watcher: FileWatcher,
     directory: PathBuf,
     semaphore: Arc<Semaphore>,
-    in_progress: HashMap<String, Arc<RwLock<LoadingInProgress>>>,
-    loaded: HashMap<String, LoadedPackage>,
+    loading: Vec<JoinHandle<BinaryPlugin>>,
+    loaded: Vec<BinaryPlugin>,
 }
 
 impl PluginLoader {
-    pub fn new(config: CreamyConfig) -> Result<Self, Box<dyn std::error::Error>> {
-        Ok(Self {
-            semaphore: Arc::new(Semaphore::new(config.parallel_downloads())),
-            watcher: FileWatcher::new(config.plugin_directory())?,
-            directory: config.plugin_directory().into(),
-            in_progress: HashMap::new(),
-            loaded: HashMap::new(),
-        })
+    async fn load_all_plugins_from_directory(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut iter = tokio::fs::read_dir(&self.directory).await?;
+        while let Some(entry) = iter.next_entry().await? {
+            if entry.path().extension() == Some(OsStr::new(PACKAGE_FILE_EXTENSION)) {
+                self.load_file(entry.path()).await;
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn new(config: &GeneralConfig) -> Result<Self, Box<dyn std::error::Error>> {
+        let absolute_path = to_absolute_path(&config.plugin_directory)?;
+        let mut instance = Self {
+            semaphore: Arc::new(Semaphore::new(config.parallel_downloads as usize)),
+            watcher: FileWatcher::new(&absolute_path.to_string_lossy())?,
+            directory: absolute_path,
+            loading: vec![],
+            loaded: vec![],
+        };
+        instance.load_all_plugins_from_directory().await?;
+        Ok(instance)
+    }
+
+    pub fn take_loaded(&mut self) -> Vec<BinaryPlugin> {
+        std::mem::take(&mut self.loaded)
+    }
+
+    async fn store_loaded(
+        loading: &mut Vec<JoinHandle<BinaryPlugin>>,
+        loaded: &mut Vec<BinaryPlugin>,
+    ) {
+        let mut i = 0;
+        while i < loading.len() {
+            let handle = &mut loading[i];
+
+            if handle.is_finished() {
+                let plugin = handle.await.unwrap();
+                loaded.push(plugin);
+                loading.swap_remove(i);
+            } else {
+                i += 1;
+            }
+        }
     }
 
     async fn load_file(&mut self, file: PathBuf) {
         let permit = self.semaphore.clone().acquire_owned().await.unwrap();
 
-        tracing::info!("--- Loading package: {}", file.display());
-        let file_name = file.file_name().unwrap().to_str().unwrap().to_string();
+        tracing::info!("[Loader] Loading package: {}", file.display());
+        //let file_name = file.file_name().unwrap().to_str().unwrap().to_string();
         let mut reader = ProgressReader::from_file(file).await;
 
         let state = Arc::new(RwLock::new(LoadingInProgress {
@@ -107,27 +100,29 @@ impl PluginLoader {
             is_done: false,
         }));
 
-        assert!(self.in_progress.insert(file_name, state.clone()).is_none());
+        // Mostly used for loading visualization
+        // TODO: send event instead
+        //assert!(self.in_progress.insert(file_name, state.clone()).is_none());
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             let mut state_write = state.write().await;
             reader.read_to_end(&mut state_write.data).await.unwrap();
             state_write.is_done = true;
 
-            //tracing::info!("--- File loaded: {}", file.display());
             drop(permit);
 
-            LoadedPackage::new(&state_write.data).await.unwrap();
+            load_package(&state_write.data).unwrap()
         });
+
+        self.loading.push(handle);
     }
 
     async fn validate_event(&self, event: Event<OsString>) -> Option<PathBuf> {
         match event.mask {
-            EventMask::DELETE => return None,
-            EventMask::MOVED_FROM => return None,
-            EventMask::MOVED_TO => return None,
+            //EventMask::MOVED_TO
+            EventMask::DELETE | EventMask::MOVED_FROM => return None,
             _ => {}
-        };
+        }
 
         let name = event.name?;
         let path = self.directory.join(name);
@@ -151,32 +146,24 @@ impl PluginLoader {
         Some(path)
     }
 
-    pub async fn run(&mut self) {
-        loop {
-            let Some(event) = self.watcher.run_file_watcher().await else {
-                continue;
-            };
+    pub async fn poll_and_load(&mut self) {
+        let PluginLoader {
+            watcher,
+            directory: _,
+            semaphore: _,
+            loading,
+            loaded,
+        } = self;
 
-            //dbg!(&event);
+        tokio::select! {
+            _ = Self::store_loaded(loading, loaded) => {}
 
-            let Some(path) = self.validate_event(event).await else {
-                return;
-            };
-
-            self.load_file(path).await;
+            maybe_event = watcher.run_file_watcher() => {
+                if let Some(event) = maybe_event
+                    && let Some(path) = self.validate_event(event).await {
+                        self.load_file(path).await;
+                    }
+            }
         }
     }
 }
-
-// че сделать:
-// решить вопрос с импортов/экспортов буферов.
-// решить вопрос с переполнением буферов.
-// исправить все unwrap/expect
-// сделать загрузчик .cmy файлов.
-// сделать возможность предоставления прогресса. (progress bar)
-// в прогресс входит: чтение с диска, распаковка, загрузка схем,
-// загрузка proto.bin (если есть), загрузка ядра и инициализация всего этого добра
-//
-//
-// на будущее:
-// работа со скриптами без .cmy файлов.

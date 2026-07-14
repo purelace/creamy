@@ -3,7 +3,7 @@
 
 extern crate alloc;
 pub mod api;
-pub mod export;
+mod export;
 mod logging;
 pub mod state;
 pub mod stream;

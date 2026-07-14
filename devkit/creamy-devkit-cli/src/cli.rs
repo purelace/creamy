@@ -43,10 +43,6 @@ pub enum Command {
         /// Working directory
         #[arg(short, long)]
         workdir: Option<String>,
-
-        /// Output directory
-        #[arg(short, long)]
-        output: Option<String>,
     },
 
     #[command(subcommand)]

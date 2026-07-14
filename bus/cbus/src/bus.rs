@@ -235,8 +235,8 @@ where
     D: BusDriver,
     S: Subscriber,
 {
-    pub const fn subscribers(&self) -> usize {
-        self.mint.used() as usize
+    pub const fn subscribers(&self) -> u8 {
+        self.mint.used()
     }
 
     pub const fn get_driver_mut(&mut self) -> &mut D {

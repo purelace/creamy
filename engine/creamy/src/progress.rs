@@ -12,7 +12,7 @@ use tokio::{fs::File, io::AsyncRead};
 
 pub struct ProgressReader<R> {
     inner: R,
-    total: usize,
+    total: u64,
     counter: Arc<AtomicUsize>,
 }
 
@@ -20,7 +20,7 @@ impl ProgressReader<File> {
     pub async fn from_file(path: impl AsRef<Path>) -> Self {
         let file = File::open(path).await.unwrap();
         let metadata = file.metadata().await.unwrap();
-        let total = metadata.len() as usize;
+        let total = metadata.len();
 
         let loaded = Arc::new(AtomicUsize::new(0));
 
@@ -50,8 +50,12 @@ impl<R: AsyncRead + Unpin> AsyncRead for ProgressReader<R> {
 }
 
 impl<R> ProgressReader<R> {
-    pub const fn total(&self) -> usize {
-        self.total
+    pub fn total(&self) -> usize {
+        if let Ok(value) = usize::try_from(self.total) {
+            value
+        } else {
+            panic!("value truncation");
+        }
     }
 
     pub fn loaded(&self) -> usize {

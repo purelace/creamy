@@ -5,10 +5,10 @@ use cbus_core::defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN};
 use crate::{INCOMING, MAX_HEAP, OUTGOING, export};
 
 #[unsafe(no_mangle)]
-pub extern "C" fn internal__init_plugin(max_heap: u32) -> u8 {
+pub extern "C" fn internal__init_plugin(max_heap: u32) -> u32 {
     unsafe {
         MAX_HEAP = max_heap;
-        export::init_plugin()
+        export::init()
     }
 }
 
@@ -30,7 +30,7 @@ pub extern "C" fn internal__export_incoming_buffer(count: u32) -> u32 {
     let buffer_ptr = alloc_buffer(count as usize);
     unsafe {
         INCOMING = cbus_core::buffer::Incoming::new(
-            buffer_ptr.cast(),
+            buffer_ptr.cast(), // The first 4 bytes is the count of a messages
             buffer_ptr.add(METADATA).cast(),
             count,
         );
@@ -44,11 +44,16 @@ pub extern "C" fn internal__export_outgoing_buffer(count: u32) -> u32 {
     let buffer_ptr = alloc_buffer(count as usize);
     unsafe {
         OUTGOING = cbus_core::buffer::Outgoing::new(
-            buffer_ptr.cast(),
+            buffer_ptr.cast(), // The first 4 bytes is the count of a messages
             buffer_ptr.add(METADATA).cast(),
             count,
         );
     }
 
     buffer_ptr.as_ptr() as u32
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn internal__notify() {
+    unsafe { export::notify() }
 }

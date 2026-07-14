@@ -34,7 +34,7 @@ macro_rules! declare_plugin {
             $crate::spin::Mutex::new(None);
 
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn init_plugin() -> u8 {
+        pub unsafe extern "C" fn init() -> u32 {
             let outgoing = $crate::get_outgoing();
             if let Some(plugin) = <$plugin as $crate::api::Plugin>::init(outgoing) {
                 let state = $crate::state::InnerState::new(plugin);

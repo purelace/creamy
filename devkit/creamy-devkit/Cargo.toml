@@ -14,3 +14,4 @@ creamy-xmlc.workspace = true
 creamy-manifest.workspace = true
 thiserror.workspace = true
 binrw.workspace = true
+fs-err = { version = "3.3.1", features = ["debug"] }

@@ -66,6 +66,10 @@ pub trait Subscriber: Downcast + Any + 'static {
     fn notify(&mut self);
 }
 
+impl Subscriber for () {
+    fn notify(&mut self) {}
+}
+
 impl<S: Subscriber + ?Sized> Subscriber for Box<S> {
     fn notify(&mut self) {
         (**self).notify();

@@ -1,0 +1,27 @@
+# config example
+
+[engine.general]
+# min 1
+# Specifies how much the plugin files will be downloading in parallel
+parallel_downloads = 8
+
+# supports:
+# - relative and absolute paths
+# - environment variables
+# default: "plugins" (relative path to the working directory)
+plugin_directory = "$CREAMY_TESTS/plugins"
+
+# in seconds (f32)
+# poll the plugin directory for the plugin file changes [remove, move, create, rename]
+poll_interval = 1
+
+[engine.performance]
+# bytes per plugin
+# default: 64 MB.
+heap_size = 67_108_864;
+
+[bus]
+max_subscribers = 32
+# should be less than or equal to a value of the `heap_size` parameter
+max_messages = 1024
+max_groups = 64
