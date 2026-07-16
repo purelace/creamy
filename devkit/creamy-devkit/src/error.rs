@@ -2,7 +2,7 @@ use creamy_utils::version;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum DevKitError {
+pub enum Error {
     #[error("Manifest file not found")]
     MissingManifest,
 
@@ -20,4 +20,7 @@ pub enum DevKitError {
 
     #[error("{0}")]
     Version(#[from] version::VersionError),
+
+    #[error("{0}")]
+    BinRw(#[from] binrw::Error),
 }

@@ -7,6 +7,7 @@
 // TODO: #![deny(clippy::unwrap_used)]
 #![allow(clippy::unreachable)]
 #![allow(clippy::inline_always)]
+#![allow(clippy::cast_ptr_alignment)]
 
 extern crate alloc;
 

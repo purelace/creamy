@@ -13,7 +13,7 @@ use creamy_utils::{collections::List, strpool::StringPool, version::Version};
 use creamy_xmlc::{ProtocolDefinition, compile};
 use fs_err as fs;
 
-use crate::error::DevKitError;
+pub use crate::error::Error;
 
 #[binrw]
 #[brw(magic = b"CMY!", little)]
@@ -51,7 +51,7 @@ impl BinaryPlugin {
 pub fn compile_to_binary(
     plugin_dir: impl AsRef<Path>,
     module: Vec<u8>,
-) -> Result<BinaryPlugin, DevKitError> {
+) -> Result<BinaryPlugin, Error> {
     let plugin_dir = plugin_dir.as_ref();
     let files = fs::read_dir(plugin_dir)?
         .flatten()
@@ -60,7 +60,7 @@ pub fn compile_to_binary(
 
     let manifest_file = files
         .get(&OsString::from("manifest.toml"))
-        .ok_or(DevKitError::MissingManifest)?;
+        .ok_or(Error::MissingManifest)?;
     let (_, manifest) = compile_manifest(manifest_file)?;
 
     let mut pool = StringPool::default();
@@ -80,9 +80,9 @@ pub fn compile_to_binary(
     })
 }
 
-fn compile_manifest(entry: &fs::DirEntry) -> Result<(Arguments, Manifest), DevKitError> {
+fn compile_manifest(entry: &fs::DirEntry) -> Result<(Arguments, Manifest), Error> {
     if !entry.file_type()?.is_file() {
-        return Err(DevKitError::NotAFile("manifest.toml".to_string()));
+        return Err(Error::NotAFile("manifest.toml".to_string()));
     }
     let manifest_content = fs::read_to_string(entry.path())?;
 
@@ -92,9 +92,9 @@ fn compile_manifest(entry: &fs::DirEntry) -> Result<(Arguments, Manifest), DevKi
 fn compile_protocols(
     entry: &fs::DirEntry,
     pool: &mut StringPool,
-) -> Result<List<ProtocolDefinition>, DevKitError> {
+) -> Result<List<ProtocolDefinition>, Error> {
     if !entry.file_type()?.is_dir() {
-        return Err(DevKitError::NotADirectory("definitions".to_string()));
+        return Err(Error::NotADirectory("definitions".to_string()));
     }
 
     let definitions_dir = fs::read_dir(entry.path())?;

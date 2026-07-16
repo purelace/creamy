@@ -1,14 +1,44 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+#![no_std]
+
+use cbus_core::Subscriber;
+use creamy_devkit::BinaryPlugin;
+use serde::Deserialize;
+
+pub mod bus {
+    pub use cbus_core::*;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod devkit {
+    pub use creamy_devkit::{BinaryPlugin, Error};
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub const PACKAGE_FILE_EXTENSION: &str = "cmy";
+
+pub trait PluginLoader {
+    fn preload(&mut self);
+    fn loaded(&self) -> u32;
+    fn take_loaded_package(&mut self) -> Option<BinaryPlugin>;
+}
+
+#[derive(Deserialize)]
+pub struct Constants {
+    pub heap_size: u32,
+    pub buffer_size: u32,
+}
+
+pub trait WasmModule: Subscriber {
+    fn incoming_ptr(&self) -> u32;
+    fn outgoing_ptr(&self) -> u32;
+}
+
+pub trait WasmRuntime {
+    type Error: core::error::Error;
+    type Module: WasmModule;
+
+    #[allow(clippy::missing_errors_doc)]
+    fn init_module(
+        &mut self,
+        constants: &Constants,
+        module: &[u8],
+    ) -> Result<Self::Module, Self::Error>;
 }

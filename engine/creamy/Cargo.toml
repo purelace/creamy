@@ -5,39 +5,27 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-creamy-cbus-driver.workspace = true
 cbus.workspace = true
+creamy-cbus-driver.workspace = true
+creamy-engine-core.workspace = true
+creamy-engine-wasmtime-impl.workspace = true
+creamy-engine-async-loader.workspace = true
 
 serde.workspace = true
-
 tracing.workspace = true
-tracing-subscriber.workspace = true
-tracing-tracy.workspace = true
 thiserror.workspace = true
-wasmtime = { version = "46.0.1", default-features = false, features = [
-    "runtime",
-    "cranelift",
-
-    # debug features
-    "demangle",
-    "addr2line",
-    "coredump",
-    "debug-builtins",
-] }
-
-futures-util = "0.3.32"
-memmap2 = "0.9.11"
-creamy-devkit = { workspace = true, features = ["read"] }
 garde = { version = "0.23.0", features = ["derive"] }
-
-[dependencies.inotify]
-version = "0.11.4"
-
-[dependencies.tokio]
-version = "1.52.3"
-default-features = false
-features = ["fs", "rt", "io-util", "macros", "sync", "time", "rt-multi-thread"]
 
 [dev-dependencies]
 tempfile = "3.27.0"
 anyhow.workspace = true
+tracing-subscriber.workspace = true
+tokio = { version = "1.52.3", default-features = false, features = [
+    "fs",
+    "rt",
+    "io-util",
+    "macros",
+    "sync",
+    "time",
+    "rt-multi-thread",
+] }

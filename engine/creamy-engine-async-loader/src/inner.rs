@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, atomic::AtomicUsize},
 };
 
-use creamy_devkit::BinaryPlugin;
+use creamy_engine_core::{PACKAGE_FILE_EXTENSION, devkit::BinaryPlugin};
 use inotify::{Event, EventMask};
 use tokio::{
     io::AsyncReadExt,
@@ -13,19 +13,8 @@ use tokio::{
 };
 
 use crate::{
-    PACKAGE_FILE_EXTENSION, config::GeneralConfig, progress::ProgressReader,
-    utils::to_absolute_path, watcher::FileWatcher,
+    Result, config::ValidLoaderConfig, load_package, progress::ProgressReader, watcher::FileWatcher,
 };
-
-fn load_package(data: &[u8]) -> Result<BinaryPlugin, Box<dyn std::error::Error>> {
-    let package = BinaryPlugin::load_from_bytes(data)?;
-    tracing::info!(
-        "[Loader] Plugin '{name}@{version}' loaded",
-        name = package.manifest().name(),
-        version = package.version()
-    );
-    Ok(package)
-}
 
 pub struct LoadingInProgress {
     progress: Arc<AtomicUsize>,
@@ -33,7 +22,7 @@ pub struct LoadingInProgress {
     is_done: bool,
 }
 
-pub struct PluginLoader {
+pub struct InnerLoader {
     watcher: FileWatcher,
     directory: PathBuf,
     semaphore: Arc<Semaphore>,
@@ -41,8 +30,20 @@ pub struct PluginLoader {
     loaded: Vec<BinaryPlugin>,
 }
 
-impl PluginLoader {
-    async fn load_all_plugins_from_directory(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+impl InnerLoader {
+    pub async fn new(config: ValidLoaderConfig) -> Result<Self> {
+        let mut instance = Self {
+            semaphore: Arc::new(Semaphore::new(config.parallel_downloads as usize)),
+            watcher: FileWatcher::new(&config.plugin_directory.to_string_lossy())?,
+            directory: config.plugin_directory,
+            loading: vec![],
+            loaded: vec![],
+        };
+        instance.load_all_plugins_from_directory().await?;
+        Ok(instance)
+    }
+
+    async fn load_all_plugins_from_directory(&mut self) -> Result<()> {
         let mut iter = tokio::fs::read_dir(&self.directory).await?;
         while let Some(entry) = iter.next_entry().await? {
             if entry.path().extension() == Some(OsStr::new(PACKAGE_FILE_EXTENSION)) {
@@ -50,19 +51,6 @@ impl PluginLoader {
             }
         }
         Ok(())
-    }
-
-    pub async fn new(config: &GeneralConfig) -> Result<Self, Box<dyn std::error::Error>> {
-        let absolute_path = to_absolute_path(&config.plugin_directory)?;
-        let mut instance = Self {
-            semaphore: Arc::new(Semaphore::new(config.parallel_downloads as usize)),
-            watcher: FileWatcher::new(&absolute_path.to_string_lossy())?,
-            directory: absolute_path,
-            loading: vec![],
-            loaded: vec![],
-        };
-        instance.load_all_plugins_from_directory().await?;
-        Ok(instance)
     }
 
     pub fn take_loaded(&mut self) -> Vec<BinaryPlugin> {
@@ -78,8 +66,14 @@ impl PluginLoader {
             let handle = &mut loading[i];
 
             if handle.is_finished() {
-                let plugin = handle.await.unwrap();
-                loaded.push(plugin);
+                match handle.await {
+                    Ok(package) => {
+                        loaded.push(package);
+                    }
+                    Err(error) => {
+                        tracing::error!("{error}");
+                    }
+                }
                 loading.swap_remove(i);
             } else {
                 i += 1;
@@ -147,7 +141,7 @@ impl PluginLoader {
     }
 
     pub async fn poll_and_load(&mut self) {
-        let PluginLoader {
+        let InnerLoader {
             watcher,
             directory: _,
             semaphore: _,

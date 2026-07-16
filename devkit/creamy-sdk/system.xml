@@ -5,37 +5,41 @@
     <!-- TODO: bit vector type -->
     <!-- Builtin group -->
     <group name="builtin" access="Exclusive">
-        <message kind="0" name="PluginAppeared">
+        <message kind="0" name="Ignore">
+            <field name="__ignore__" type="[u8; 28]" />
+        </message>
+
+        <message kind="1" name="PluginAppeared">
             <field name="plugin_id" type="u8" />
         </message>
 
-        <message kind="1" name="PluginDisappeared">
+        <message kind="2" name="PluginDisappeared">
             <field name="plugin_id" type="u8" />
         </message>
 
-        <message kind="2" name="ProtocolDeclared">
+        <message kind="3" name="ProtocolDeclared">
             <field name="version" type="u32" />
             <field name="plugin_id" type="u8" />
             <field name="group_id" type="u8" />
         </message>
 
-        <message kind="3" name="ProtocolUndeclared">
+        <message kind="4" name="ProtocolUndeclared">
             <field name="plugin_id" type="u8" />
             <field name="group_id" type="u8" />
         </message>
 
-        <message kind="4" name="ProtocolRedeclared">
+        <message kind="5" name="ProtocolRedeclared">
             <field name="version" type="u32" />
             <field name="plugin_id" type="u8" />
             <field name="group_id" type="u8" />
         </message>
 
-        <message kind="5" name="StreamKeepAlive">
+        <message kind="6" name="StreamKeepAlive">
             <field name="stream_kind" type="u8" />
             <field name="stream_id" type="u8" />
         </message>
 
-        <message kind="6" name="StreamCancel">
+        <message kind="7" name="StreamCancel">
             <field name="stream_kind" type="u8" />
             <field name="stream_id" type="u8" />
         </message>
@@ -47,7 +51,7 @@
             <variant name="Error" value="3" />
         </enum>
 
-        <stream kind="7" name="Log" timeout="4">
+        <stream kind="8" name="Log" timeout="4">
             <start>
                 <field name="log_type" type="LogType" />
                 <field name="length" type="u32" />

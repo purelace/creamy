@@ -1,34 +1,8 @@
+use creamy_engine_async_loader::config::LoaderConfig;
 use garde::Validate;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::to_absolute_path;
-
-#[allow(clippy::trivially_copy_pass_by_ref)]
-fn check_path(path: &str, _: &()) -> garde::Result {
-    match to_absolute_path(path) {
-        Ok(_) => Ok(()),
-        Err(e) => Err(garde::Error::new(e)),
-    }
-}
-
-#[derive(Serialize, Deserialize, Validate, Clone)]
-pub struct GeneralConfig {
-    #[garde(range(min = 1))]
-    pub parallel_downloads: u8,
-
-    #[garde(custom(check_path))]
-    pub plugin_directory: String,
-}
-
-impl Default for GeneralConfig {
-    fn default() -> Self {
-        Self {
-            parallel_downloads: 4,
-            plugin_directory: "plugins".into(),
-        }
-    }
-}
-
+/*
 #[derive(Serialize, Deserialize, Validate, Clone)]
 pub struct PerformanceConfig {
     #[garde(skip)]
@@ -46,8 +20,9 @@ impl Default for PerformanceConfig {
 #[derive(Default, Deserialize, Validate, Clone)]
 pub struct EngineConfig {
     #[garde(dive)]
-    pub general: GeneralConfig,
+    pub loader: LoaderConfig,
 
     #[garde(dive)]
     pub performance: PerformanceConfig,
 }
+*/

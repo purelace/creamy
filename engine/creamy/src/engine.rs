@@ -1,55 +1,44 @@
 use std::time::Duration;
 
-use creamy_devkit::BinaryPlugin;
-use garde::Validate;
-use tokio::sync::mpsc::{self, UnboundedReceiver};
+use cbus::{MessageBus, config::Legacy};
+use creamy_cbus_driver::CreamyDriver;
+use creamy_engine_core::{Constants, PluginLoader, WasmRuntime};
 
-use crate::{config::EngineConfig, loader::PluginLoader, runtime::Runtime};
-
-pub struct PluginEngine {
-    receiver: UnboundedReceiver<BinaryPlugin>,
-    runtime: Runtime<()>,
+pub struct PluginEngine<R: WasmRuntime, L: PluginLoader> {
+    bus: MessageBus<CreamyDriver, R::Module>,
+    constants: Constants,
+    runtime: R,
+    loader: L,
 }
 
-#[allow(dead_code, unused)]
-impl PluginEngine {
-    pub async fn new(config: &EngineConfig) -> Result<Self, Box<dyn std::error::Error>> {
-        config.validate()?;
-
-        let (tx, mut rx) = mpsc::unbounded_channel();
-        let mut loader = PluginLoader::new(&config.general).await?;
-
-        tokio::spawn(async move {
-            loop {
-                loader.poll_and_load().await;
-
-                let loaded_plugins = loader.take_loaded();
-                if !loaded_plugins.is_empty() {
-                    for plugin in loaded_plugins {
-                        let _ = tx.send(plugin);
-                    }
-                }
-
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        });
-
+//#[allow(dead_code, unused)]
+impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
+    pub fn new(
+        constants: Constants,
+        runtime: R,
+        loader: L,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         Ok(Self {
-            receiver: rx,
-            runtime: Runtime::new(config.performance.heap_size)?,
+            constants,
+            runtime,
+            loader,
+            bus: MessageBus::new(Legacy, CreamyDriver::new)?,
         })
     }
 
     pub fn run(&mut self) {
-        match self.receiver.try_recv() {
-            Ok(plugin) => {
-                self.runtime.init_module(plugin.core()).unwrap();
-            }
-            Err(err) => {}
+        while self.loader.loaded() != 0
+            && let Some(package) = self.loader.take_loaded_package()
+        {
+            let module = self
+                .runtime
+                .init_module(&self.constants, package.core())
+                .unwrap();
+            self.bus.add_subscriber(|_, _| module).unwrap();
         }
 
-        self.runtime.tick();
-        self.runtime.tick();
+        self.bus.tick();
+        self.bus.tick();
 
         // For testing only
         std::thread::sleep(Duration::from_millis(16));
@@ -57,6 +46,6 @@ impl PluginEngine {
 
     #[must_use]
     pub const fn loaded_plugins(&self) -> u8 {
-        self.runtime.loaded_plugins()
+        self.bus.subscribers()
     }
 }
