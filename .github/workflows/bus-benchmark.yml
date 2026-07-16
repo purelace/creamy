@@ -1,0 +1,35 @@
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bus/cbus/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "bus/cbus/**"
+
+jobs:
+  benchmark_base_branch:
+    name: Continuous Benchmarking
+    permissions:
+      checks: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: bencherdev/bencher@main
+      - name: Track base branch benchmarks with Bencher
+        run: |
+          bencher run \
+          --project cbus \
+          --key '${{ secrets.BENCHER_API_KEY }}' \
+          --branch main \
+          --testbed ubuntu-latest \
+          --threshold-measure latency \
+          --threshold-test t_test \
+          --threshold-max-sample-size 64 \
+          --threshold-upper-boundary 0.99 \
+          --thresholds-reset \
+          --error-on-alert \
+          --adapter json \
+          --github-actions '${{ secrets.GITHUB_TOKEN }}' \
+          bencher mock
