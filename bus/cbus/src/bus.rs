@@ -64,11 +64,9 @@ where
     /// * [`BusError::ValueOutOfRange`] — if a value exceeds the architectural limits.
     /// * [`BusError::PoolExhausted`] - if a pool is exhausted.
     pub fn new<C: BusConfig>(
-        config: C,
+        config: &ValidConfig<C>,
         driver: impl Fn(&ValidConfig<C>, Outgoing) -> D,
-    ) -> Result<Self, BusError> {
-        let config = config.into_valid()?;
-
+    ) -> Self {
         let max_subscribers = config.max_subscribers() as usize;
         let max_messages = config.max_messages();
 
@@ -86,7 +84,7 @@ where
         };
 
         let driver = Driver::new(
-            driver(&config, outgoing),
+            driver(config, outgoing),
             config.max_groups(),
             config.max_subscribers(),
         );
@@ -95,7 +93,7 @@ where
             .take(max_subscribers)
             .collect::<Vec<_>>();
 
-        Ok(Self {
+        Self {
             pool: MessagePool::new(max_subscribers * max_messages * MESSAGE_SIZE),
             write_pool,
             read_pool,
@@ -105,7 +103,7 @@ where
             removed: vec![],
             mint: StackMint::new(1), // Reserve for the zero subscriber
             driver,
-        })
+        }
     }
 
     /// Adds a new subscriber

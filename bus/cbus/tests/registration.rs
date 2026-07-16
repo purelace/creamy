@@ -108,8 +108,8 @@ impl Subscriber for Resolver {
 }
 
 #[test]
-fn register_and_unregister() {
-    let mut bus = MessageBus::<Dns, Resolver>::new(Legacy, Dns::new).unwrap();
+fn register_and_unregister() -> Result<(), Box<dyn std::error::Error>> {
+    let mut bus = MessageBus::<Dns, Resolver>::new(&Legacy.into_valid()?, Dns::new);
     let id0 = bus
         .add_subscriber(|inc, out| Resolver::new(inc, out, "group_0"))
         .unwrap();
@@ -157,12 +157,14 @@ fn register_and_unregister() {
     assert!(removed[5].get_ident);
     assert!(removed[6].get_ident);
     assert!(removed[7].get_ident);
+
+    Ok(())
 }
 
 #[test]
-fn bus_exceed_error() {
+fn bus_exceed_error() -> Result<(), Box<dyn std::error::Error>> {
     let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(Legacy, EmptyDriver::new).unwrap();
+        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
     assert_eq!(bus.subscribers(), 1);
     let max_subs = Legacy.max_subscribers() - 1;
     for _ in 0..max_subs {
@@ -177,12 +179,14 @@ fn bus_exceed_error() {
             max: Legacy.max_subscribers() as usize
         }
     );
+
+    Ok(())
 }
 
 #[test]
-fn subscriber_remove() {
+fn subscriber_remove() -> Result<(), Box<dyn std::error::Error>> {
     let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(Legacy, EmptyDriver::new).unwrap();
+        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
 
     let max_subs = Legacy.max_subscribers() - 1;
 
@@ -200,34 +204,40 @@ fn subscriber_remove() {
 
     let removed = bus.removed();
     assert_eq!(removed.len(), max_subs as usize);
+
+    Ok(())
 }
 
 #[test]
-fn remove_zero() {
+fn remove_zero() -> Result<(), Box<dyn std::error::Error>> {
     let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(Legacy, EmptyDriver::new).unwrap();
+        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
     let result = bus.send_remove_request(SubscriberId::new(0));
     assert!(result.is_err());
     assert_eq!(result.err().unwrap(), BusError::InvalidSubscriberId);
+    Ok(())
 }
 
 #[test]
-fn send_remove_request_twice() {
+fn send_remove_request_twice() -> Result<(), Box<dyn std::error::Error>> {
     let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(Legacy, EmptyDriver::new).unwrap();
+        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
     let id = bus.add_subscriber(|_, _| EmptySubscriber).unwrap();
 
     assert!(bus.send_remove_request(id).is_ok());
     let result = bus.send_remove_request(id);
     assert!(result.is_err());
     assert_eq!(result.err().unwrap(), BusError::RequestAlreadySent);
+
+    Ok(())
 }
 
 #[test]
-fn send_remove_request_with_incorrect_id() {
+fn send_remove_request_with_incorrect_id() -> Result<(), Box<dyn std::error::Error>> {
     let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(Legacy, EmptyDriver::new).unwrap();
+        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
     let result = bus.send_remove_request(SubscriberId::new(128));
     assert!(result.is_err());
     assert_eq!(result.err().unwrap(), BusError::SubscriberNotRegistered);
+    Ok(())
 }

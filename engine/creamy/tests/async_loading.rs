@@ -1,4 +1,9 @@
-use cbus::defines::{MESSAGE_SIZE, METADATA};
+use std::num::NonZeroU8;
+
+use cbus::{
+    config::BusConfig,
+    defines::{MESSAGE_SIZE, METADATA},
+};
 use creamy::engine::PluginEngine;
 use creamy_engine_async_loader::{AsyncLoader, config::LoaderConfig};
 use creamy_engine_core::Constants;
@@ -37,14 +42,19 @@ async fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, AsyncLoad
         Constants {
             heap_size: 67_108_864,
             buffer_size: u32::try_from(1024 * MESSAGE_SIZE + METADATA)?,
-        },
+            max_messages: 1024,
+            max_groups: 64,
+            max_subscribers: 64,
+        }
+        .into_valid()?,
         runtime,
         loader,
-    )
-    .unwrap();
+    );
 
     Ok(engine)
 }
+
+const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn preload_plugin() -> anyhow::Result<()> {
@@ -58,10 +68,10 @@ async fn preload_plugin() -> anyhow::Result<()> {
     }
 
     unsafe { std::env::set_var("CREAMY_TEST_PLUGIN_DIR", tempdir.path().as_os_str()) };
-    let mut engine = init_engine().await.unwrap();
+    let mut engine = init_engine().await?;
 
     loop {
-        engine.run();
+        engine.run(ROUNDTRIP);
         if engine.loaded_plugins() == 2 {
             break;
         }
@@ -78,13 +88,13 @@ async fn load_plugin() -> anyhow::Result<()> {
     compile_plugin()?;
 
     unsafe { std::env::set_var("CREAMY_TEST_PLUGIN_DIR", tempdir.path().as_os_str()) };
-    let mut engine = init_engine().await.unwrap();
+    let mut engine = init_engine().await?;
 
     let plugin_path = tempdir.path().join("ping.cmy");
     std::fs::copy("../../target/creamy/ping.cmy", plugin_path.clone())?;
 
     loop {
-        engine.run();
+        engine.run(ROUNDTRIP);
         if engine.loaded_plugins() == 2 {
             break;
         }

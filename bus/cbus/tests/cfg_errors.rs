@@ -1,12 +1,9 @@
 mod general;
 use cbus::{
-    BusError, MessageBus,
+    BusError,
     config::{BusConfig, ValidConfig},
-    core::Subscriber,
     define_bus_config,
 };
-
-use crate::general::EmptyDriver;
 
 define_bus_config! {
     ZeroMessagesConfig,
@@ -17,7 +14,7 @@ define_bus_config! {
 
 #[test]
 fn value_too_small_max_messages() {
-    let result = MessageBus::<_, Box<dyn Subscriber>>::new(ZeroMessagesConfig, EmptyDriver::new);
+    let result = ZeroMessagesConfig.into_valid();
     assert!(result.is_err());
     assert_eq!(
         result.err().unwrap(),
@@ -38,7 +35,7 @@ define_bus_config! {
 
 #[test]
 fn value_is_not_multiple_of_2_max_messages() {
-    let result = MessageBus::<_, Box<dyn Subscriber>>::new(OneMessageConfig, EmptyDriver::new);
+    let result = OneMessageConfig.into_valid();
     assert!(result.is_err());
     assert_eq!(
         result.err().unwrap(),
@@ -57,7 +54,7 @@ define_bus_config! {
 
 #[test]
 fn value_too_small_max_subscribers() {
-    let result = MessageBus::<_, Box<dyn Subscriber>>::new(ZeroSubscribersConfig, EmptyDriver::new);
+    let result = ZeroSubscribersConfig.into_valid();
     assert!(result.is_err());
     assert_eq!(
         result.err().unwrap(),
@@ -78,7 +75,7 @@ define_bus_config! {
 
 #[test]
 fn value_is_not_multiple_of_2_max_subscribers() {
-    let result = MessageBus::<_, Box<dyn Subscriber>>::new(OneSubscriberConfig, EmptyDriver::new);
+    let result = OneSubscriberConfig.into_valid();
     assert!(result.is_err());
     assert_eq!(
         result.err().unwrap(),
@@ -97,7 +94,7 @@ define_bus_config! {
 
 #[test]
 fn groups_is_not_power_of_two() {
-    let result = MessageBus::<_, Box<dyn Subscriber>>::new(ZeroGroupsConfig, EmptyDriver::new);
+    let result = ZeroGroupsConfig.into_valid();
     assert!(result.is_err());
     assert_eq!(result.err().unwrap(), BusError::GroupsIsNotPowerOf2);
 }
@@ -131,7 +128,7 @@ fn max_message_value_too_big() {
 }
 
 fn max_messages_value_too_big_generic<C: BusConfig>(config: C) {
-    let result = MessageBus::<_, Box<dyn Subscriber>>::new(config, EmptyDriver::new);
+    let result = config.into_valid();
     assert!(result.is_err());
     assert_eq!(
         result.err().unwrap(),

@@ -1,11 +1,14 @@
 #![no_std]
 
-use cbus_core::Subscriber;
+use cbus::{
+    config::{BusConfig, ValidConfig},
+    core::Subscriber,
+};
 use creamy_devkit::BinaryPlugin;
 use serde::Deserialize;
 
 pub mod bus {
-    pub use cbus_core::*;
+    pub use cbus::*;
 }
 
 pub mod devkit {
@@ -24,6 +27,29 @@ pub trait PluginLoader {
 pub struct Constants {
     pub heap_size: u32,
     pub buffer_size: u32,
+
+    pub max_messages: u32,
+    pub max_groups: u8,
+    pub max_subscribers: u8,
+}
+
+impl BusConfig for Constants {
+    fn max_subscribers(&self) -> u8 {
+        self.max_subscribers
+    }
+
+    fn max_messages(&self) -> usize {
+        //TODO: remove usize cast operation
+        self.max_messages as usize
+    }
+
+    fn max_groups(&self) -> u8 {
+        self.max_groups
+    }
+
+    fn into_valid(self) -> Result<cbus::config::ValidConfig<Self>, cbus::BusError> {
+        ValidConfig::new(self)
+    }
 }
 
 pub trait WasmModule: Subscriber {

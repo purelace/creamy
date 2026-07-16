@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use creamy_engine_core::{Constants, WasmModule, WasmRuntime, bus::Subscriber};
+use creamy_engine_core::{Constants, WasmModule, WasmRuntime, bus::core::Subscriber};
 use wasmtime::{Config, Engine, Instance, Module, Store, TypedFunc};
 
 #[derive(Debug, thiserror::Error)]

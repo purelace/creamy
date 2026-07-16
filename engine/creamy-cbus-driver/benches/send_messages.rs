@@ -4,7 +4,7 @@ mod general;
 
 use cbus::{
     MessageBus,
-    config::Legacy,
+    config::{BusConfig, Legacy},
     core::{
         UntypedMessage,
         buffer::{Buffer, Write},
@@ -145,8 +145,10 @@ fn send_multiple_65k(c: &mut Criterion) {
 }
 
 fn empty(c: &mut Criterion) {
-    let mut bus =
-        MessageBus::<CreamyDriver, SimpleSubscriber>::new(Legacy, CreamyDriver::new).unwrap();
+    let mut bus = MessageBus::<CreamyDriver, SimpleSubscriber>::new(
+        &Legacy.into_valid().unwrap(),
+        CreamyDriver::new,
+    );
 
     c.bench_function("empty", |b| {
         b.iter(|| {

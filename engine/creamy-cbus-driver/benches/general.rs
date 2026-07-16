@@ -99,9 +99,9 @@ pub fn init_bus_custom<C: BusConfig, F: SenderFn>(
     indices: Vec<u8>,
     function: F,
     subs: usize,
-    config: C,
+    config: &ValidConfig<C>,
 ) -> Result<BenchBus<F>, Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::new(config, CreamyDriver::new)?;
+    let mut bus = MessageBus::new(config, CreamyDriver::new);
     let sender_id =
         bus.add_subscriber(|inc, out| BenchmarkSender::new(out, inc, indices, function))?;
 
@@ -124,7 +124,7 @@ pub fn init_bus_legacy<F: SenderFn>(
     function: F,
     subs: usize,
 ) -> Result<BenchBus<F>, Box<dyn std::error::Error>> {
-    init_bus_custom(indices, function, subs, Legacy)
+    init_bus_custom(indices, function, subs, &Legacy.into_valid()?)
 }
 
 define_bus_config! {
@@ -139,7 +139,7 @@ pub fn init_bus_legacy_large_buf<F: SenderFn>(
     function: F,
     subs: usize,
 ) -> Result<BenchBus<F>, Box<dyn std::error::Error>> {
-    init_bus_custom(indices, function, subs, LegacyLargeBuffer)
+    init_bus_custom(indices, function, subs, &LegacyLargeBuffer.into_valid()?)
 }
 
 define_bus_config! {
@@ -154,5 +154,10 @@ pub fn init_bus_legacy_ularge_buf<F: SenderFn>(
     function: F,
     subs: usize,
 ) -> Result<BenchBus<F>, Box<dyn std::error::Error>> {
-    init_bus_custom(indices, function, subs, LegacyUltraLargeBuffer)
+    init_bus_custom(
+        indices,
+        function,
+        subs,
+        &LegacyUltraLargeBuffer.into_valid()?,
+    )
 }

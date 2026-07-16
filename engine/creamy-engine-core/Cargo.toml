@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-cbus-core.workspace = true
+#cbus-core.workspace = true
 creamy-devkit = { workspace = true, features = ["read"] }
 serde.workspace = true
+cbus.workspace = true

@@ -844,7 +844,7 @@ dependencies = [
 name = "creamy-engine-core"
 version = "0.1.0"
 dependencies = [
- "cbus-core",
+ "cbus",
  "creamy-devkit",
  "serde",
 ]

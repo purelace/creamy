@@ -146,7 +146,7 @@ subscribers! {
 
 #[test]
 pub fn send_1_message() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs1>::new(Advanced, Driver::new)?;
+    let mut bus = MessageBus::<TSubs1>::new(&Advanced.into_valid()?, Driver::new);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -157,7 +157,7 @@ pub fn send_1_message() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_10_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs10>::new(Advanced, Driver::new)?;
+    let mut bus = MessageBus::<TSubs10>::new(&Advanced.into_valid()?, Driver::new);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -168,7 +168,7 @@ pub fn send_10_messages() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_100_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs100>::new(Advanced, Driver::new)?;
+    let mut bus = MessageBus::<TSubs100>::new(&Advanced.into_valid()?, Driver::new);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -179,7 +179,7 @@ pub fn send_100_messages() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_1k_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs1000>::new(Advanced, Driver::new)?;
+    let mut bus = MessageBus::<TSubs1000>::new(&Advanced.into_valid()?, Driver::new);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
