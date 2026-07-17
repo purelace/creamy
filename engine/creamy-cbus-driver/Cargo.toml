@@ -2,6 +2,7 @@
 name = "creamy-cbus-driver"
 version.workspace = true
 edition.workspace = true
+autobenches = false
 
 [dependencies]
 as-guard.workspace = true
