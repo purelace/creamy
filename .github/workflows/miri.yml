@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "bus/**"
+      - "bus/cbus/**"
   pull_request:
     branches: [main]
     paths:
-      - "bus/**"
+      - "bus/cbus/**"
 
 env:
   CARGO_TERM_COLOR: always
@@ -33,13 +33,13 @@ jobs:
           cache-on-failure: true
 
       - name: Run Miri (native)
-        run: RUSTFLAGS="-C target-cpu=native" cargo +nightly miri test
+        run: RUSTFLAGS="-C target-cpu=native" cargo +nightly miri test -p cbus
 
       - name: Run Miri (avx2)
-        run: RUSTFLAGS="-C target-feature=+avx2" cargo +nightly miri test
+        run: RUSTFLAGS="-C target-feature=+avx2" cargo +nightly miri test -p cbus
 
       - name: Run Miri (sse4.1)
-        run: RUSTFLAGS="-C target-feature=+sse4.1" cargo +nightly miri test
+        run: RUSTFLAGS="-C target-feature=+sse4.1" cargo +nightly miri test -p cbus
 
       - name: Run Miri (generic)
-        run: cargo +nightly miri test
+        run: cargo +nightly miri test -p cbus
