@@ -73,19 +73,14 @@ pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
     /// Остаток предается в `InstructionSet::send_remainder`
     #[inline(always)]
     fn slices_send(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
-        let mut read_chunks = read.chunks_exact(CHUNK_SIZE);
-        let mut write_chunks = write.chunks_exact_mut(CHUNK_SIZE);
+        let (read_chunks, read_remainder) = read.as_chunks::<CHUNK_SIZE>();
+        let (write_chunks, write_remainder) = write.as_chunks_mut::<CHUNK_SIZE>();
 
-        for (read_chunk, write_chunk) in (&mut read_chunks).zip(&mut write_chunks) {
-            let read_slice: &[UntypedMessage; CHUNK_SIZE] = read_chunk.try_into().unwrap();
-            let write_slice: &mut [UntypedMessage; CHUNK_SIZE] = write_chunk.try_into().unwrap();
-
-            Self::send_exactly(read_slice, write_slice);
+        for (read_chunk, write_chunk) in read_chunks.iter().zip(write_chunks) {
+            Self::send_exactly(read_chunk, write_chunk);
         }
 
-        let read = read_chunks.remainder();
-        let write = write_chunks.into_remainder();
-        Self::send_remainder(read, write);
+        Self::send_remainder(read_remainder, write_remainder);
     }
 
     /// Делит оба слайса на равные чанки и передает их в `InstructionSet::prepare_and_send_exaclty`.
@@ -97,18 +92,13 @@ pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        let mut read_chunks = read.chunks_exact(CHUNK_SIZE);
-        let mut write_chunks = write.chunks_exact_mut(CHUNK_SIZE);
+        let (read_chunks, read_remainder) = read.as_chunks::<CHUNK_SIZE>();
+        let (write_chunks, write_remainder) = write.as_chunks_mut::<CHUNK_SIZE>();
 
-        for (read_chunk, write_chunk) in (&mut read_chunks).zip(&mut write_chunks) {
-            let read_slice: &[UntypedMessage; CHUNK_SIZE] = read_chunk.try_into().unwrap();
-            let write_slice: &mut [UntypedMessage; CHUNK_SIZE] = write_chunk.try_into().unwrap();
-
-            Self::prepare_and_send_exactly(lut, src, read_slice, write_slice);
+        for (read_chunk, write_chunk) in read_chunks.iter().zip(write_chunks) {
+            Self::prepare_and_send_exactly(lut, src, read_chunk, write_chunk);
         }
 
-        let read = read_chunks.remainder();
-        let write = write_chunks.into_remainder();
-        Self::prepare_and_send_remainder(lut, src, read, write);
+        Self::prepare_and_send_remainder(lut, src, read_remainder, write_remainder);
     }
 }
