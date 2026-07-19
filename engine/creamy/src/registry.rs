@@ -26,7 +26,11 @@ impl ProtocolRegistry {
 
     pub fn declare_protocol(&mut self, path: impl Into<Box<str>>, definition: ProtocolDefinition) {
         let path = path.into();
-        tracing::info!("Protocol '{}' declared", &path);
+        tracing::info!(
+            "Protocol '{}@{}' declared",
+            definition.name().resolve(&self.pool),
+            definition.version()
+        );
         //TODO: chech if contains
         assert!(self.map.insert(path, definition).is_none());
     }
