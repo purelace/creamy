@@ -4,6 +4,7 @@ use crate::{
     constraints::{MAX_ENUMS, MAX_VARIANTS},
     define_readonly_struct,
     error::SemanticError,
+    impl_with_ident,
     model::symbols::PrimitiveRepr,
     nodes::VariantValue,
     table::TypeMeta,
@@ -17,15 +18,17 @@ define_readonly_struct! {
         value: VariantValue,
     }
 }
+impl_with_ident!(VariantSymbol);
 
 define_readonly_struct! {
     [element(MAX_ENUMS, EnumsRange)]
     struct EnumSymbol {
-        name: StringId,
+        ident: StringId,
         repr: PrimitiveRepr,
         variants: VariantsRange,
     }
 }
+impl_with_ident!(EnumSymbol);
 
 impl EnumSymbol {
     pub const fn meta(&self) -> Result<TypeMeta, SemanticError> {

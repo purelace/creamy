@@ -18,7 +18,7 @@ use crate::{
         MAX_BITSET_VALUES, MAX_BITSETS, MAX_FIELDS, MAX_FLAGS, MAX_GROUPS, MAX_MESSAGES,
         MAX_OPTIONS, MAX_STRUCTS,
     },
-    define_readonly_struct,
+    define_readonly_struct, impl_with_ident,
     table::TypeId,
     utils::{
         BValuesRange, BitsetsRange, FieldsRange, FlagsRange, GroupsRange, MessagesRange,
@@ -49,10 +49,22 @@ impl Type {
         match self {
             Type::Numeric(symbol) => symbol.name(),
             Type::Array(_) => unreachable!(),
-            Type::Struct(symbol) => symbol.name(),
-            Type::Enum(symbol) => symbol.name(),
-            Type::Flags(symbol) => symbol.name(),
-            Type::Bitset(symbol) => symbol.name(),
+            Type::Struct(symbol) => symbol.ident(),
+            Type::Enum(symbol) => symbol.ident(),
+            Type::Flags(symbol) => symbol.ident(),
+            Type::Bitset(symbol) => symbol.ident(),
+        }
+    }
+
+    #[must_use]
+    pub const fn with_ident(&self, id: StringId) -> Self {
+        match self {
+            Type::Numeric(s) => Type::Numeric(*s),
+            Type::Array(s) => Type::Array(*s),
+            Type::Struct(s) => Type::Struct(s.with_ident(id)),
+            Type::Enum(s) => Type::Enum(s.with_ident(id)),
+            Type::Flags(s) => Type::Flags(s.with_ident(id)),
+            Type::Bitset(s) => Type::Bitset(s.with_ident(id)),
         }
     }
 }
@@ -67,35 +79,38 @@ define_readonly_struct! {
 define_readonly_struct! {
     [element(MAX_STRUCTS, StructsRange)]
     struct StructSymbol {
-        name: StringId,
+        ident: StringId,
         fields: FieldsRange,
     }
 }
+impl_with_ident!(StructSymbol);
 
 define_readonly_struct! {
     [element(MAX_GROUPS, GroupsRange)]
     struct GroupSymbol {
-        name: StringId,
+        ident: StringId,
         access: Access,
         messages: MessagesRange,
         types: TypesRange,
     }
 }
+impl_with_ident!(GroupSymbol);
 
 define_readonly_struct! {
     [element(MAX_MESSAGES, MessagesRange)]
     struct MessageSymbol {
-        name: StringId,
+        ident: StringId,
         fields: FieldsRange,
         kind: u8,
     }
 }
+impl_with_ident!(MessageSymbol);
 
 define_readonly_struct! {
     [element(MAX_MESSAGES, MessagesRange)]
     struct StreamSymbol {
         [Documentation("Name of message.")]
-        name: StringId,
+        ident: StringId,
         [Documentation("Timeout in frames.")]
         timeout: u8,
         [Documentation("
@@ -114,6 +129,8 @@ define_readonly_struct! {
     }
 }
 
+impl_with_ident!(StreamSymbol);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, BinRead, BinWrite, Hash)]
 pub enum MessageSymbolType {
     Single(MessageSymbol),
@@ -127,10 +144,10 @@ impl VectorElement for MessageSymbolType {
 
 impl MessageSymbolType {
     #[must_use]
-    pub const fn name(&self) -> StringId {
+    pub const fn ident(&self) -> StringId {
         match self {
-            MessageSymbolType::Single(m) => m.name(),
-            MessageSymbolType::Stream(s) => s.name(),
+            MessageSymbolType::Single(m) => m.ident(),
+            MessageSymbolType::Stream(s) => s.ident(),
         }
     }
 
@@ -141,39 +158,52 @@ impl MessageSymbolType {
             MessageSymbolType::Stream(s) => s.kind,
         }
     }
+
+    #[must_use]
+    pub const fn with_ident(&self, id: StringId) -> Self {
+        match self {
+            MessageSymbolType::Single(s) => MessageSymbolType::Single(s.with_ident(id)),
+            MessageSymbolType::Stream(s) => MessageSymbolType::Stream(s.with_ident(id)),
+        }
+    }
 }
 
 define_readonly_struct! {
     [element(MAX_FLAGS, FlagsRange)]
     struct FlagsSymbol {
-        name: StringId,
+        ident: StringId,
         values: OptionsRange,
     }
 }
+impl_with_ident!(FlagsSymbol);
 
 define_readonly_struct! {
     [element(MAX_BITSETS, BitsetsRange)]
     struct BitsetSymbol {
-        name: StringId,
+        ident: StringId,
         values: BValuesRange,
     }
 }
+impl_with_ident!(BitsetSymbol);
 
 define_readonly_struct! {
     [element(MAX_OPTIONS, OptionsRange)]
     struct OptionSymbol {
-        name: StringId,
+        ident: StringId,
     }
 }
+impl_with_ident!(OptionSymbol);
 
 define_readonly_struct! {
     [element(MAX_BITSET_VALUES, BValuesRange)]
     struct BitsetValueSymbol {
-        name: StringId,
+        ident: StringId,
         repr: TypeId,
         bits: u8,
     }
 }
+
+impl_with_ident!(BitsetValueSymbol);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, BinRead, BinWrite)]
 pub enum StreamPayloadFieldSymbol {
@@ -186,10 +216,30 @@ impl VectorElement for StreamPayloadFieldSymbol {
     type RangeType = FieldsRange;
 }
 
+impl StreamPayloadFieldSymbol {
+    #[must_use]
+    pub const fn ident(&self) -> StringId {
+        match self {
+            StreamPayloadFieldSymbol::Field(s) => s.ident(),
+            StreamPayloadFieldSymbol::Array(s) => s.ident(),
+        }
+    }
+
+    #[must_use]
+    pub const fn with_ident(&self, id: StringId) -> Self {
+        match self {
+            StreamPayloadFieldSymbol::Field(s) => StreamPayloadFieldSymbol::Field(s.with_ident(id)),
+            StreamPayloadFieldSymbol::Array(s) => StreamPayloadFieldSymbol::Array(s.with_ident(id)),
+        }
+    }
+}
+
 define_readonly_struct! {
     struct ArrayFieldSymbol{
-        name: StringId,
+        ident: StringId,
         kind: TypeId,
         len: StringId,
     }
 }
+
+impl_with_ident!(ArrayFieldSymbol);

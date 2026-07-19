@@ -120,7 +120,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(prev) = self.prev.take() {
             return Some(EnrichedFieldSymbol {
-                name: Cow::Borrowed(prev.name().resolve(self.pool)),
+                name: Cow::Borrowed(prev.ident().resolve(self.pool)),
                 kind: self.get_field_kind(prev.kind()),
                 is_padding: false,
             });
@@ -139,7 +139,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
                     Some(field)
                 } else {
                     Some(EnrichedFieldSymbol {
-                        name: Cow::Borrowed(field.name().resolve(self.pool)),
+                        name: Cow::Borrowed(field.ident().resolve(self.pool)),
                         kind: self.get_field_kind(field.kind()),
                         is_padding: false,
                     })

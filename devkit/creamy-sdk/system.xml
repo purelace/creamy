@@ -6,7 +6,7 @@
     <!-- Builtin group -->
     <group name="builtin" access="Exclusive">
         <message kind="0" name="Ignore">
-            <field name="__ignore__" type="[u8; 28]" />
+            <field name="ignore" type="[u8; 28]" />
         </message>
 
         <message kind="1" name="PluginAppeared">

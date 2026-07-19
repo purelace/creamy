@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use as_guard::AsGuard;
 use binrw::{BinRead, BinWrite};
-use creamy_utils::strpool::StringId;
+use creamy_utils::strpool::{StringId, StringPool};
 
 use crate::{
     Version,
@@ -226,6 +226,71 @@ impl ProtocolDefinition {
             .iter()
             .map(|g| (g, &self.messages[g.messages()], self.types_for_group(*g)))
             .try_for_each(|(g, m, t)| f(*g, m, t))
+    }
+
+    pub fn replace_identifiers(&mut self, from: &StringPool, to: &mut StringPool) {
+        macro_rules! replace {
+            ($field:expr) => {
+                let value = from.get_string($field);
+                let id = to.get_id_or_add(value);
+                $field = id;
+            };
+        }
+
+        macro_rules! replace_symbol {
+            ($symbol:expr) => {
+                let value = from.get_string($symbol.ident());
+                let id = to.get_id_or_add(value);
+                *$symbol = $symbol.with_ident(id);
+            };
+        }
+        //name: StringId,
+        //version: Version,
+        //global: GroupSymbol,
+
+        //groups: BoundedVec<GroupSymbol>,
+        //messages: BoundedVec<MessageSymbolType>,
+
+        //values: BoundedVec<BitsetValueSymbol>,
+        //options: BoundedVec<OptionSymbol>,
+        //variants: BoundedVec<VariantSymbol>,
+        //fields: BoundedVec<FieldSymbol>,
+        //payload: BoundedVec<StreamPayloadFieldSymbol>,
+
+        //table: FinishedTypeTable,
+
+        replace!(self.name);
+        replace_symbol!(&mut self.global);
+
+        for symbol in self.groups.iter_mut() {
+            replace_symbol!(symbol);
+        }
+
+        for symbol in self.messages.iter_mut() {
+            replace_symbol!(symbol);
+        }
+
+        for symbol in self.values.iter_mut() {
+            replace_symbol!(symbol);
+        }
+
+        for symbol in self.options.iter_mut() {
+            replace_symbol!(symbol);
+        }
+
+        for symbol in self.variants.iter_mut() {
+            replace_symbol!(symbol);
+        }
+
+        for symbol in self.fields.iter_mut() {
+            replace_symbol!(symbol);
+        }
+
+        for symbol in self.payload.iter_mut() {
+            replace_symbol!(symbol);
+        }
+
+        self.table.replace_identifiers(from, to);
     }
 }
 

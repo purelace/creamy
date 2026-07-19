@@ -1,4 +1,4 @@
-use std::num::NonZeroU8;
+use std::{num::NonZeroU8, time::Duration};
 
 use cbus::{
     config::BusConfig,
@@ -71,10 +71,11 @@ async fn preload_plugin() -> anyhow::Result<()> {
     let mut engine = init_engine().await?;
 
     loop {
-        engine.run(ROUNDTRIP);
+        engine.tick(ROUNDTRIP);
         if engine.loaded_plugins() == 2 {
             break;
         }
+        std::thread::sleep(Duration::from_millis(16));
     }
 
     Ok(())
@@ -94,10 +95,11 @@ async fn load_plugin() -> anyhow::Result<()> {
     std::fs::copy("../../target/creamy/ping.cmy", plugin_path.clone())?;
 
     loop {
-        engine.run(ROUNDTRIP);
+        engine.tick(ROUNDTRIP);
         if engine.loaded_plugins() == 2 {
             break;
         }
+        std::thread::sleep(Duration::from_millis(16));
     }
 
     Ok(())

@@ -126,7 +126,7 @@ impl<'s> Iterator for BitsetValueList<'s> {
             end_pos,
             backing_type,
             repr,
-            name: symbol.name().resolve(self.pool),
+            name: symbol.ident().resolve(self.pool),
         })
     }
 }

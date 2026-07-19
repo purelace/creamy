@@ -1,7 +1,7 @@
 #![allow(clippy::as_conversions)]
 #![allow(clippy::cast_possible_truncation)]
 
-use std::ops::{Deref, Index, RangeBounds};
+use std::ops::{Deref, DerefMut, Index, RangeBounds};
 
 use binrw::{BinRead, BinWrite};
 
@@ -141,5 +141,11 @@ impl<T: VectorElement> Deref for BoundedVec<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
+    }
+}
+
+impl<T: VectorElement> DerefMut for BoundedVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
     }
 }

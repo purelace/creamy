@@ -2,8 +2,8 @@ use binrw::{BinRead, BinWrite};
 use creamy_utils::strpool::StringId;
 
 use crate::{
-    constraints::MAX_FIELDS, define_readonly_struct, model::symbols::ArraySymbol, table::TypeId,
-    utils::FieldsRange,
+    constraints::MAX_FIELDS, define_readonly_struct, impl_with_ident, model::symbols::ArraySymbol,
+    table::TypeId, utils::FieldsRange,
 };
 
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -17,10 +17,11 @@ pub enum FieldType {
 define_readonly_struct! {
     [element(MAX_FIELDS, FieldsRange)]
     struct FieldSymbol {
-        name: StringId,
+        ident: StringId,
         kind: FieldType,
     }
 }
+impl_with_ident!(FieldSymbol);
 
 impl FieldSymbol {
     #[must_use]

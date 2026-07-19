@@ -62,11 +62,11 @@ quote = "1.0.46"
 proc-macro2 = "1.0.106"
 proc-macro-crate = "3.5.0"
 criterion = { version = "0.8.2", features = ["html_reports"] }
-bitflags = "2.13.0"
+bitflags = "2.13.1"
 chrono = "0.4.45"
 derive_more = { version = "2.1.1", features = ["from", "display"] }
 notify = "8.2.0"
-regex = "1.13.0"
+regex = "1.13.1"
 tree-sitter = "0.26.11"
 zip = "8.6.0"
 env_logger = "0.11.11"
@@ -88,7 +88,7 @@ version = "1.0.228"
 features = ["derive", "std"]
 
 [workspace.dependencies.clap]
-version = "4.6.1"
+version = "4.6.2"
 features = ["derive"]
 default-features = true
 

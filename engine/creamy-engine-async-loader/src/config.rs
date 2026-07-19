@@ -33,9 +33,7 @@ impl Default for LoaderConfig {
 
 impl LoaderConfig {
     pub fn into_valid(self) -> Result<ValidLoaderConfig, garde::Report> {
-        if let Err(report) = self.validate() {
-            return Err(report);
-        }
+        self.validate()?;
 
         Ok(ValidLoaderConfig {
             parallel_downloads: self.parallel_downloads,

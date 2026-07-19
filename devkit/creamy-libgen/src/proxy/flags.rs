@@ -53,7 +53,7 @@ impl<'s> Iterator for OptionList<'s> {
         let item = self.slice[self.index];
         self.index += 1;
 
-        Some(item.name().resolve(self.pool))
+        Some(item.ident().resolve(self.pool))
     }
 }
 

@@ -1,0 +1,10 @@
+[package]
+id = "org.creamy.sdk"
+name = "system"
+version = "1.0.0"
+description = "Builtin package"
+repository = "https://github.com/purelace/creamy"
+authors = [ "selrisu <myirisuchan@gmail.com>" ]
+
+[protocols]
+system = { version = "1.0", groups=["builtin"] }

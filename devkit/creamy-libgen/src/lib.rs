@@ -83,10 +83,9 @@ pub struct ProtocolLibrary {
 impl ProtocolLibrary {
     #[must_use]
     pub fn new(manifest: &str) -> Self {
-        let (_, manifest) = Manifest::read_manifest(manifest).unwrap();
         Self {
             pool: StringPool::default(),
-            manifest,
+            manifest: Manifest::read_manifest(manifest).unwrap(),
             inner: HashMap::new(),
         }
     }
@@ -155,7 +154,7 @@ impl Codegen {
             let definition = inner.get(protocol.as_str()).unwrap();
 
             let global_group = definition.global();
-            let global_group_name = global_group.name().resolve(pool);
+            let global_group_name = global_group.ident().resolve(pool);
             generator.start_group(global_group_name);
 
             Self::generate_group(
@@ -174,7 +173,7 @@ impl Codegen {
                 let group_symbol = definition
                     .groups()
                     .iter()
-                    .find(|g| g.name() == pool.get_id(group_name))
+                    .find(|g| g.ident() == pool.get_id(group_name))
                     .copied()
                     .unwrap();
 
@@ -183,12 +182,12 @@ impl Codegen {
                     // Valid form of the dispatch value: [0x_00_FF_00_FF]
                     let dispatch_value =
                         u32::from(group_id) << 16 | u32::from(message_symbol.kind());
-                    dispatch_values.insert(message_symbol.name(), (group_id, dispatch_value));
+                    dispatch_values.insert(message_symbol.ident(), (group_id, dispatch_value));
 
                     paths.push(Path::from_absolute(AbsolutePath::from_iter([
                         protocol.as_str(),
                         group_name.as_str(),
-                        message_symbol.name().resolve(pool),
+                        message_symbol.ident().resolve(pool),
                     ])));
                 }
 
@@ -232,7 +231,7 @@ impl Codegen {
                 Type::Struct(symbol) => {
                     let fields = definition.fields_slice(symbol.fields());
                     let symbol = EnrichedStructSymbol {
-                        name: symbol.name().resolve(pool),
+                        name: symbol.ident().resolve(pool),
                         fields: FieldList::new(
                             module_path.clone(),
                             pool,
@@ -245,7 +244,7 @@ impl Codegen {
                 }
                 Type::Enum(symbol) => {
                     let symbol = EnrichedEnumSymbol {
-                        name: symbol.name().resolve(pool),
+                        name: symbol.ident().resolve(pool),
                         repr: symbol.repr(),
                         variants: definition
                             .variants_slice(symbol.variants())
@@ -260,7 +259,7 @@ impl Codegen {
                 }
                 Type::Flags(symbol) => {
                     let symbol = EnrichedFlagsSymbol {
-                        name: symbol.name().resolve(pool),
+                        name: symbol.ident().resolve(pool),
                         underlying_type: match symbol.values().len() {
                             1..=8 => FlagUnderlyingType::U8,
                             9..=16 => FlagUnderlyingType::U16,
@@ -277,7 +276,7 @@ impl Codegen {
                 Type::Bitset(symbol) => {
                     let slice = definition.bvalues_slice(symbol.values());
                     let symbol = EnrichedBitsetSymbol {
-                        name: symbol.name().resolve(pool),
+                        name: symbol.ident().resolve(pool),
                         values: BitsetValueList::new(pool, slice),
                     };
 
@@ -288,12 +287,12 @@ impl Codegen {
 
         for message in messages {
             let (group, dispatch_value) =
-                dispatch_value_table.get(&message.name()).copied().unwrap();
+                dispatch_value_table.get(&message.ident()).copied().unwrap();
 
             match message {
                 MessageSymbolType::Single(symbol) => {
                     let symbol = EnrichedSingleMessageSymbol {
-                        name: symbol.name().resolve(pool),
+                        name: symbol.ident().resolve(pool),
                         kind: symbol.kind(),
                         group,
                         dispatch_value,
@@ -322,7 +321,7 @@ impl Codegen {
                         .collect::<Vec<_>>();
 
                     let symbol = EnrichedStreamMessageSymbol {
-                        name: symbol.name().resolve(pool),
+                        name: symbol.ident().resolve(pool),
                         timeout: symbol.timeout(),
 
                         group,

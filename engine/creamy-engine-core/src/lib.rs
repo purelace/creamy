@@ -12,7 +12,7 @@ pub mod bus {
 }
 
 pub mod devkit {
-    pub use creamy_devkit::{BinaryPlugin, Error};
+    pub use creamy_devkit::*;
 }
 
 pub const PACKAGE_FILE_EXTENSION: &str = "cmy";

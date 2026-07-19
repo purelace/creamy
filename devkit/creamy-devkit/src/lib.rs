@@ -5,10 +5,22 @@ mod error;
 mod load;
 mod write;
 
+pub mod xmlc {
+    pub use creamy_xmlc::*;
+}
+
+pub mod utils {
+    pub use creamy_utils::*;
+}
+
+pub mod manifest {
+    pub use creamy_manifest::*;
+}
+
 use std::{collections::HashMap, ffi::OsString, path::Path, str::FromStr};
 
 use binrw::binrw;
-use creamy_manifest::{Arguments, Manifest};
+use creamy_manifest::Manifest;
 use creamy_utils::{collections::List, strpool::StringPool, version::Version};
 use creamy_xmlc::{ProtocolDefinition, compile};
 use fs_err as fs;
@@ -19,10 +31,10 @@ pub use crate::error::Error;
 #[brw(magic = b"CMY!", little)]
 #[derive(Debug)]
 pub struct BinaryPlugin {
-    version: Version,
-    manifest: Manifest,
-    pool: StringPool,
-    definitions: List<ProtocolDefinition>,
+    pub version: Version,
+    pub manifest: Manifest,
+    pub pool: StringPool,
+    pub definitions: List<ProtocolDefinition>,
     core: List<u8>,
 }
 
@@ -61,7 +73,7 @@ pub fn compile_to_binary(
     let manifest_file = files
         .get(&OsString::from("manifest.toml"))
         .ok_or(Error::MissingManifest)?;
-    let (_, manifest) = compile_manifest(manifest_file)?;
+    let manifest = compile_manifest(manifest_file)?;
 
     let mut pool = StringPool::default();
 
@@ -80,7 +92,7 @@ pub fn compile_to_binary(
     })
 }
 
-fn compile_manifest(entry: &fs::DirEntry) -> Result<(Arguments, Manifest), Error> {
+fn compile_manifest(entry: &fs::DirEntry) -> Result<Manifest, Error> {
     if !entry.file_type()?.is_file() {
         return Err(Error::NotAFile("manifest.toml".to_string()));
     }

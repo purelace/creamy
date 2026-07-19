@@ -6,9 +6,5 @@ description = "Plugin example"
 repository = "https://github.com/purelace/creamy"
 authors = [ "selrisu <myirisuchan@gmail.com>" ]
 
-[core]
-path = "core.wasm"
-runtime = "wasm"
-
 [protocols]
-ping = { version = "1.0", groups = [ "messages" ] }
+ping = { version = "1.0", groups = [ "messages" ], provide = true }

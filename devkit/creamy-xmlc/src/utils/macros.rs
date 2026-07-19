@@ -99,7 +99,10 @@ macro_rules! define_readonly_struct {
     };
 
     {
-        @impl_methods $name:ident { $($field:ident: $field_type:ty,)* }
+        @impl_methods
+        $name:ident {
+            $($field:ident: $field_type:ty,)*
+        }
     } => {
         impl $name {
             pub const fn new($($field: $field_type,)*) -> Self {
@@ -112,6 +115,20 @@ macro_rules! define_readonly_struct {
                     self.$field
                 }
             )*
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_with_ident {
+    ($target: path) => {
+        impl $target {
+            #[must_use]
+            pub const fn with_ident(&self, value: creamy_utils::strpool::StringId) -> Self {
+                let mut copy = *self;
+                copy.ident = value;
+                copy
+            }
         }
     };
 }

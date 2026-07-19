@@ -22,16 +22,14 @@ pub struct Package {
     authors: List<BString>,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Core {
-    path: String,
-    runtime: String,
-}
-
 #[derive(BinRead, BinWrite, Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestedProtocol {
     version: BString,
     groups: List<BString>,
+    #[br(map = |val: u8| val != 0)]
+    #[bw(map = |val: &bool| u8::from(*val))]
+    #[serde(default)]
+    provide: bool,
 }
 
 impl RequestedProtocol {
@@ -44,12 +42,16 @@ impl RequestedProtocol {
     pub fn groups(&self) -> &[BString] {
         &self.groups
     }
+
+    #[must_use]
+    pub const fn provide(&self) -> bool {
+        self.provide
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParsedManifest {
     package: Package,
-    core: Core,
     protocols: HashMap<BString, RequestedProtocol>,
 }
 
@@ -84,7 +86,7 @@ impl Manifest {
     /// # Errors
     ///
     /// This function will return an error if manifest has errors.
-    pub fn read_manifest(manifest: &str) -> Result<(Arguments, Self), ManifestError> {
+    pub fn read_manifest(manifest: &str) -> Result<Self, ManifestError> {
         let manifest: ParsedManifest = toml::from_str(manifest)?;
 
         if manifest.package.id.is_empty() {
@@ -95,16 +97,10 @@ impl Manifest {
             return Err(ManifestError::EmptyValue("name"));
         }
 
-        Ok((
-            Arguments {
-                core: manifest.core.path,
-                runtime: manifest.core.runtime,
-            },
-            Self {
-                package: manifest.package,
-                protocols: manifest.protocols,
-            },
-        ))
+        Ok(Self {
+            package: manifest.package,
+            protocols: manifest.protocols,
+        })
     }
 
     #[must_use]
@@ -116,12 +112,6 @@ impl Manifest {
     pub const fn requested_groups(&self) -> &HashMap<BString, RequestedProtocol> {
         &self.protocols
     }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct Arguments {
-    pub core: String,
-    pub runtime: String,
 }
 
 /*
@@ -137,7 +127,7 @@ mod test {
 
     use creamy_utils::collections::List;
 
-    use crate::{Arguments, Manifest, Package, RequestedProtocol};
+    use crate::{Manifest, Package, RequestedProtocol};
 
     const MANIFEST_VALID: &str = r#"
      [package]
@@ -148,17 +138,13 @@ mod test {
      repository = "https://github.com/purelace/chocomint"
      authors = ["selrisu <myirisuchan@gmail.com>"]
 
-     [core]
-     path = "core.wasm"
-     runtime = "wasm"
-
      [protocols]
      testcase = { version = "1.0", groups=["valid"]}
      "#;
 
     #[test]
     fn valid() {
-        let (arguments, manifest) = Manifest::read_manifest(MANIFEST_VALID).unwrap();
+        let manifest = Manifest::read_manifest(MANIFEST_VALID).unwrap();
 
         assert_eq!(
             manifest,
@@ -182,18 +168,11 @@ mod test {
                         RequestedProtocol {
                             version: "1.0".into(),
                             groups: List::wrap(vec!["valid".into()]),
+                            provide: false,
                         },
                     );
                     map
                 }
-            }
-        );
-
-        assert_eq!(
-            arguments,
-            Arguments {
-                core: "core.wasm".to_string(),
-                runtime: "wasm".to_string()
             }
         );
     }
@@ -206,10 +185,6 @@ mod test {
      description = "Test manifest"
      repository = "https://github.com/purelace/chocomint"
      authors = ["selrisu <myirisuchan@gmail.com>"]
-
-     [core]
-     path = "core.wasm"
-     runtime = "wasm"
      "#;
 
     #[test]
@@ -227,8 +202,6 @@ mod test {
      repository = "https://github.com/purelace/chocomint"
      authors = ["selrisu <myirisuchan@gmail.com>"]
 
-     core.path = "core.wasm"
-     core.runtime = "wasm"
      "#;
 
     const MANIFEST_INVALID_VERSION_MINOR: &str = r#"
@@ -240,8 +213,6 @@ mod test {
       repository = "https://github.com/purelace/chocomint"
       authors = ["selrisu <myirisuchan@gmail.com>"]
 
-      core.path = "core.wasm"
-      core.runtime = "wasm"
       "#;
 
     const MANIFEST_INVALID_VERSION_PATCH: &str = r#"
@@ -253,8 +224,6 @@ mod test {
         repository = "https://github.com/purelace/chocomint"
         authors = ["selrisu <myirisuchan@gmail.com>"]
 
-        core.path = "core.wasm"
-        core.runtime = "wasm"
         "#;
 
     #[test]

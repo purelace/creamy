@@ -67,7 +67,7 @@ fn get_group_index(
             def.groups()
                 .iter()
                 .enumerate()
-                .find(|(_, g)| g.name() == name_id)
+                .find(|(_, g)| g.ident() == name_id)
                 .map(|(idx, _)| idx as u8)
         }
         StringOrNonZeroNumber::Number(value) => Some(value.get() - 1),
@@ -89,7 +89,7 @@ fn get_message_index(
             messages
                 .iter()
                 .enumerate()
-                .find(|(_, m)| m.name() == name_id)
+                .find(|(_, m)| m.ident() == name_id)
                 .map(|(idx, _)| idx as u8)
         }
         StringOrNumber::Number(value) => Some(value),

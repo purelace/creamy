@@ -1,7 +1,10 @@
 use std::{collections::HashMap, fmt::Debug, mem::MaybeUninit, num::NonZeroU8, ops::Index};
 
 use binrw::{BinRead, BinWrite, binrw};
-use creamy_utils::{collections::Array, strpool::StringId};
+use creamy_utils::{
+    collections::Array,
+    strpool::{StringId, StringPool},
+};
 use strum::EnumCount;
 
 use crate::{
@@ -341,6 +344,20 @@ impl FinishedTypeTable {
     #[must_use]
     pub fn name_of_type(&self, id: TypeId) -> StringId {
         self.get_type(id).ident()
+    }
+
+    pub fn replace_identifiers(&mut self, from: &StringPool, to: &mut StringPool) {
+        macro_rules! replace_symbol {
+            ($symbol:expr) => {
+                let value = from.get_string($symbol.ident());
+                let id = to.get_id_or_add(value);
+                *$symbol = $symbol.with_ident(id);
+            };
+        }
+
+        for ty in self.types.iter_mut() {
+            replace_symbol!(ty);
+        }
     }
 }
 

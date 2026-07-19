@@ -42,7 +42,7 @@ pub fn show_all_messages(def: &ProtocolDefinition, pool: &StringPool) {
 
     for (group_idx, group) in def.groups().iter().enumerate() {
         for (message_idx, message) in def.messages_slice(group.messages()).iter().enumerate() {
-            let name_id = message.name();
+            let name_id = message.ident();
             print_item(
                 group_idx as u8 + 1,
                 message_idx as u8,
@@ -55,14 +55,14 @@ pub fn show_all_messages(def: &ProtocolDefinition, pool: &StringPool) {
 
 pub fn show_one_group_by_idx(def: &ProtocolDefinition, pool: &StringPool, idx: NonZeroU8) {
     let group = def.groups()[idx.get() as usize - 1];
-    let group_name_id = group.name();
+    let group_name_id = group.ident();
     let group_name = group_name_id.resolve(pool);
     println!("+ List of messages ({group_name})");
     print_header(def, pool);
 
     let slice = def.messages_slice(group.messages());
     for (message_idx, message) in slice.iter().enumerate() {
-        let id = message.name();
+        let id = message.ident();
         print_item(idx.get(), message_idx as u8, id.resolve(pool), STRUCT_COLOR);
     }
 }
@@ -73,7 +73,7 @@ pub fn show_one_group_by_name(def: &ProtocolDefinition, pool: &mut StringPool, n
         .groups()
         .iter()
         .enumerate()
-        .find(|(_, g)| g.name() == name_id)
+        .find(|(_, g)| g.ident() == name_id)
         .map(|(idx, _)| idx)
     {
         show_one_group_by_idx(def, pool, NonZeroU8::new(idx as u8 + 1).unwrap());
@@ -88,7 +88,7 @@ pub fn show_all_groups(def: &ProtocolDefinition, pool: &StringPool) {
 
     for (idx, group) in def.groups().iter().enumerate() {
         let idx = idx + 1;
-        let id = group.name();
+        let id = group.ident();
         print_item(0, idx as u8, id.resolve(pool), GROUP_COLOR);
     }
 }
@@ -109,7 +109,7 @@ pub fn show_memory_layout(
     };
     let fields = def.fields_slice(field_range);
 
-    let mut report = MemoryReport::new(message.name().resolve(pool));
+    let mut report = MemoryReport::new(message.ident().resolve(pool));
     if flat {
         make_flat_report(def, &mut report, fields, pool);
     } else {
@@ -162,7 +162,7 @@ fn make_flat_report(
                 }
                 Type::Numeric(_) | Type::Enum(_) => {
                     report.add_field(SimpleField {
-                        name: field.name().resolve(pool).to_string(),
+                        name: field.ident().resolve(pool).to_string(),
                         kind: tt.name_of_type(tid).resolve(pool).to_string(),
                         size: size as usize,
                         align: align as usize,
@@ -173,7 +173,7 @@ fn make_flat_report(
             },
             FieldType::Array(array) => {
                 report.add_array_field(ArrayField {
-                    name: field.name().resolve(pool).to_string(),
+                    name: field.ident().resolve(pool).to_string(),
                     kind: tt.name_of_type(array.kind()).resolve(pool).to_string(),
                     size: array.len().value() as usize,
                     align: align as usize,
@@ -220,7 +220,7 @@ fn make_report(
                 let fields = def.fields_slice(sym.fields());
                 make_report(def, report, fields, pool);
                 report.end_report(SimpleField {
-                    name: field.name().resolve(pool).to_string(),
+                    name: field.ident().resolve(pool).to_string(),
                     kind: tt.name_of_type(tid).resolve(pool).to_string(),
                     size: size as usize,
                     align: align as usize,
@@ -228,7 +228,7 @@ fn make_report(
             }
             Type::Numeric(_) | Type::Enum(_) => {
                 report.add_field(SimpleField {
-                    name: field.name().resolve(pool).to_string(),
+                    name: field.ident().resolve(pool).to_string(),
                     kind: tt.name_of_type(tid).resolve(pool).to_string(),
                     size: size as usize,
                     align: align as usize,
