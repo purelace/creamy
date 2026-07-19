@@ -8,12 +8,12 @@ license.workspace = true
 creamy-engine-core.workspace = true
 inotify = { version = "0.11.4" }
 tracing.workspace = true
-futures-util = "0.3.32"
+futures-util = "0.3.33"
 garde = { version = "0.23.0", features = ["derive"] }
 serde.workspace = true
 thiserror.workspace = true
 
 [dependencies.tokio]
-version = "1.52.3"
+version = "1.53.0"
 default-features = false
 features = ["fs", "rt", "io-util", "macros", "sync", "time", "rt-multi-thread"]
