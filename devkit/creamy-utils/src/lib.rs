@@ -6,7 +6,6 @@ mod array;
 mod bstring;
 mod list;
 pub mod strpool;
-pub mod version;
 
 pub use bstring::BString;
 

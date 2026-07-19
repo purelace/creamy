@@ -25,7 +25,6 @@ pub use model::definition::{Access, ProtocolDefinition};
 pub use nodes::VariantValue;
 pub use table::{FinishedTypeTable, TypeId};
 pub use utils::{StringPoolIntern, StringPoolResolver};
-pub use version::Version;
 
 pub mod constraints {
     // Глобальные ограничения:

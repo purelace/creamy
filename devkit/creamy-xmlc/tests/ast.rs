@@ -30,7 +30,7 @@ fn ast_errors() {
 }
 
 fn assert_constraint(generator: XMLGenerator, err: AstError) {
-    let content = get_xml("0.0", &generator.collect::<String>());
+    let content = get_xml("0.0.1", &generator.collect::<String>());
     assert_diag!(compile(&content).unwrap_err(), vec![err.into()], &content);
 }
 

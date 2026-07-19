@@ -15,6 +15,7 @@ as-guard.workspace = true
 roxmltree.workspace = true
 strum.workspace = true
 miette = { version = "7.6.0", features = ["fancy", "syntect-highlighter"] }
+semver.workspace = true
 
 termtree = "1.0.0"
 owo-colors = "4.3.0"

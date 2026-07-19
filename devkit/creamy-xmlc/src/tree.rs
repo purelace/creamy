@@ -4,8 +4,10 @@ mod flags;
 mod message;
 mod structs;
 
+use semver::Version;
+
 use crate::{
-    Access, Diagnostics, StringPoolIntern, Version,
+    Access, Diagnostics, StringPoolIntern,
     error::{AstError, Fallback},
     nodes::{
         BValueNode, BitsetNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, GroupNode,

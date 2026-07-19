@@ -31,60 +31,6 @@ fn invalid_version_format() {
     );
 }
 
-#[test]
-fn invalid_minor_positive_value() {
-    let content = get_xml("0.65823", "");
-    let errors = compile(&content).unwrap_err();
-
-    assert_diag!(
-        errors,
-        vec![SyntaxError::InvalidMinor { span: zero_span() }.into()],
-        &content,
-    );
-}
-
-#[test]
-fn invalid_minor_negative_value() {
-    let content = get_xml("0.-1024", "");
-    let Err(errors) = compile(&content) else {
-        unreachable!();
-    };
-
-    assert_diag!(
-        errors,
-        vec![SyntaxError::InvalidMinor { span: zero_span() }.into()],
-        &content,
-    );
-}
-
-#[test]
-fn invalid_major_positive_value() {
-    let content = get_xml("69391.0", "");
-    let Err(errors) = compile(&content) else {
-        unreachable!();
-    };
-
-    assert_diag!(
-        errors,
-        vec![SyntaxError::InvalidMajor { span: zero_span() }.into()],
-        &content,
-    );
-}
-
-#[test]
-fn invalid_major_negative_value() {
-    let content = get_xml("-1.0", "");
-    let Err(errors) = compile(&content) else {
-        unreachable!();
-    };
-
-    assert_diag!(
-        errors,
-        vec![SyntaxError::InvalidMajor { span: zero_span() }.into()],
-        &content,
-    );
-}
-
 const fn missing_attr_error(tag: &'static str, attr: &'static str) -> ProtocolError {
     ProtocolError::SyntaxError(SyntaxError::MissingAttribute {
         tag,

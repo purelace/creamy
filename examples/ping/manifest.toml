@@ -7,4 +7,4 @@ repository = "https://github.com/purelace/creamy"
 authors = [ "selrisu <myirisuchan@gmail.com>" ]
 
 [protocols]
-ping = { version = "1.0", groups = [ "messages" ], provide = true }
+ping = { version = "1.0.0", groups = [ "messages" ], provide = true }

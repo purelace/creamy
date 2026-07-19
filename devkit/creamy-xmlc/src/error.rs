@@ -35,24 +35,8 @@ pub enum SyntaxError {
 
     #[error("[P003] Invalid version format")]
     #[diagnostic(code(syntax::invalid_version_format))]
-    #[diagnostic(help("allowed syntax: MAJOR(255).MINOR(255)"))]
+    #[diagnostic(help("allowed syntax: MAJOR.MINOR.PATCH"))]
     InvalidVersionFormat {
-        #[label("Here")]
-        span: SourceSpan,
-    },
-
-    #[error("[P004] Invalid major value")]
-    #[diagnostic(code(syntax::invalid_major))]
-    #[diagnostic(help("min: 0, max: 255"))]
-    InvalidMajor {
-        #[label("Here")]
-        span: SourceSpan,
-    },
-
-    #[error("[P005] Invalid minor value")]
-    #[diagnostic(code(syntax::invalid_minor))]
-    #[diagnostic(help("min: 0, max: 255"))]
-    InvalidMinor {
         #[label("Here")]
         span: SourceSpan,
     },

@@ -90,7 +90,7 @@ fn semantic_errors() {
 
     </group>
 "#;
-    let content = get_xml("0.0", CONTENT);
+    let content = get_xml("0.0.1", CONTENT);
     let errors = compile(&content).unwrap_err();
     assert_diag!(
         errors,

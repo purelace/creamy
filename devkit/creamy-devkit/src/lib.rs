@@ -17,11 +17,16 @@ pub mod manifest {
     pub use creamy_manifest::*;
 }
 
+pub mod semver {
+    pub use semver::*;
+}
+
 use std::{collections::HashMap, ffi::OsString, path::Path, str::FromStr};
 
+use ::semver::Version;
 use binrw::binrw;
 use creamy_manifest::Manifest;
-use creamy_utils::{collections::List, strpool::StringPool, version::Version};
+use creamy_utils::{BString, collections::List, strpool::StringPool};
 use creamy_xmlc::{ProtocolDefinition, compile};
 use fs_err as fs;
 
@@ -31,6 +36,8 @@ pub use crate::error::Error;
 #[brw(magic = b"CMY!", little)]
 #[derive(Debug)]
 pub struct BinaryPlugin {
+    #[br(map = |val: BString| Version::from_str(&val).unwrap())]
+    #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
     pub version: Version,
     pub manifest: Manifest,
     pub pool: StringPool,

@@ -3,11 +3,13 @@ use std::{cell::RefCell, fmt::Display, ops::Deref, str::FromStr};
 use creamy_utils::strpool::{NonZeroStringId, StringId, StringPool};
 use miette::SourceSpan;
 use roxmltree::{Document, Node, NodeType, TextPos};
+use semver::Version;
 
 use crate::{
-    Access, StringPoolIntern, VariantValue, Version,
+    Access, StringPoolIntern, VariantValue,
     diagnostics::Diagnostics,
     error::{Fallback, ProtocolError, ProtocolErrorExt, SyntaxError},
+    version::parse_version,
 };
 
 impl Fallback for String {
@@ -178,7 +180,7 @@ impl Display for Token<'_> {
 }
 
 const ERROR_IDENT: &str = "Error";
-const ERROR_VERSION: &str = "0.0";
+const ERROR_VERSION: &str = "0.0.0";
 const ERROR_ACCESS: &str = "Exclusive";
 const ERROR_NUMBER: &str = "1";
 
@@ -244,7 +246,7 @@ impl<'src> Context<'_, 'src> {
     }
 
     fn read_version(&self) -> Version {
-        Version::new(self.read_attr("version", ERROR_VERSION), || {
+        parse_version(self.read_attr("version", ERROR_VERSION), || {
             self.attribute_value_span("version")
         })
         .or_recover(&mut self.diagnostics.borrow_mut())

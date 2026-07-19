@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="test" version="0.1">
+<protocol name="test" version="0.0.1">
 
     <!-- Max options: 128 -->
     <flags name="TypeOptions">

@@ -7,4 +7,4 @@ repository = "https://github.com/purelace/creamy"
 authors = [ "selrisu <myirisuchan@gmail.com>" ]
 
 [protocols]
-system = { version = "1.0", groups=["builtin"] }
+system = { version = "1.0.0", groups=["builtin"] }

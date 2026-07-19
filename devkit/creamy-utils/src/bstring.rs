@@ -13,6 +13,13 @@ impl Deref for BString {
     }
 }
 
+impl BString {
+    #[must_use]
+    pub const fn wrap(value: String) -> Self {
+        Self(value)
+    }
+}
+
 impl BinRead for BString {
     type Args<'a> = ();
 

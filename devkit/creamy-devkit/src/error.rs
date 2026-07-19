@@ -1,4 +1,3 @@
-use creamy_utils::version;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -19,7 +18,7 @@ pub enum Error {
     Manifest(#[from] creamy_manifest::ManifestError),
 
     #[error("{0}")]
-    Version(#[from] version::VersionError),
+    Version(#[from] semver::Error),
 
     #[error("{0}")]
     BinRw(#[from] binrw::Error),

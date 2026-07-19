@@ -1,30 +1,30 @@
 mod error;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 use binrw::{BinRead, BinWrite};
-use creamy_utils::{
-    BString,
-    collections::List,
-    version::{Version, deserialize_version},
-};
+use creamy_utils::{BString, collections::List};
 pub use error::ManifestError;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 
 #[derive(BinRead, BinWrite, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Package {
     id: BString,
     name: BString,
-    #[serde(deserialize_with = "deserialize_version")]
+    #[br(map = |val: BString| Version::from_str(&val).unwrap())]
+    #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
     version: Version,
     description: BString,
     repository: BString,
     authors: List<BString>,
 }
 
-#[derive(BinRead, BinWrite, Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(BinRead, BinWrite, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestedProtocol {
-    version: BString,
+    #[br(map = |val: BString| Version::from_str(&val).unwrap())]
+    #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
+    version: Version,
     groups: List<BString>,
     #[br(map = |val: u8| val != 0)]
     #[bw(map = |val: &bool| u8::from(*val))]
@@ -34,7 +34,7 @@ pub struct RequestedProtocol {
 
 impl RequestedProtocol {
     #[must_use]
-    pub fn version(&self) -> &str {
+    pub const fn version(&self) -> &Version {
         &self.version
     }
 
@@ -126,6 +126,7 @@ mod test {
     use std::collections::HashMap;
 
     use creamy_utils::collections::List;
+    use semver::Version;
 
     use crate::{Manifest, Package, RequestedProtocol};
 
@@ -139,7 +140,7 @@ mod test {
      authors = ["selrisu <myirisuchan@gmail.com>"]
 
      [protocols]
-     testcase = { version = "1.0", groups=["valid"]}
+     testcase = { version = "1.0.0", groups=["valid"]}
      "#;
 
     #[test]
@@ -152,11 +153,7 @@ mod test {
                 package: Package {
                     id: "org.creamy.test".into(),
                     name: "TestManifest".into(),
-                    version: crate::Version {
-                        major: 0,
-                        minor: 4,
-                        patch: 2
-                    },
+                    version: Version::new(0, 4, 2),
                     description: "Test manifest".into(),
                     repository: "https://github.com/purelace/chocomint".into(),
                     authors: List::wrap(vec!["selrisu <myirisuchan@gmail.com>".into()])
@@ -166,7 +163,7 @@ mod test {
                     map.insert(
                         "testcase".into(),
                         RequestedProtocol {
-                            version: "1.0".into(),
+                            version: Version::new(1, 0, 0),
                             groups: List::wrap(vec!["valid".into()]),
                             provide: false,
                         },

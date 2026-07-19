@@ -2,7 +2,8 @@ use std::io::Cursor;
 
 use binrw::{BinRead, BinWrite};
 use creamy_utils::strpool::StringPool;
-use creamy_xmlc::{ProtocolDefinition, StringPoolResolver, Version, compile};
+use creamy_xmlc::{ProtocolDefinition, StringPoolResolver, compile};
+use semver::Version;
 
 const SUCCESS_TEST: &str = include_str!("success.xml");
 
@@ -11,7 +12,7 @@ fn success() {
     let mut pool = StringPool::default();
     let protocol = compile(&mut pool, SUCCESS_TEST).unwrap();
     assert_eq!(protocol.name().resolve(&pool), "test");
-    assert_eq!(protocol.version(), Version { major: 0, minor: 1 });
+    assert_eq!(protocol.version(), &Version::new(0, 0, 1));
     assert_eq!(protocol.table().type_count(), 19); //Builtin (12) + Custom (6)
     let first = &protocol.table().types()[12];
     assert_eq!(first.ident().resolve(&pool), "BucketSmall");

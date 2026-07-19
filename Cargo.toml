@@ -82,6 +82,7 @@ roxmltree = "0.21.1"
 strum = { version = "0.28.0", features = ["derive"] }
 ptree = "0.5.2"
 console = "0.16.4"
+semver = { version = "1.0.28", features = ["serde"] }
 
 [workspace.dependencies.serde]
 version = "1.0.228"

@@ -41,8 +41,6 @@ pub fn zeroize_span(err: &mut ProtocolError) {
                 span,
             }
             | SyntaxError::InvalidVersionFormat { span }
-            | SyntaxError::InvalidMajor { span }
-            | SyntaxError::InvalidMinor { span }
             | SyntaxError::InvalidAccess { span }
             | SyntaxError::InvalidArraySyntax { span }
             | SyntaxError::IntParse { span, error: _ }

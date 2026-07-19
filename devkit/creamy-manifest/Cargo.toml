@@ -10,3 +10,4 @@ thiserror.workspace = true
 serde.workspace = true
 binrw.workspace = true
 toml.workspace = true
+semver.workspace = true

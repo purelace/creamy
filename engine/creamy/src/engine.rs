@@ -7,7 +7,8 @@ use creamy_engine_core::{
     devkit::{
         BinaryPlugin,
         manifest::{Manifest, RequestedProtocol},
-        utils::{strpool::StringPool, version::Version},
+        semver::Version,
+        utils::strpool::StringPool,
         xmlc::{self, ProtocolDefinition, StringPoolResolver},
     },
 };
@@ -37,15 +38,15 @@ pub enum Error {
     #[error("Protocol `{target_model}@{version}` has already been declared")]
     ProtocolDeclaredAlready {
         target_model: Box<str>,
-        version: xmlc::Version,
+        version: Version,
     },
     #[error(
         "Protocols `{target_model}@{version_a}` and `{target_model}@{version_b}` have different models"
     )]
     DifferentProtocolModels {
         target_model: Box<str>,
-        version_a: xmlc::Version,
-        version_b: xmlc::Version,
+        version_a: Version,
+        version_b: Version,
     },
 }
 
@@ -80,11 +81,9 @@ impl TempPluginPackage {
             } else {
                 return Err(Error::ProtocolModelNotFound {
                     target_model: manifest.name().into(),
-                    version,
+                    version: request.version().clone(),
                 });
             }
-            //for group_name in request.groups() {
-            //}
         }
 
         Ok(Self {
@@ -132,7 +131,7 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
                     Some(def) => {
                         return Err(Error::ProtocolDeclaredAlready {
                             target_model: name,
-                            version: def.version(),
+                            version: def.version().clone(),
                         });
                     }
                     None => {
@@ -145,18 +144,19 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
                         if decl != &def {
                             return Err(Error::DifferentProtocolModels {
                                 target_model: name,
-                                version_a: def.version(),
-                                version_b: decl.version(),
+                                version_a: def.version().clone(),
+                                version_b: decl.version().clone(),
                             });
                         }
                         //TODO: provided
                     }
                     None => {
-                        //self.registry
-                        //    .register_model(format!("{name}@{}", def.version()), def);
+                        return Err(Error::ProtocolModelNotFound {
+                            target_model: name,
+                            version: def.version().clone(),
+                        });
                     }
                 }
-                //self.registry.compare_models(path, definition)
             }
         }
 
