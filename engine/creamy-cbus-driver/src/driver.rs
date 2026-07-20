@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use cbus::{
     BusDriver, DataIterator, OldDataIterator, SubscriberLookupData, SubscriberOldLookupData,
     config::{BusConfig, ValidConfig},
-    core::buffer::Outgoing,
+    core::buffer::{Incoming, Outgoing},
 };
 use idmint::StackMint;
 
@@ -15,6 +15,7 @@ struct SubscriberMetadata {
 
 pub struct CreamyDriver {
     _outgoing: Outgoing,
+    _incoming: Incoming,
 
     provider: StackMint,
     groups: HashMap<String, u8>,
@@ -23,17 +24,22 @@ pub struct CreamyDriver {
 
 impl CreamyDriver {
     #[must_use]
-    pub fn new<C: BusConfig>(c: &ValidConfig<C>, outgoing: Outgoing) -> Self {
+    pub fn new<C: BusConfig>(c: &ValidConfig<C>, incoming: Incoming, outgoing: Outgoing) -> Self {
         let subscribers =
             std::iter::repeat_n(SubscriberMetadata::default(), c.max_subscribers() as usize)
                 .collect::<Vec<_>>();
 
         Self {
             _outgoing: outgoing,
+            _incoming: incoming,
             groups: HashMap::new(),
             provider: StackMint::new(1),
             subscribers,
         }
+    }
+
+    pub fn provide_api(&mut self, plugin: u8, group: u8) {
+        let metadata = &mut self.subscribers[plugin as usize];
     }
 
     pub fn declare_protocols(&mut self, name: impl Into<String>) {
@@ -56,14 +62,14 @@ impl BusDriver for CreamyDriver {
             .drain(..)
             .enumerate()
             .map(|(local_group_id, name)| {
-                let local_group_id = local_group_id + 1;
+                let local_group_id = local_group_id as u8 + 1;
                 let global_group_id = *self.groups.get(&name).unwrap();
 
                 metadata.groups.push(global_group_id);
 
                 SubscriberLookupData {
-                    local_group_id,
-                    global_group_id,
+                    consumer_group_id: local_group_id,
+                    provider_group_id: global_group_id,
                 }
             })
     }
@@ -75,6 +81,8 @@ impl BusDriver for CreamyDriver {
         metadata
             .groups
             .drain(..)
-            .map(|global_group_id| SubscriberOldLookupData { global_group_id })
+            .map(|global_group_id| SubscriberOldLookupData {
+                provider_group_id: global_group_id,
+            })
     }
 }

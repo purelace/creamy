@@ -323,16 +323,14 @@ impl<'src> Context<'_, 'src> {
     fn parse_access(&self, value: Identifier, attr: &'static str) -> Access {
         match value.0 {
             "Public" => Access::Public,
-            "Protected" => Access::Protected,
             "Private" => Access::Private,
-            "Exclusive" => Access::Exclusive,
             _ => {
                 self.diagnostics
                     .borrow_mut()
                     .report_err(SyntaxError::InvalidAccess {
                         span: self.attribute_value_span(attr),
                     });
-                Access::Exclusive
+                Access::Private
             }
         }
     }

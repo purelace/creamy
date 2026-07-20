@@ -21,22 +21,14 @@ use crate::{
 
 #[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Access {
-    #[default]
     #[brw(magic(1u8))]
-    /// Все пишут, все читают
+    /// Один поставщик - много пользователей
     Public,
 
+    #[default]
     #[brw(magic(2u8))]
-    /// Читают все, пишет один
-    Protected,
-
-    #[brw(magic(3u8))]
-    /// Читает один, пишут все
+    /// Один поставщик - один пользователей
     Private,
-
-    #[brw(magic(4u8))]
-    /// Читает один, пишет один
-    Exclusive,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -44,9 +36,7 @@ impl Display for Access {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
             Access::Public => "Public",
-            Access::Protected => "Protected",
             Access::Private => "Private",
-            Access::Exclusive => "Exclusive",
         };
         write!(f, "{str}")
     }

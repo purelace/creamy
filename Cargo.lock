@@ -772,11 +772,11 @@ name = "creamy"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "creamy-cbus-driver",
  "creamy-engine-async-loader",
  "creamy-engine-core",
  "creamy-engine-loader",
  "creamy-engine-wasmtime-impl",
+ "creamy-sdk",
  "garde",
  "pathenv",
  "serde",

@@ -65,7 +65,7 @@ where
     /// * [`BusError::PoolExhausted`] - if a pool is exhausted.
     pub fn new<C: BusConfig>(
         config: &ValidConfig<C>,
-        driver: impl Fn(&ValidConfig<C>, Outgoing) -> D,
+        mut driver: impl FnMut(&ValidConfig<C>, Incoming, Outgoing) -> D,
     ) -> Self {
         let max_subscribers = config.max_subscribers() as usize;
         let max_messages = config.max_messages();
@@ -78,13 +78,13 @@ where
         };
 
         // Этот буфер используется в качестве мусорки
-        let Some(_) = write_pool.next_inc(0) else {
+        let Some(incoming) = write_pool.next_inc(0) else {
             // Буферы должны нарезаться одинакого. Если буферы не нарезаются одинаково, то это ошибка.
             unreachable!("Buffers must be sliced equally");
         };
 
         let driver = Driver::new(
-            driver(config, outgoing),
+            driver(config, incoming, outgoing),
             config.max_groups(),
             config.max_subscribers(),
         );

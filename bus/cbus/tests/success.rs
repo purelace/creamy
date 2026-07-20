@@ -14,7 +14,11 @@ use cbus::{
 struct Driver;
 
 impl Driver {
-    pub fn new<C: BusConfig>(_config: &ValidConfig<C>, _outgoing: Outgoing) -> Self {
+    pub const fn new<C: BusConfig>(
+        _config: &ValidConfig<C>,
+        _incoming: Incoming,
+        _outgoing: Outgoing,
+    ) -> Self {
         Self
     }
 }
@@ -23,8 +27,8 @@ impl BusDriver for Driver {
     fn on_subscribe(&mut self, id: u8) -> impl DataIterator {
         match id {
             1 | 2 => std::iter::once(SubscriberLookupData {
-                local_group_id: 1,
-                global_group_id: 10,
+                consumer_group_id: 1,
+                provider_group_id: 10,
             }),
             _ => unreachable!(),
         }
@@ -32,7 +36,7 @@ impl BusDriver for Driver {
 
     fn on_unsubscribe(&mut self, _id: u8) -> impl OldDataIterator {
         std::iter::once(SubscriberOldLookupData {
-            global_group_id: 10,
+            provider_group_id: 10,
         })
     }
 }

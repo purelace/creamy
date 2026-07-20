@@ -4,7 +4,7 @@ use crate::{
     api::{CustomHandler, Plugin},
     dispatcher::{self, MessageHandler},
     system::builtin::{
-        Ignore, Log, PluginAppeared, PluginDisappeared, ProtocolDeclared, ProtocolRedeclared,
+        Log, PluginAppeared, PluginDisappeared, ProtocolDeclared, ProtocolRedeclared,
         ProtocolUndeclared, StreamCancel, StreamKeepAlive,
     },
 };
@@ -27,8 +27,6 @@ impl<P: Plugin> CustomHandler for InnerState<P> {
 }
 
 impl<P: Plugin> MessageHandler for InnerState<P> {
-    fn handle_ignore(&mut self, _: Ignore) {}
-
     #[inline(always)]
     fn handle_plugin_appeared(&mut self, message: PluginAppeared) {}
 

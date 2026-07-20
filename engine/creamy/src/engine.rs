@@ -1,9 +1,12 @@
 use std::{collections::HashMap, num::NonZeroU8};
 
-use creamy_cbus_driver::CreamyDriver;
 use creamy_engine_core::{
     Constants, PluginLoader, WasmRuntime,
-    bus::{MessageBus, config::ValidConfig},
+    bus::{
+        MessageBus, SubscriberLookupData,
+        config::ValidConfig,
+        core::buffer::{Incoming, Outgoing},
+    },
     devkit::{
         BinaryPlugin,
         manifest::{Manifest, RequestedProtocol},
@@ -13,20 +16,7 @@ use creamy_engine_core::{
     },
 };
 
-use crate::registry::ProtocolRegistry;
-
-/*
-* создаем карту, где название из манифеста сопоставляем с реальной моделью и мета информацией из манифеста.
-* если модель не найдена, возвращаем ошибку.
-
-* берем модели из карты и проверяем какие надо задекларировать
-* если модель нужно задекларировать, то проверяем, есть ли уже поставщики,
-* если есть то ошибка, иначе добавляем.
-*
-* после этого сверяем запрашиваемые модели.
-* если модели различаются, выкидываем ошибку.
-*
-*/
+use crate::{driver::EngineBusDriver, registry::ProtocolRegistry};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -51,7 +41,6 @@ pub enum Error {
 }
 
 struct TempPluginPackage {
-    version: Version,
     manifest: Manifest,
     pool: StringPool,
     definitions: HashMap<Box<str>, (ProtocolDefinition, RequestedProtocol)>,
@@ -60,7 +49,6 @@ struct TempPluginPackage {
 impl TempPluginPackage {
     fn from_package(
         BinaryPlugin {
-            version,
             manifest,
             pool,
             mut definitions,
@@ -87,7 +75,6 @@ impl TempPluginPackage {
         }
 
         Ok(Self {
-            version,
             manifest,
             pool,
             definitions: map,
@@ -96,21 +83,35 @@ impl TempPluginPackage {
 }
 
 pub struct PluginEngine<R: WasmRuntime, L: PluginLoader> {
-    bus: MessageBus<CreamyDriver, R::Module>,
+    bus: MessageBus<EngineBusDriver, R::Module>,
     constants: ValidConfig<Constants>,
     runtime: R,
     loader: L,
     registry: ProtocolRegistry,
+
+    incoming: Incoming,
+    outgoing: Outgoing,
 }
 
 impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
     pub fn new(constants: ValidConfig<Constants>, runtime: R, loader: L) -> Self {
+        // TODO: fix this bullshit
+        let mut incoming = None;
+        let mut outgoing = None;
+        let bus = MessageBus::new(&constants, |_config, inc, out| {
+            incoming = Some(inc);
+            outgoing = Some(out);
+            EngineBusDriver::new(constants.max_subscribers, constants.max_groups)
+        });
+
         Self {
-            bus: MessageBus::new(&constants, CreamyDriver::new),
+            bus,
             constants,
             runtime,
             loader,
             registry: ProtocolRegistry::default(),
+            incoming: incoming.unwrap(),
+            outgoing: outgoing.unwrap(),
         }
     }
 
@@ -119,9 +120,7 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
             .runtime
             .init_module(&self.constants, package.core())
             .unwrap();
-        self.bus.add_subscriber(|_, _| module).unwrap();
-
-        //let path = format!("{}@{}", package.manifest().name(), package.version());
+        let id = self.bus.add_subscriber(|_, _| module).unwrap().u8();
 
         let package = TempPluginPackage::from_package(package)?;
         let protocol_name = package.manifest.name();
@@ -129,17 +128,21 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
         for (name, (mut def, request)) in package.definitions {
             self.registry.replace_strings(&package.pool, &mut def);
             if request.provide() {
-                match self.registry.get_model(&name) {
-                    Some(def) => {
-                        return Err(Error::ProtocolDeclaredAlready {
-                            target_model: name,
-                            version: def.version().clone(),
-                        });
-                    }
-                    None => {
-                        self.registry.declare_protocol(protocol_name, def);
-                    }
+                if let Some(def) = self.registry.get_model(&name) {
+                    return Err(Error::ProtocolDeclaredAlready {
+                        target_model: name,
+                        version: def.version().clone(),
+                    });
                 }
+
+                self.registry.declare_protocol(protocol_name, def, id);
+                self.bus.get_driver_mut().provide_api(
+                    id,
+                    SubscriberLookupData {
+                        consumer_group_id: 1,
+                        provider_group_id: 1,
+                    },
+                );
             } else {
                 match self.registry.get_model(&name) {
                     Some(decl) => {
@@ -150,7 +153,7 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
                                 version_b: decl.version().clone(),
                             });
                         }
-                        //TODO: provided
+                        //TODO: provide
                     }
                     None => {
                         return Err(Error::ProtocolModelNotFound {

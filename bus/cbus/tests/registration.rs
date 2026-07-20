@@ -16,11 +16,16 @@ use crate::general::{EmptyDriver, EmptySubscriber};
 
 struct Dns {
     table: HashMap<u8, &'static str>,
+    _incoming: Incoming,
     outgoing: Outgoing,
 }
 
 impl Dns {
-    pub fn new<C: BusConfig>(_config: &ValidConfig<C>, outgoing: Outgoing) -> Self {
+    pub fn new<C: BusConfig>(
+        _config: &ValidConfig<C>,
+        incoming: Incoming,
+        outgoing: Outgoing,
+    ) -> Self {
         let mut table = HashMap::new();
         table.insert(1, "group_0");
         table.insert(2, "group_1");
@@ -31,7 +36,11 @@ impl Dns {
         table.insert(7, "group_6");
         table.insert(8, "group_7");
 
-        Self { table, outgoing }
+        Self {
+            table,
+            _incoming: incoming,
+            outgoing,
+        }
     }
 }
 
@@ -58,14 +67,14 @@ impl BusDriver for Dns {
         assert!(self.outgoing.send_many_iter_exact(std::iter::once(message)));
 
         std::iter::once(SubscriberLookupData {
-            local_group_id: 1,
-            global_group_id: 1,
+            consumer_group_id: 1,
+            provider_group_id: 1,
         })
     }
 
     fn on_unsubscribe(&mut self, id: u8) -> impl OldDataIterator {
         std::iter::once(SubscriberOldLookupData {
-            global_group_id: id,
+            provider_group_id: id,
         })
     }
 }

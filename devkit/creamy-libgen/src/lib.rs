@@ -137,10 +137,10 @@ impl Codegen {
 
     pub fn run<'s, G: CodeGenerator<'s>>(&'s mut self, generator: &mut G) -> anyhow::Result<()> {
         #[cfg(feature = "sdk_internal_use")]
-        let mut group_id: u8 = 0;
+        let mut group_id: u8 = 1;
 
         #[cfg(not(feature = "sdk_internal_use"))]
-        let mut group_id: u8 = 1;
+        let mut group_id: u8 = 2;
 
         let mut paths = vec![];
 

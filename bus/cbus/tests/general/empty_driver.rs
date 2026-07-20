@@ -1,12 +1,16 @@
 use cbus::{
     BusDriver, DataIterator, OldDataIterator,
     config::{BusConfig, ValidConfig},
-    core::buffer::Outgoing,
+    core::buffer::{Incoming, Outgoing},
 };
 
 pub struct EmptyDriver;
 impl EmptyDriver {
-    pub fn new<C: BusConfig>(_config: &ValidConfig<C>, _outgoing: Outgoing) -> Self {
+    pub fn new<C: BusConfig>(
+        _config: &ValidConfig<C>,
+        _incoming: Incoming,
+        _outgoing: Outgoing,
+    ) -> Self {
         Self
     }
 }
