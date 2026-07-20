@@ -1,3 +1,5 @@
+#![allow(clippy::missing_errors_doc)]
+
 use std::{env, fs, path::PathBuf};
 
 /// Checks if a path meets all requirements:

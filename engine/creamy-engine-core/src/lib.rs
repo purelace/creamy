@@ -19,6 +19,7 @@ pub const PACKAGE_FILE_EXTENSION: &str = "cmy";
 
 pub trait PluginLoader {
     fn preload(&mut self);
+    fn load(&mut self);
     fn loaded(&self) -> u32;
     fn take_loaded_package(&mut self) -> Option<BinaryPlugin>;
 }

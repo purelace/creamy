@@ -1,12 +1,14 @@
 use std::{num::NonZeroU8, time::Duration};
 
-use cbus::{
-    config::BusConfig,
-    defines::{MESSAGE_SIZE, METADATA},
-};
 use creamy::engine::PluginEngine;
 use creamy_engine_async_loader::{AsyncLoader, config::LoaderConfig};
-use creamy_engine_core::Constants;
+use creamy_engine_core::{
+    Constants,
+    bus::{
+        config::BusConfig,
+        defines::{MESSAGE_SIZE, METADATA},
+    },
+};
 use creamy_engine_wasmtime_impl::WasmtimeRuntime;
 
 fn compile_plugin() -> anyhow::Result<()> {

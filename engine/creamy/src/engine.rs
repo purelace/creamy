@@ -1,15 +1,15 @@
 use std::{collections::HashMap, num::NonZeroU8};
 
-use cbus::{MessageBus, config::ValidConfig};
 use creamy_cbus_driver::CreamyDriver;
 use creamy_engine_core::{
     Constants, PluginLoader, WasmRuntime,
+    bus::{MessageBus, config::ValidConfig},
     devkit::{
         BinaryPlugin,
         manifest::{Manifest, RequestedProtocol},
         semver::Version,
         utils::strpool::StringPool,
-        xmlc::{self, ProtocolDefinition, StringPoolResolver},
+        xmlc::{ProtocolDefinition, StringPoolResolver},
     },
 };
 
@@ -121,9 +121,11 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
             .unwrap();
         self.bus.add_subscriber(|_, _| module).unwrap();
 
-        let path = format!("{}@{}", package.manifest().name(), package.version());
+        //let path = format!("{}@{}", package.manifest().name(), package.version());
 
         let package = TempPluginPackage::from_package(package)?;
+        let protocol_name = package.manifest.name();
+
         for (name, (mut def, request)) in package.definitions {
             self.registry.replace_strings(&package.pool, &mut def);
             if request.provide() {
@@ -135,7 +137,7 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
                         });
                     }
                     None => {
-                        self.registry.declare_protocol(path.clone(), def);
+                        self.registry.declare_protocol(protocol_name, def);
                     }
                 }
             } else {
@@ -161,20 +163,18 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
         }
 
         Ok(())
-
-        //let pool = package.pool;
-        //for def in package.definitions.iter_mut() {
-        //assert!(self.registry.compare_models(&path, def));
-        //}
-
         //let driver = self.bus.get_driver_mut();
     }
 
     pub fn tick(&mut self, roundtrip: NonZeroU8) {
+        self.loader.load();
+
         while self.loader.loaded() != 0
             && let Some(package) = self.loader.take_loaded_package()
         {
-            self.init_package(package);
+            if let Err(e) = self.init_package(package) {
+                tracing::error!("{e}");
+            }
         }
 
         for _ in 0..roundtrip.get() {
@@ -185,5 +185,9 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
     #[must_use]
     pub const fn loaded_plugins(&self) -> u8 {
         self.bus.subscribers()
+    }
+
+    pub const fn protocol_registry(&self) -> &ProtocolRegistry {
+        &self.registry
     }
 }

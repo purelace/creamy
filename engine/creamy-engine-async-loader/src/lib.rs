@@ -3,7 +3,6 @@
 pub mod config;
 mod inner;
 mod progress;
-mod utils;
 mod watcher;
 
 use creamy_engine_core::{
@@ -42,6 +41,8 @@ pub struct AsyncLoader {
 
 impl PluginLoader for AsyncLoader {
     fn preload(&mut self) {}
+
+    fn load(&mut self) {}
 
     #[allow(clippy::cast_possible_truncation)]
     fn loaded(&self) -> u32 {
