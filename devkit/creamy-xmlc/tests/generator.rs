@@ -105,7 +105,7 @@ impl Iterator for XMLGenerator {
             State::OpenGroup => {
                 self.state = State::OpenMessage;
                 Some(format!(
-                    r#"<group name="Group{}" access="Protected">"#,
+                    r#"<group name="Group{}" access="Private">"#,
                     self.groups_created
                 ))
             }

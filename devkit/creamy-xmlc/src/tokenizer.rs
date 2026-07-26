@@ -181,7 +181,7 @@ impl Display for Token<'_> {
 
 const ERROR_IDENT: &str = "Error";
 const ERROR_VERSION: &str = "0.0.0";
-const ERROR_ACCESS: &str = "Exclusive";
+const ERROR_ACCESS: &str = "Private";
 const ERROR_NUMBER: &str = "1";
 
 fn span_for(node: Node) -> SourceSpan {

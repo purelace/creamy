@@ -69,7 +69,7 @@ fn semantic_errors() {
     </group>
 
     <!-- Zero sized types -->
-    <group name="zst" access="Protected">
+    <group name="zst" access="Public">
         <struct name="test0"/>
         <message kind ="0" name="test1"/>
         <enum name="test2" repr="u8"/>

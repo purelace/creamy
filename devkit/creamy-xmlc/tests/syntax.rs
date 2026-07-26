@@ -79,7 +79,7 @@ fn other() {
         </message>
     </group>
 
-    <group name="42bratuha" access="Exclusive">
+    <group name="42bratuha" access="Private">
         <message kind="0" name="penis@gmail.com">
             <field name="" type="u32"/>
         </message>
@@ -139,9 +139,3 @@ fn other() {
         CONTENT,
     );
 }
-
-//#[test]
-//fn remainder_missing_name_attribute() {
-//    const CONTENT: &str = r"<remainder/>";
-//    assert_missing_name_attribute(CONTENT, "remainder", "name");
-//}

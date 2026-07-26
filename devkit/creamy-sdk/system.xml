@@ -111,14 +111,4 @@
         </obsolete>
         -->
     </group>
-
-<!--
-    <group name="lifecycle" access="Exclusive">
-        <message name="on_reload" />
-        <message name="on_stop" />
-    </group>
-    <group name="permissions" access="Exclusive">
-
-    </group>
--->
 </protocol>

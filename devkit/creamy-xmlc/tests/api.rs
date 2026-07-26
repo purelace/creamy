@@ -1,14 +1,14 @@
-mod generator;
+//mod generator;
 
-fn get_xml(content: &str) -> String {
-    format!(
-        r#"
-<?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="test" version="1.0" access="ExclusiveWrite">
-    {content}
-</protocol>"#
-    )
-}
+//fn get_xml(content: &str) -> String {
+//    format!(
+//        r#"
+//<?xml version="1.0" encoding="UTF-8" ?>
+//<protocol name="test" version="1.0" access="ExclusiveWrite">
+//    {content}
+//</protocol>"#
+//    )
+//}
 
 //#[test]
 //#[ignore = "failed"]

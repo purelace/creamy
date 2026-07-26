@@ -43,7 +43,7 @@ pub enum SyntaxError {
 
     #[error("[P006] Invalid access value")]
     #[diagnostic(code(syntax::invalid_access))]
-    #[diagnostic(help("allowed values: Public, Protected, Private, Exclusive"))]
+    #[diagnostic(help("allowed values: Public, Private"))]
     InvalidAccess {
         #[label("Here")]
         span: SourceSpan,

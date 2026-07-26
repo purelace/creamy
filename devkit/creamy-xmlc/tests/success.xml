@@ -64,7 +64,7 @@
 
     </group>
 
-    <group name="second" access="Protected">
+    <group name="second" access="Public">
 
         <struct name="BucketSmall">
             <field name="d" type="u64" />
@@ -80,7 +80,7 @@
 
     </group>
 
-    <group name="third" access="Exclusive">
+    <group name="third" access="Private">
 
         <message kind="0" name="StatusWithData">
             <field name="status" type="Status" />
