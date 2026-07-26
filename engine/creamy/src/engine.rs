@@ -96,15 +96,24 @@ define_bus_config! {
 }
 
 pub enum SubscriberType<R: WasmRuntime<Legacy> + 'static> {
-    Inner(SystemPlugin),
+    System(SystemPlugin),
     Wasm(R::Module),
 }
 
 impl<R: WasmRuntime<Legacy> + 'static> Subscriber for SubscriberType<R> {
     fn notify(&mut self) {
         match self {
-            SubscriberType::Inner(s) => s.notify(),
+            SubscriberType::System(s) => s.notify(),
             SubscriberType::Wasm(s) => s.notify(),
+        }
+    }
+}
+
+impl<R: WasmRuntime<Legacy> + 'static> SubscriberType<R> {
+    fn as_system_mut(&mut self) -> &mut SystemPlugin {
+        match self {
+            SubscriberType::System(p) => p,
+            SubscriberType::Wasm(_) => unreachable!(),
         }
     }
 }
@@ -130,7 +139,7 @@ impl<R: WasmRuntime<Legacy>, L: PluginLoader> PluginEngine<R, L> {
         bus.add_subscriber_with(
             incoming.clone(),
             outgoing.clone(),
-            SubscriberType::Inner(SystemPlugin::new(incoming, outgoing)),
+            SubscriberType::System(SystemPlugin::new(incoming, outgoing)),
         )
         .unwrap();
 
@@ -169,6 +178,13 @@ impl<R: WasmRuntime<Legacy>, L: PluginLoader> PluginEngine<R, L> {
                 provider_id: SubscriberId::new_u8(1).unwrap(),
             },
         );
+
+        let sys = self
+            .bus
+            .get_subscriber_mut(SubscriberId::new_u8(1).unwrap())
+            .unwrap();
+        sys.as_system_mut()
+            .add_plugin_name(id, package.manifest.id());
 
         for (name, (mut def, request)) in package.definitions {
             self.registry.replace_strings(&package.pool, &mut def);

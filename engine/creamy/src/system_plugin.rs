@@ -1,7 +1,9 @@
+use alloc::boxed::Box;
+
 use creamy_sdk::{
     api::{CustomHandler, handle_incoming},
     bus::{
-        Subscriber, UntypedMessage,
+        Subscriber, SubscriberId, UntypedMessage,
         buffer::{IncBuf, OutBuf, runtime::DynIncBuf},
     },
     dispatcher::MessageHandler,
@@ -20,6 +22,8 @@ pub struct SystemPlugin {
     inc: IncBuf<M>,
     out: OutBuf<M>,
     logs: FxHashMap<StreamId, StreamReader<LogReader>>,
+
+    names: FxHashMap<SubscriberId, Box<str>>,
 }
 
 impl SystemPlugin {
@@ -28,7 +32,16 @@ impl SystemPlugin {
             inc,
             out,
             logs: FxHashMap::default(),
+            names: FxHashMap::default(),
         }
+    }
+
+    pub fn add_plugin_name(&mut self, id: SubscriberId, name: impl Into<Box<str>>) {
+        self.names.insert(id, name.into());
+    }
+
+    pub fn remove_plugin_name(&mut self, id: SubscriberId) {
+        self.names.remove(&id);
     }
 }
 
@@ -79,11 +92,16 @@ impl MessageHandler for SystemPlugin {
         let log_type = reader.log_type();
         let content = reader.into_string().unwrap();
 
+        let target = self
+            .names
+            .get(&unsafe { SubscriberId::new_unchecked(message.src) })
+            .unwrap();
+
         match log_type {
-            LogType::Debug => tracing::debug!("{content}"),
-            LogType::Info => tracing::info!("{content}"),
-            LogType::Warning => tracing::warn!("{content}"),
-            LogType::Error => tracing::error!("{content}"),
+            LogType::Debug => log::debug!(target: target, "{content}"),
+            LogType::Info => log::info!(target: target, "{content}"),
+            LogType::Warning => log::warn!(target:target, "{content}"),
+            LogType::Error => log::error!(target: target, "{content}"),
         }
     }
 

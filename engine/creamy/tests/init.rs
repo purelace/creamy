@@ -47,7 +47,11 @@ fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader>> {
 
 #[test]
 fn init() -> anyhow::Result<()> {
-    let _ = tracing_subscriber::fmt().with_target(true).try_init();
+    let _ = tracing_subscriber::fmt()
+        .with_target(true)
+        .with_thread_names(false)
+        .with_thread_ids(false)
+        .try_init();
 
     let tempdir = tempfile::tempdir()?;
     compile_plugin()?;

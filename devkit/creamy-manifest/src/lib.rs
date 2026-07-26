@@ -109,6 +109,11 @@ impl Manifest {
     }
 
     #[must_use]
+    pub fn id(&self) -> &str {
+        &self.package.id
+    }
+
+    #[must_use]
     pub const fn requested_groups(&self) -> &HashMap<BString, RequestedProtocol> {
         &self.protocols
     }
