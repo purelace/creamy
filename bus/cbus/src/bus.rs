@@ -111,12 +111,6 @@ where
         out: OutBuf<M>,
         sub: S,
     ) {
-        //let len = C::MAX_MESSAGES.get() as usize * MESSAGE_SIZE + METADATA;
-        //assert!(
-        //    data.sub.is_none(),
-        //    "Invalid operation: cannot replace subscriber"
-        //);
-
         let data = &mut self.subscribers[id.as_usize()];
         data.incoming = inc;
         data.outgoing = out;
