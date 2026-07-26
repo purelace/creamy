@@ -195,6 +195,11 @@ impl<const M: usize> OutBuf<M> {
     }
 
     #[must_use]
+    pub const fn messages(&self) -> &[UntypedMessage] {
+        self.buf.messages()
+    }
+
+    #[must_use]
     pub const fn count(&self) -> u32 {
         self.buf.count()
     }
@@ -202,6 +207,14 @@ impl<const M: usize> OutBuf<M> {
     const fn reserve(&mut self, count: u32) {
         self.buf.set_count(self.buf.count() + count);
     }
+
+    //fn reserve_slice(&mut self, count: u32) -> &mut [UntypedMessage] {
+    //    let from = self.buf.count();
+    //    let to = from + count;
+    //    self.buf.set_count(to);
+
+    //    &mut self.buf.messages_mut()[M - from as usize..from as usize - count as usize]
+    //}
 
     #[inline]
     const fn write_ptr(&self) -> NonNull<UntypedMessage> {
@@ -212,7 +225,7 @@ impl<const M: usize> OutBuf<M> {
             let last_slot = self.buf.get_slice_ptr().add(M);
 
             // Вычитаем уже занятые слоты, чтобы не затереть данные
-            last_slot.sub(self.buf.count() as usize + 1)
+            last_slot.sub(self.buf.count() as usize)
         }
     }
 
@@ -229,6 +242,12 @@ impl<const M: usize> OutBuf<M> {
         if (self.available_space() as usize) < count {
             return false;
         }
+
+        //let slice = self.reserve_slice(count.safe_as());
+
+        //for (index, message) in iter.rev().enumerate() {
+        //    slice[count - index - 1] = message.cast();
+        //}
 
         // Заранее резервируем пространство
         self.reserve(count.safe_as());
@@ -417,15 +436,10 @@ impl<const M: usize> SharedBuf<M> {
 
     #[must_use]
     pub const fn as_ref_buf(&self) -> RefBuf<'_, M> {
-        let data: &[UntypedMessage; M] = unsafe {
-            let array_ptr = self.get_slice_ptr().as_ptr() as *const [UntypedMessage; M];
-            &*array_ptr
-        };
-
         unsafe {
             RefBuf {
                 count: self.get_count_ptr().as_ref(),
-                _data: data,
+                _data: self.messages(),
             }
         }
     }
@@ -439,6 +453,21 @@ impl<const M: usize> SharedBuf<M> {
 
     pub const unsafe fn as_dyn_buf(&mut self) -> DynSharedBuf {
         unsafe { DynSharedBuf::from_ptr_only(self.ptr, NonZeroUsize::new_unchecked(M)) }
+    }
+
+    #[must_use]
+    pub const fn messages(&self) -> &[UntypedMessage; M] {
+        unsafe {
+            let array_ptr = self.get_slice_ptr().as_ptr() as *const [UntypedMessage; M];
+            &*array_ptr
+        }
+    }
+
+    pub const fn messages_mut(&mut self) -> &mut [UntypedMessage; M] {
+        unsafe {
+            let array_ptr = self.get_slice_ptr().as_ptr().cast::<[UntypedMessage; M]>();
+            &mut *array_ptr
+        }
     }
 }
 

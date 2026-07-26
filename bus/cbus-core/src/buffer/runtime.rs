@@ -278,17 +278,17 @@ impl DynIncBuf {
     }
 
     //TODO: bugged, fix needed
-    pub fn pop_all(&mut self) -> &[UntypedMessage] {
-        let count = self.buf.count() as usize;
-        if count == 0 {
-            return &[];
-        }
+    //pub fn pop_all(&mut self) -> &[UntypedMessage] {
+    //    let count = self.buf.count() as usize;
+    //    if count == 0 {
+    //        return &[];
+    //    }
 
-        let mut buffer = self.buf.as_mut_buf();
-        buffer.set_count(0);
+    //    let mut buffer = self.buf.as_mut_buf();
+    //    buffer.set_count(0);
 
-        &buffer.data[..count]
-    }
+    //    &buffer.data[..count]
+    //}
 }
 
 #[repr(C)]

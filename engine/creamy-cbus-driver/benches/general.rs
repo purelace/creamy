@@ -93,10 +93,9 @@ impl<const M: usize> SimpleSubscriber<M> {
 
 impl<const M: usize> Subscriber for SimpleSubscriber<M> {
     fn notify(&mut self) {
-        let messages = self.incoming.pop_all();
-        for msg in messages {
+        while let Some(msg) = self.incoming.pop() {
             let val =
-                unsafe { std::ptr::read_unaligned(std::ptr::from_ref(msg).cast::<[u64; 4]>()) };
+                unsafe { std::ptr::read_unaligned(std::ptr::from_ref(&msg).cast::<[u64; 4]>()) };
             std::hint::black_box(val);
         }
     }
