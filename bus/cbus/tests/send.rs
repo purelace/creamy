@@ -90,7 +90,6 @@ impl<const A: usize> Subscriber for TestListener<A> {
 impl<const A: usize> Drop for TestListener<A> {
     fn drop(&mut self) {
         assert_eq!(self.total_messages, A);
-        //TODO: drop
     }
 }
 
@@ -215,3 +214,10 @@ pub fn send_10k_messages() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+/*
+ * При регистрации мы должны правильно проставить значения в таблице прав.
+ * Когда плагин уходит мы одну часть обнуляем полностью, а вторую должны изменить точечно.
+ * Что исправить:
+ * Buffer overflow
+ */
