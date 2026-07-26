@@ -1,51 +1,64 @@
-use core::ops::RangeInclusive;
+use core::{marker::PhantomData, ops::RangeInclusive};
 
 use crate::{
+    config::BusConfig,
+    core::{Subscriber, SubscriberId},
     cpu::{MemoryPools, MessagePipeline, PipelineData},
-    lookup::{LookupTable, SubscriberLookupData, SubscriberOldLookupData},
+    lookup::{LookupTable, SubscriberLookupData},
 };
 
 pub trait DataIterator: Iterator<Item = SubscriberLookupData> {}
-pub trait OldDataIterator: Iterator<Item = SubscriberOldLookupData> {}
-
 impl<I: Iterator<Item = SubscriberLookupData>> DataIterator for I {}
-impl<I: Iterator<Item = SubscriberOldLookupData>> OldDataIterator for I {}
 
 pub trait BusDriver {
-    fn on_subscribe(&mut self, id: u8) -> impl DataIterator;
-    fn on_unsubscribe(&mut self, id: u8) -> impl OldDataIterator;
+    fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator;
+    fn on_unsubscribe(&mut self, id: SubscriberId);
 }
 
-pub struct Driver<D: BusDriver> {
-    lookup_table: LookupTable,
-    pipeline: MessagePipeline,
+#[derive(Debug)]
+pub struct Driver<C, D, S, const M: usize>
+where
+    C: BusConfig,
+    D: BusDriver,
+    S: Subscriber,
+{
+    lookup_table: LookupTable<C>,
+    pipeline: MessagePipeline<C, S, M>,
     inner: D,
+    _phantom: PhantomData<(C, S)>,
 }
 
-impl<D: BusDriver> Driver<D> {
-    pub fn new(driver: D, max_groups: u8, max_subscribers: u8) -> Self {
+impl<C, D, S, const M: usize> Driver<C, D, S, M>
+where
+    C: BusConfig,
+    D: BusDriver,
+    S: Subscriber,
+{
+    pub fn new(driver: D) -> Self {
         Self {
-            lookup_table: LookupTable::new(max_groups, max_subscribers),
-            pipeline: MessagePipeline::new(max_subscribers),
+            lookup_table: LookupTable::new(),
+            pipeline: MessagePipeline::new(),
             inner: driver,
+            _phantom: PhantomData,
         }
     }
 
-    pub fn on_subscribe(&mut self, id: u8) {
+    pub fn on_subscribe(&mut self, id: SubscriberId) {
         let iter = self.inner.on_subscribe(id);
         self.lookup_table.add(id, iter);
     }
 
-    pub fn on_unsubscribe(&mut self, id: u8) {
-        let iter = self.inner.on_unsubscribe(id);
-        self.lookup_table.remove(id, iter);
+    pub fn on_unsubscribe(&mut self, id: SubscriberId) {
+        self.inner.on_unsubscribe(id);
+        self.lookup_table.zeroize(id);
     }
 
-    pub fn process_messages(&mut self, memory: MemoryPools, range: RangeInclusive<u8>) {
+    pub fn process_messages(&mut self, memory: MemoryPools<C, S, M>, range: RangeInclusive<u8>) {
         let mut data = PipelineData {
             lookup_table: &self.lookup_table,
             memory,
             subscriber_range: range,
+            _phantom: PhantomData,
         };
 
         self.pipeline.dispatch_messages(&mut data);
@@ -53,7 +66,12 @@ impl<D: BusDriver> Driver<D> {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<D: BusDriver> Driver<D> {
+impl<C, D, S, const M: usize> Driver<C, D, S, M>
+where
+    C: BusConfig,
+    D: BusDriver,
+    S: Subscriber,
+{
     pub const fn get_inner(&self) -> &D {
         &self.inner
     }

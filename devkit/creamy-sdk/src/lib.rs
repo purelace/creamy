@@ -1,16 +1,16 @@
 #![allow(clippy::inline_always)]
 #![no_std]
 
+use cbus_core::buffer::runtime::{DynIncBuf, DynOutBuf};
+
 extern crate alloc;
 pub mod api;
 mod export;
-mod logging;
+pub mod logging;
 pub mod state;
 pub mod stream;
 pub mod utils;
 mod wasm;
-
-use cbus_core::buffer::{Incoming, Outgoing};
 
 pub mod spin {
     pub use spin::*;
@@ -25,17 +25,35 @@ pub mod bus {
 static ALLOCATOR: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
 
 static mut MAX_HEAP: u32 = 0;
-static mut INCOMING: Incoming = Incoming::null();
-static mut OUTGOING: Outgoing = Outgoing::null();
+static mut INCOMING: Option<DynIncBuf> = None;
+static mut OUTGOING: Option<DynOutBuf> = None;
 
+/// # Panics
+///
+/// Panics if buffer is not initialized.
 #[must_use]
-pub const fn get_incoming() -> Incoming {
-    unsafe { INCOMING }
+#[allow(static_mut_refs)]
+pub fn get_incoming() -> DynIncBuf {
+    unsafe {
+        match INCOMING.clone() {
+            Some(buf) => buf,
+            None => panic!("Buffer is not initialized"),
+        }
+    }
 }
 
+/// # Panics
+///
+/// Panics if buffer is not initialized.
 #[must_use]
-pub const fn get_outgoing() -> Outgoing {
-    unsafe { OUTGOING }
+#[allow(static_mut_refs)]
+pub fn get_outgoing() -> DynOutBuf {
+    unsafe {
+        match OUTGOING.clone() {
+            Some(buf) => buf,
+            None => panic!("Buffer is not initialized"),
+        }
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/system.rs"));

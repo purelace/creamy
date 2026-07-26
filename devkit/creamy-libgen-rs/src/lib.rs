@@ -874,6 +874,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         };
 
         let mut module = Module::new("dispatcher");
+        module.access = Access::Pub;
         module.other.push(Box::new(function));
         module.other.push(Box::new(t));
 

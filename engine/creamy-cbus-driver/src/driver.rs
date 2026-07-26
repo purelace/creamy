@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 
-use cbus::{
-    BusDriver, DataIterator, OldDataIterator, SubscriberLookupData, SubscriberOldLookupData,
-    config::{BusConfig, ValidConfig},
-    core::buffer::{Incoming, Outgoing},
-};
+use cbus::{BusDriver, DataIterator, SubscriberLookupData, config::BusConfig, core::SubscriberId};
 use idmint::StackMint;
 
 #[derive(Default, Clone)]
@@ -14,37 +10,30 @@ struct SubscriberMetadata {
 }
 
 pub struct CreamyDriver {
-    _outgoing: Outgoing,
-    _incoming: Incoming,
-
     provider: StackMint,
-    groups: HashMap<String, u8>,
+    groups: HashMap<String, (SubscriberId, u8)>,
     subscribers: Vec<SubscriberMetadata>,
 }
 
 impl CreamyDriver {
     #[must_use]
-    pub fn new<C: BusConfig>(c: &ValidConfig<C>, incoming: Incoming, outgoing: Outgoing) -> Self {
-        let subscribers =
-            std::iter::repeat_n(SubscriberMetadata::default(), c.max_subscribers() as usize)
-                .collect::<Vec<_>>();
+    pub fn new<C: BusConfig>() -> Self {
+        let subscribers = core::iter::repeat_n(
+            SubscriberMetadata::default(),
+            C::MAX_SUBSCRIBERS.get() as usize,
+        )
+        .collect::<Vec<_>>();
 
         Self {
-            _outgoing: outgoing,
-            _incoming: incoming,
             groups: HashMap::new(),
             provider: StackMint::new(1),
             subscribers,
         }
     }
 
-    pub fn provide_api(&mut self, plugin: u8, group: u8) {
-        let metadata = &mut self.subscribers[plugin as usize];
-    }
-
-    pub fn declare_protocols(&mut self, name: impl Into<String>) {
+    pub fn declare_protocols(&mut self, name: impl Into<String>, provider: SubscriberId) {
         let id = self.provider.issue().unwrap();
-        assert!(self.groups.insert(name.into(), id).is_none());
+        assert!(self.groups.insert(name.into(), (provider, id)).is_none());
     }
 
     pub fn sync_protocol_table(&mut self, id: u8, protocols: Vec<String>) {
@@ -54,35 +43,29 @@ impl CreamyDriver {
 }
 
 impl BusDriver for CreamyDriver {
-    fn on_subscribe(&mut self, id: u8) -> impl DataIterator {
-        let metadata = &mut self.subscribers[id as usize];
+    fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
+        let metadata = &mut self.subscribers[id.get() as usize];
 
         metadata
             .to_sync
             .drain(..)
             .enumerate()
-            .map(|(local_group_id, name)| {
-                let local_group_id = local_group_id as u8 + 1;
-                let global_group_id = *self.groups.get(&name).unwrap();
+            .map(|(consumer_group_id, name)| {
+                let consumer_group_id = consumer_group_id as u8 + 1;
+                let (provider_id, provider_group_id) = *self.groups.get(&name).unwrap();
 
-                metadata.groups.push(global_group_id);
+                metadata.groups.push(provider_group_id);
 
                 SubscriberLookupData {
-                    consumer_group_id: local_group_id,
-                    provider_group_id: global_group_id,
+                    consumer_group_id,
+                    provider_group_id,
+                    provider_id,
                 }
             })
     }
 
-    fn on_unsubscribe(&mut self, id: u8) -> impl OldDataIterator {
-        let metadata = &mut self.subscribers[id as usize];
+    fn on_unsubscribe(&mut self, id: SubscriberId) {
+        let metadata = &mut self.subscribers[id.get() as usize];
         metadata.to_sync.clear();
-
-        metadata
-            .groups
-            .drain(..)
-            .map(|global_group_id| SubscriberOldLookupData {
-                provider_group_id: global_group_id,
-            })
     }
 }

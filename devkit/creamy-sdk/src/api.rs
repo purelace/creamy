@@ -1,12 +1,12 @@
 use cbus_core::{
     UntypedMessage,
-    buffer::{Incoming, Outgoing},
+    buffer::runtime::{DynIncBuf, DynOutBuf},
 };
 
 use crate::dispatcher::MessageHandler;
 
 pub trait Plugin: Sized + CustomHandler {
-    fn init(outgoing: Outgoing) -> Option<Self>;
+    fn init(outgoing: DynOutBuf) -> Option<Self>;
 }
 
 pub trait CustomHandler {
@@ -14,45 +14,43 @@ pub trait CustomHandler {
 }
 
 const HEADER_MASK: u32 = 0x00_FF_00_FF;
-pub fn handle_incoming<H: MessageHandler>(handler: &mut H, mut incoming: Incoming) {
-    for &message in incoming.as_slice() {
+pub fn handle_incoming<H: MessageHandler>(handler: &mut H, mut incoming: DynIncBuf) {
+    for &message in incoming.pop_all() {
         let dispatch_value = {
             let message: &UntypedMessage = &message;
-            u32::from_le_bytes([message.dst, message.group, message.src, message.kind])
-                & HEADER_MASK
+            (u32::from(message.group) << 16 | u32::from(message.kind)) & HEADER_MASK
         };
         handler.handle_message(dispatch_value, message);
     }
-
-    incoming.clear();
 }
 
 #[macro_export]
 macro_rules! declare_plugin {
     ($plugin:ty, $($dispatcher_module:ident)::+) => {
-        static STATE: $crate::spin::Mutex<Option<$crate::state::InnerState<$plugin>>> =
-            $crate::spin::Mutex::new(None);
+        static mut STATE: Option<$crate::state::InnerState<$plugin>> = None;
 
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn init() -> u32 {
-            let outgoing = $crate::get_outgoing();
-            if let Some(plugin) = <$plugin as $crate::api::Plugin>::init(outgoing) {
-                let state = $crate::state::InnerState::new(plugin);
-                let mut lock = STATE.lock();
-                *lock = Some(state);
+            unsafe {
+                let outgoing = $crate::get_outgoing();
+                if let Some(plugin) = <$plugin as $crate::api::Plugin>::init(outgoing) {
+                    let instance = $crate::state::InnerState::new(plugin);
+                    STATE = Some(instance);
 
-                0
-            } else {
-                1
+                    0
+                } else {
+                    1
+                }
             }
         }
 
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn notify() {
-            let incoming = $crate::get_incoming();
-            let mut lock = STATE.lock();
-            if let Some(ref mut state) = *lock {
-                $crate::api::handle_incoming(state, incoming);
+            unsafe {
+                let incoming = $crate::get_incoming();
+                if let Some(state) = STATE.as_mut() {
+                    $crate::api::handle_incoming(state, incoming);
+                }
             }
         }
 

@@ -3,38 +3,40 @@
 #![allow(clippy::missing_panics_doc)]
 
 use cbus::{
-    BusError, MessageBus,
-    config::{BusConfig, Legacy, ValidConfig},
+    MessageBus,
+    config::BusConfig,
     core::{
         Subscriber,
-        buffer::{Incoming, Outgoing},
+        buffer::{IncBuf, OutBuf},
     },
     define_bus_config,
-    defines::DEFAULT_SLICE_SIZE,
 };
 use creamy_cbus_driver::CreamyDriver;
 
-pub trait SenderFn: FnMut(&[u8], &mut Outgoing) + Send + Sync + 'static {}
-impl<T> SenderFn for T where T: FnMut(&[u8], &mut Outgoing) + Send + Sync + 'static {}
-
-pub enum Subscribers<F: SenderFn> {
-    Sender(BenchmarkSender<F>),
-    Listener(SimpleSubscriber),
+pub trait SenderFn<const M: usize>: FnMut(&[u8], &mut OutBuf<M>) + Send + Sync + 'static {}
+impl<T, const M: usize> SenderFn<M> for T where
+    T: FnMut(&[u8], &mut OutBuf<M>) + Send + Sync + 'static
+{
 }
 
-impl<F: SenderFn> From<BenchmarkSender<F>> for Subscribers<F> {
-    fn from(value: BenchmarkSender<F>) -> Self {
+pub enum Subscribers<F: SenderFn<M>, const M: usize> {
+    Sender(BenchmarkSender<F, M>),
+    Listener(SimpleSubscriber<M>),
+}
+
+impl<F: SenderFn<M>, const M: usize> From<BenchmarkSender<F, M>> for Subscribers<F, M> {
+    fn from(value: BenchmarkSender<F, M>) -> Self {
         Self::Sender(value)
     }
 }
 
-impl<F: SenderFn> From<SimpleSubscriber> for Subscribers<F> {
-    fn from(value: SimpleSubscriber) -> Self {
+impl<F: SenderFn<M>, const M: usize> From<SimpleSubscriber<M>> for Subscribers<F, M> {
+    fn from(value: SimpleSubscriber<M>) -> Self {
         Self::Listener(value)
     }
 }
 
-impl<F: SenderFn> Subscriber for Subscribers<F> {
+impl<F: SenderFn<M>, const M: usize> Subscriber for Subscribers<F, M> {
     fn notify(&mut self) {
         match self {
             Subscribers::Sender(value) => value.notify(),
@@ -43,38 +45,45 @@ impl<F: SenderFn> Subscriber for Subscribers<F> {
     }
 }
 
-pub struct BenchmarkSender<S: SenderFn> {
-    outgoing: Outgoing,
-    _incoming: Incoming,
+pub struct BenchmarkSender<S: SenderFn<M>, const M: usize> {
+    outgoing: OutBuf<M>,
+    _incoming: IncBuf<M>,
     vec: Vec<u8>,
     function: S,
+    work_finished: bool,
 }
 
-impl<S: SenderFn> BenchmarkSender<S> {
-    pub const fn new(outgoing: Outgoing, incoming: Incoming, vec: Vec<u8>, function: S) -> Self {
+impl<S: SenderFn<M>, const M: usize> BenchmarkSender<S, M> {
+    pub const fn new(outgoing: OutBuf<M>, incoming: IncBuf<M>, vec: Vec<u8>, function: S) -> Self {
         Self {
             outgoing,
             _incoming: incoming,
             vec,
             function,
+            work_finished: false,
         }
     }
 }
 
-impl<S: SenderFn> Subscriber for BenchmarkSender<S> {
+impl<S: SenderFn<M>, const M: usize> Subscriber for BenchmarkSender<S, M> {
     fn notify(&mut self) {
+        if self.work_finished {
+            return;
+        }
+
+        self.work_finished = true;
         (self.function)(&self.vec, &mut self.outgoing);
     }
 }
 
-pub struct SimpleSubscriber {
-    incoming: Incoming,
-    _outgoing: Outgoing,
+pub struct SimpleSubscriber<const M: usize> {
+    incoming: IncBuf<M>,
+    _outgoing: OutBuf<M>,
 }
 
-impl SimpleSubscriber {
+impl<const M: usize> SimpleSubscriber<M> {
     #[must_use]
-    pub const fn new(incoming: Incoming, outgoing: Outgoing) -> Self {
+    pub const fn new(incoming: IncBuf<M>, outgoing: OutBuf<M>) -> Self {
         Self {
             incoming,
             _outgoing: outgoing,
@@ -82,7 +91,7 @@ impl SimpleSubscriber {
     }
 }
 
-impl Subscriber for SimpleSubscriber {
+impl<const M: usize> Subscriber for SimpleSubscriber<M> {
     fn notify(&mut self) {
         let messages = self.incoming.pop_all();
         for msg in messages {
@@ -93,71 +102,78 @@ impl Subscriber for SimpleSubscriber {
     }
 }
 
-pub type BenchBus<F> = MessageBus<CreamyDriver, Subscribers<F>>;
+pub const MAX_MESSAGES: usize = 1024;
+define_bus_config! {
+    Legacy,
+    max_subscribers: 32,
+    max_messages: 1024,
+    max_groups: 64
+}
 
-pub fn init_bus_custom<C: BusConfig, F: SenderFn>(
+pub type BenchBus<C, F, const M: usize> = MessageBus<C, CreamyDriver, M, Subscribers<F, M>>;
+
+pub fn init_bus_custom<C: BusConfig, F: SenderFn<M>, const M: usize>(
     indices: Vec<u8>,
     function: F,
     subs: usize,
-    config: &ValidConfig<C>,
-) -> Result<BenchBus<F>, Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::new(config, CreamyDriver::new);
+) -> Result<BenchBus<C, F, M>, Box<dyn std::error::Error>> {
+    let mut bus = BenchBus::new(CreamyDriver::new::<C>());
     let sender_id =
-        bus.add_subscriber(|inc, out| BenchmarkSender::new(out, inc, indices, function))?;
+        bus.add_subscriber(move |inc, out| BenchmarkSender::new(out, inc, indices, function))?;
 
     let driver = bus.get_driver_mut();
-    driver.declare_protocols("benchmark");
-    driver.sync_protocol_table(sender_id.u8(), vec!["benchmark".to_string()]);
+    driver.declare_protocols("benchmark", sender_id);
+    driver.sync_protocol_table(sender_id.as_u8(), vec!["benchmark".to_string()]);
 
-    for _ in 2..2 + subs {
-        let listener_id = bus.add_subscriber(SimpleSubscriber::new).unwrap();
+    bus.update_lookup_table(sender_id);
+
+    for _ in 0..subs {
+        let listener_id = bus.add_subscriber(SimpleSubscriber::new)?;
         bus.get_driver_mut()
-            .sync_protocol_table(listener_id.u8(), vec!["benchmark".to_string()]);
+            .sync_protocol_table(listener_id.as_u8(), vec!["benchmark".to_string()]);
+        bus.update_lookup_table(listener_id);
     }
 
-    bus.tick();
     Ok(bus)
 }
 
-pub fn init_bus_legacy<F: SenderFn>(
+pub fn init_bus_legacy<F: SenderFn<MAX_MESSAGES>>(
     indices: Vec<u8>,
     function: F,
     subs: usize,
-) -> Result<BenchBus<F>, Box<dyn std::error::Error>> {
-    init_bus_custom(indices, function, subs, &Legacy.into_valid()?)
+) -> Result<BenchBus<Legacy, F, MAX_MESSAGES>, Box<dyn std::error::Error>> {
+    init_bus_custom::<Legacy, F, MAX_MESSAGES>(indices, function, subs)
 }
 
+const MAX_MESSAGES_LARGE: usize = 16000;
 define_bus_config! {
     LegacyLargeBuffer,
     max_subscribers: 32,
-    max_messages: DEFAULT_SLICE_SIZE,
+    max_messages: 16000,
     max_groups: 128,
 }
 
-pub fn init_bus_legacy_large_buf<F: SenderFn>(
+pub fn init_bus_legacy_large_buf<F: SenderFn<MAX_MESSAGES_LARGE>>(
     indices: Vec<u8>,
     function: F,
     subs: usize,
-) -> Result<BenchBus<F>, Box<dyn std::error::Error>> {
-    init_bus_custom(indices, function, subs, &LegacyLargeBuffer.into_valid()?)
+) -> Result<BenchBus<LegacyLargeBuffer, F, MAX_MESSAGES_LARGE>, Box<dyn std::error::Error>> {
+    init_bus_custom::<LegacyLargeBuffer, F, MAX_MESSAGES_LARGE>(indices, function, subs)
 }
 
+const MAX_MESSAGES_ULTRA_LARGE: usize = 500_000;
 define_bus_config! {
     LegacyUltraLargeBuffer,
     max_subscribers: 32,
-    max_messages: DEFAULT_SLICE_SIZE * 16,
+    max_messages: 500_000,
     max_groups: 128,
 }
 
-pub fn init_bus_legacy_ularge_buf<F: SenderFn>(
+pub fn init_bus_legacy_ularge_buf<F: SenderFn<MAX_MESSAGES_ULTRA_LARGE>>(
     indices: Vec<u8>,
     function: F,
     subs: usize,
-) -> Result<BenchBus<F>, Box<dyn std::error::Error>> {
-    init_bus_custom(
-        indices,
-        function,
-        subs,
-        &LegacyUltraLargeBuffer.into_valid()?,
-    )
+) -> Result<BenchBus<LegacyUltraLargeBuffer, F, MAX_MESSAGES_ULTRA_LARGE>, Box<dyn std::error::Error>>
+{
+    init_bus_custom::<LegacyUltraLargeBuffer, F, MAX_MESSAGES_ULTRA_LARGE>(indices, function, subs)
 }

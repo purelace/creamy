@@ -1,22 +1,33 @@
-use core::{alloc::Layout, ptr::NonNull};
+use core::{alloc::Layout, marker::PhantomData, ptr::NonNull};
 
-use crate::{core::UntypedMessage, sys::layout::alloc_pool};
+use cbus_core::defines::{MESSAGE_SIZE, TARGET_ALIGN};
 
-pub struct MessagePool {
-    layout: Layout,
+use crate::{config::BusConfig, core::UntypedMessage, sys::layout::alloc_pool};
+
+#[derive(Debug)]
+pub struct MessagePool<C: BusConfig> {
     ptr: NonNull<UntypedMessage>,
     count: usize,
+    _phantom: PhantomData<C>,
 }
 
-impl MessagePool {
-    pub fn new(total_size: usize) -> Self {
-        let (layout, ptr) = alloc_pool(total_size);
+impl<C: BusConfig> MessagePool<C> {
+    const LAYOUT: Layout = match Layout::from_size_align(
+        C::MAX_SUBSCRIBERS.get() as usize * C::MAX_MESSAGES.get() as usize * MESSAGE_SIZE,
+        TARGET_ALIGN,
+    ) {
+        Ok(v) => v,
+        Err(_) => panic!("Failed to generate layout at compile-time"),
+    };
+
+    pub fn new() -> Self {
+        let ptr = alloc_pool(Self::LAYOUT);
         let ptr = ptr.cast::<UntypedMessage>();
 
         Self {
             ptr,
-            layout,
             count: 0,
+            _phantom: PhantomData,
         }
     }
 
@@ -30,19 +41,11 @@ impl MessagePool {
         unsafe { core::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.count) }
     }
 
-    //#[inline(always)]
-    //pub const fn reserve(&mut self, count: usize) -> *mut UntypedMessage {
-    //    unsafe {
-    //        let ptr = self.ptr.add(self.count).as_ptr();
-    //        self.count += count;
-    //        ptr
-    //    }
-    //}
-
     #[inline(always)]
-    pub const fn reserve_slice(&mut self, count: usize) -> &mut [UntypedMessage] {
+    pub fn reserve_slice(&mut self, count: usize) -> &mut [UntypedMessage] {
         unsafe {
             let ptr = self.ptr.add(self.count).as_ptr();
+            //println!("count: {}, add: {count}", self.count);
             let slice = core::slice::from_raw_parts_mut(ptr, count);
             self.count += count;
             slice
@@ -54,15 +57,9 @@ impl MessagePool {
         self.count = 0;
     }
 
-    //#[inline(always)]
-    //pub const fn count(&self) -> usize {
-    //    self.count
-    //}
-
-    //#[inline(always)]
-    //pub const fn ptr_at(&mut self, count: usize) -> *mut UntypedMessage {
-    //    unsafe { self.ptr.add(count).as_ptr() }
-    //}
+    pub const fn count(&self) -> usize {
+        self.count
+    }
 
     pub const fn slice(&mut self, len: usize, ptr_location: usize) -> &[UntypedMessage] {
         unsafe {
@@ -72,10 +69,10 @@ impl MessagePool {
     }
 }
 
-impl Drop for MessagePool {
+impl<C: BusConfig> Drop for MessagePool<C> {
     fn drop(&mut self) {
         unsafe {
-            alloc::alloc::dealloc(self.ptr.as_ptr().cast::<u8>(), self.layout);
+            alloc::alloc::dealloc(self.ptr.as_ptr().cast::<u8>(), Self::LAYOUT);
         }
     }
 }

@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 use core::fmt::Arguments;
 
 use crate::{
@@ -9,8 +9,15 @@ use crate::{
     },
 };
 
+#[derive(Default)]
 pub struct LogReader {
     buffer: Vec<u8>,
+}
+
+impl LogReader {
+    pub fn into_string(self) -> Result<String, alloc::string::FromUtf8Error> {
+        String::from_utf8(self.buffer)
+    }
 }
 
 impl StreamReaderFunctions for LogReader {
@@ -39,6 +46,7 @@ pub struct LogWriter {
 }
 
 impl LogWriter {
+    #[must_use]
     pub const fn new(kind: LogType) -> Self {
         Self { sent: 0, kind }
     }
@@ -118,7 +126,7 @@ macro_rules! debug {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::logging::LogType::Debug
+            $crate::system::builtin::LogType::Debug
         );
     };
 }
@@ -128,7 +136,7 @@ macro_rules! info {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::logging::LogType::Info
+            $crate::system::builtin::LogType::Info
         );
     };
 }
@@ -138,7 +146,7 @@ macro_rules! warn {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::logging::LogType::Warn
+            $crate::system::builtin::LogType::Warn
         );
     };
 }
@@ -148,7 +156,7 @@ macro_rules! error {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::logging::LogType::Error
+            $crate::system::builtin::LogType::Error
         );
     };
 }

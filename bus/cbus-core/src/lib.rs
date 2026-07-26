@@ -1,6 +1,15 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
-#![allow(clippy::inline_always)]
 #![no_std]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+#![deny(warnings)]
+#![deny(clippy::all)]
+#![deny(clippy::pedantic)]
+#![deny(clippy::panic)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::unreachable)]
+#![allow(clippy::missing_safety_doc)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(unused)]
 
 extern crate alloc;
 

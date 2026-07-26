@@ -8,6 +8,7 @@ license.workspace = true
 as-guard.workspace = true
 static_assertions.workspace = true
 downcast-rs.workspace = true
+bitflags.workspace = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }

@@ -11,5 +11,10 @@ idmint.workspace = true
 thiserror.workspace = true
 cfg-if.workspace = true
 
+tracing = { version = "0.1.44", features = ["max_level_trace"] }
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+
+[features]
+disable_tracing = ["tracing/release_max_level_off"]

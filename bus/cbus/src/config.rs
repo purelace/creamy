@@ -1,105 +1,34 @@
-use core::ops::Deref;
+use core::num::{NonZeroU8, NonZeroU32};
 
-use cbus_core::defines::MESSAGE_SIZE;
+#[derive(Clone, Copy)]
+pub struct ValidU8(NonZeroU8);
+impl ValidU8 {
+    pub const MAX: Self = Self(NonZeroU8::new(u8::MAX - 1).unwrap());
+    pub const ONE: Self = Self(NonZeroU8::new(1).unwrap());
 
-use crate::{BusError, defines::METADATA};
+    #[must_use]
+    pub const fn new(value: u8) -> Option<Self> {
+        if value != 0 && value.is_multiple_of(2) {
+            // SAFETY: The `value` is explicitly checked to be non-zero in the conditional expression above.
+            // This strictly guarantees that the precondition for `NonZeroU8::new_unchecked` is met.
+            unsafe {
+                return Some(Self(NonZeroU8::new_unchecked(value)));
+            }
+        }
 
-pub trait BusConfig: Sized {
-    fn max_subscribers(&self) -> u8;
-    fn max_messages(&self) -> usize;
-    fn max_groups(&self) -> u8;
+        None
+    }
 
-    /// Validates and wraps the provided configuration into a bus-ready instance.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the configuration is invalid:
-    /// * [`BusError::ValueTooSmall`] — if `max_messages` is less than 1024.
-    /// * [`BusError::ValueOutOfRange`] — if any parameter exceeds architectural limits.
-    /// * [`BusError::GroupsIsNotMultipleOf2`] - if `max_groups` is not a multiple of 2
-    fn into_valid(self) -> Result<ValidConfig<Self>, BusError>;
-}
-
-pub struct ValidConfig<C: BusConfig>(C);
-impl<C: BusConfig> Deref for ValidConfig<C> {
-    type Target = C;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    #[must_use]
+    pub const fn get(&self) -> u8 {
+        self.0.get()
     }
 }
 
-impl<C: BusConfig> ValidConfig<C> {
-    /// Validates and wraps the provided configuration into a bus-ready instance.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the configuration is invalid:
-    /// * [`BusError::ValueTooSmall`] — if `max_messages` is less than 1024.
-    /// * [`BusError::ValueOutOfRange`] — if any parameter exceeds architectural limits.
-    /// * [`BusError::GroupsIsNotMultipleOf2`] - if `max_groups` is not a multiple of 2
-    pub fn new(config: C) -> Result<Self, BusError> {
-        const MAX_SIZE: usize = usize::MAX / 2 + 1;
-
-        if config.max_subscribers() == 0 {
-            return Err(BusError::ValueTooSmall {
-                name: "max_subscribers",
-                current: 0,
-                min: 2,
-            });
-        }
-
-        if !config.max_subscribers().is_multiple_of(2) {
-            return Err(BusError::ValueIsNotMultipleOf2 {
-                name: "max_subscribers",
-            });
-        }
-
-        if config.max_messages() < 1024 {
-            return Err(BusError::ValueTooSmall {
-                name: "max_messages",
-                current: config.max_messages(),
-                min: 1024,
-            });
-        }
-
-        if !config.max_messages().is_multiple_of(2) {
-            return Err(BusError::ValueIsNotMultipleOf2 {
-                name: "max_messages",
-            });
-        }
-
-        let Some(slice_size) = config.max_messages().checked_mul(MESSAGE_SIZE) else {
-            return Err(BusError::ValueTooBig {
-                name: "max_messages",
-            });
-        };
-
-        let Some(slice_size) = slice_size.checked_add(METADATA) else {
-            return Err(BusError::ValueTooBig {
-                name: "max_messages",
-            });
-        };
-
-        let Some(total_size) = slice_size.checked_mul(config.max_subscribers() as usize) else {
-            return Err(BusError::ValueTooBig {
-                name: "max_messages",
-            });
-        };
-
-        if total_size > MAX_SIZE {
-            return Err(BusError::TooBigPoolSize {
-                current: total_size,
-                max: MAX_SIZE,
-            });
-        }
-
-        if !config.max_groups().is_power_of_two() {
-            return Err(BusError::GroupsIsNotPowerOf2);
-        }
-
-        Ok(Self(config))
-    }
+pub trait BusConfig {
+    const MAX_GROUPS: ValidU8;
+    const MAX_MESSAGES: NonZeroU32;
+    const MAX_SUBSCRIBERS: ValidU8;
 }
 
 #[macro_export]
@@ -107,47 +36,19 @@ macro_rules! define_bus_config {
     {
         $name:ident,
         max_subscribers: $subs:expr,
-        max_messages: $msg:expr,
-        max_groups: $grps:expr $(,)?
+        max_messages: $messages:expr,
+        max_groups: $groups:expr $(,)?
     } => {
         pub struct $name;
-        impl BusConfig for $name {
-            fn max_subscribers(&self) -> u8 {
-                $subs
-            }
 
-            fn max_messages(&self) -> usize {
-                $msg
-            }
+        impl $name {
+            pub const MAX_MESSAGES: usize = $messages;
+        }
 
-            fn max_groups(&self) -> u8 {
-                $grps
-            }
-
-            fn into_valid(self) -> Result<ValidConfig<Self>, BusError> {
-                ValidConfig::new(self)
-            }
+        impl $crate::config::BusConfig for $name {
+            const MAX_GROUPS: $crate::config::ValidU8 = $crate::config::ValidU8::new($groups).unwrap();
+            const MAX_SUBSCRIBERS: $crate::config::ValidU8 = $crate::config::ValidU8::new($subs).unwrap();
+            const MAX_MESSAGES: core::num::NonZeroU32 = core::num::NonZeroU32::new($messages).unwrap();
         }
     };
-}
-
-define_bus_config! {
-    Legacy,
-    max_subscribers: 32,
-    max_messages: 1024,
-    max_groups: 64
-}
-
-define_bus_config! {
-    Middle,
-    max_subscribers: 128,
-    max_messages: 2048,
-    max_groups: 128
-}
-
-define_bus_config! {
-    Advanced,
-    max_subscribers: u8::MAX - 1,
-    max_messages: 2048,
-    max_groups: 128,
 }

@@ -35,6 +35,7 @@ fn optimize_wasm_module(
         .args([
             wasm_module_path.to_str().unwrap(),
             "-O3",
+            "-g",
             "-o",
             output_file.to_str().unwrap(),
         ])

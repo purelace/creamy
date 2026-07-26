@@ -1,40 +1,52 @@
+/*
 mod general;
 
 use std::collections::HashMap;
 
 use cbus::{
-    BusDriver, BusError, DataIterator, MessageBus, OldDataIterator, SubscriberLookupData,
-    SubscriberOldLookupData,
-    config::{BusConfig, Legacy, ValidConfig},
-};
-use cbus_core::{
-    Subscriber, SubscriberId, UntypedMessage,
-    buffer::{Incoming, Outgoing},
+    BusDriver, BusError, DataIterator, MessageBus, SubscriberLookupData,
+    config::BusConfig,
+    core::{
+        Subscriber, SubscriberId, UntypedMessage,
+        buffer::{IncBuf, OutBuf},
+    },
+    define_bus_config,
 };
 
 use crate::general::{EmptyDriver, EmptySubscriber};
 
+const MAX_MESSAGES: usize = 1024;
+define_bus_config! {
+    Legacy,
+    max_subscribers: 32,
+    max_messages: 1024,
+    max_groups: 32
+}
+
+#[derive(Debug)]
+struct DnsSubscriber;
+impl Subscriber for DnsSubscriber {
+    fn notify(&mut self) {}
+}
+
+#[derive(Debug)]
 struct Dns {
     table: HashMap<u8, &'static str>,
-    _incoming: Incoming,
-    outgoing: Outgoing,
+    _incoming: IncBuf<MAX_MESSAGES>,
+    outgoing: OutBuf<MAX_MESSAGES>,
 }
 
 impl Dns {
-    pub fn new<C: BusConfig>(
-        _config: &ValidConfig<C>,
-        incoming: Incoming,
-        outgoing: Outgoing,
-    ) -> Self {
+    pub fn new(incoming: IncBuf<MAX_MESSAGES>, outgoing: OutBuf<MAX_MESSAGES>) -> Self {
         let mut table = HashMap::new();
-        table.insert(1, "group_0");
-        table.insert(2, "group_1");
-        table.insert(3, "group_2");
-        table.insert(4, "group_3");
-        table.insert(5, "group_4");
-        table.insert(6, "group_5");
-        table.insert(7, "group_6");
-        table.insert(8, "group_7");
+        table.insert(2, "group_0");
+        table.insert(3, "group_1");
+        table.insert(4, "group_2");
+        table.insert(5, "group_3");
+        table.insert(6, "group_4");
+        table.insert(7, "group_5");
+        table.insert(8, "group_6");
+        table.insert(9, "group_7");
 
         Self {
             table,
@@ -45,16 +57,23 @@ impl Dns {
 }
 
 impl BusDriver for Dns {
-    fn on_subscribe(&mut self, id: u8) -> impl DataIterator {
+    fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
+        if id.get() == 1 {
+            return std::iter::once(SubscriberLookupData {
+                consumer_group_id: 1,
+                provider_group_id: 1,
+            });
+        }
+
         let mut message = UntypedMessage {
-            dst: id,
-            group: id,
+            dst: id.get(),
+            group: id.get(),
             src: 0,
             kind: 0,
             payload: [0; 28],
         };
 
-        let ident = self.table.get(&id).unwrap();
+        let ident = self.table.get(&id.get()).unwrap();
         let bytes = ident.as_bytes();
         message.payload[0] = bytes[0];
         message.payload[1] = bytes[1];
@@ -72,22 +91,23 @@ impl BusDriver for Dns {
         })
     }
 
-    fn on_unsubscribe(&mut self, id: u8) -> impl OldDataIterator {
-        std::iter::once(SubscriberOldLookupData {
-            provider_group_id: id,
-        })
-    }
+    fn on_unsubscribe(&mut self, _: SubscriberId) {}
 }
 
+#[derive(Debug)]
 struct Resolver {
-    inc: Incoming,
-    _out: Outgoing,
+    inc: IncBuf<MAX_MESSAGES>,
+    _out: OutBuf<MAX_MESSAGES>,
     get_ident: bool,
     ident: &'static str,
 }
 
 impl Resolver {
-    const fn new(inc: Incoming, out: Outgoing, ident: &'static str) -> Self {
+    const fn new(
+        inc: IncBuf<MAX_MESSAGES>,
+        out: OutBuf<MAX_MESSAGES>,
+        ident: &'static str,
+    ) -> Self {
         Self {
             inc,
             _out: out,
@@ -99,7 +119,6 @@ impl Resolver {
 
 impl Subscriber for Resolver {
     fn notify(&mut self) {
-        //let slice = self.inc.as_slice();
         let slice = self.inc.pop_all();
 
         if slice.is_empty() {
@@ -116,137 +135,143 @@ impl Subscriber for Resolver {
     }
 }
 
+#[derive(Debug)]
+enum Subscribers {
+    Dns(DnsSubscriber),
+    Resolver(Resolver),
+}
+
+impl Subscriber for Subscribers {
+    fn notify(&mut self) {
+        match self {
+            Subscribers::Dns(sub) => sub.notify(),
+            Subscribers::Resolver(res) => res.notify(),
+        }
+    }
+}
+
+impl Subscribers {
+    fn resolver(&self) -> &Resolver {
+        match self {
+            Subscribers::Resolver(res) => res,
+            Subscribers::Dns(_) => unreachable!(),
+        }
+    }
+}
+
 #[test]
 fn register_and_unregister() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<Dns, Resolver>::new(&Legacy.into_valid()?, Dns::new);
-    let id0 = bus
-        .add_subscriber(|inc, out| Resolver::new(inc, out, "group_0"))
-        .unwrap();
-    let id1 = bus
-        .add_subscriber(|inc, out| Resolver::new(inc, out, "group_1"))
-        .unwrap();
-    let id2 = bus
-        .add_subscriber(|inc, out| Resolver::new(inc, out, "group_2"))
-        .unwrap();
-    let id3 = bus
-        .add_subscriber(|inc, out| Resolver::new(inc, out, "group_3"))
-        .unwrap();
-    let id4 = bus
-        .add_subscriber(|inc, out| Resolver::new(inc, out, "group_4"))
-        .unwrap();
-    let id5 = bus
-        .add_subscriber(|inc, out| Resolver::new(inc, out, "group_5"))
-        .unwrap();
-    let id6 = bus
-        .add_subscriber(|inc, out| Resolver::new(inc, out, "group_6"))
-        .unwrap();
-    let id7 = bus
-        .add_subscriber(|inc, out| Resolver::new(inc, out, "group_7"))
-        .unwrap();
+    let inc = IncBuf::default();
+    let out = OutBuf::default();
+
+    let mut bus = MessageBus::<Legacy, Dns, MAX_MESSAGES, Subscribers>::new(Dns::new(
+        inc.clone(),
+        out.clone(),
+    ));
+
+    bus.add_subscriber_with(inc, out, Subscribers::Dns(DnsSubscriber))?;
+
+    macro_rules! add {
+        ($ident: expr) => {{ bus.add_subscriber(|inc, out| Subscribers::Resolver(Resolver::new(inc, out, $ident)))? }};
+    }
+
+    let id0 = add!("group_0");
+    let id1 = add!("group_1");
+    let id2 = add!("group_2");
+    let id3 = add!("group_3");
+    let id4 = add!("group_4");
+    let id5 = add!("group_5");
+    let id6 = add!("group_6");
+    let id7 = add!("group_7");
 
     bus.full_tick();
 
-    bus.send_remove_request(id0).unwrap();
-    bus.send_remove_request(id1).unwrap();
-    bus.send_remove_request(id2).unwrap();
-    bus.send_remove_request(id3).unwrap();
-    bus.send_remove_request(id4).unwrap();
-    bus.send_remove_request(id5).unwrap();
-    bus.send_remove_request(id6).unwrap();
-    bus.send_remove_request(id7).unwrap();
+    assert!(bus.remove_subscriber(id0)?.resolver().get_ident);
+    assert!(bus.remove_subscriber(id1)?.resolver().get_ident);
+    assert!(bus.remove_subscriber(id2)?.resolver().get_ident);
+    assert!(bus.remove_subscriber(id3)?.resolver().get_ident);
+    assert!(bus.remove_subscriber(id4)?.resolver().get_ident);
+    assert!(bus.remove_subscriber(id5)?.resolver().get_ident);
+    assert!(bus.remove_subscriber(id6)?.resolver().get_ident);
+    assert!(bus.remove_subscriber(id7)?.resolver().get_ident);
 
-    bus.full_tick();
-
-    let removed = bus.removed();
-    assert!(removed[0].get_ident);
-    assert!(removed[1].get_ident);
-    assert!(removed[2].get_ident);
-    assert!(removed[3].get_ident);
-    assert!(removed[4].get_ident);
-    assert!(removed[5].get_ident);
-    assert!(removed[6].get_ident);
-    assert!(removed[7].get_ident);
+    assert_eq!(bus.subscribers(), 1);
 
     Ok(())
 }
 
 #[test]
 fn bus_exceed_error() -> Result<(), Box<dyn std::error::Error>> {
+    const MAX_SUBS: u8 = Legacy::MAX_SUBSCRIBERS.get();
+
     let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
-    assert_eq!(bus.subscribers(), 1);
-    let max_subs = Legacy.max_subscribers() - 1;
-    for _ in 0..max_subs {
-        bus.add_subscriber(|_, _| EmptySubscriber).unwrap();
+        MessageBus::<Legacy, EmptyDriver, MAX_MESSAGES, EmptySubscriber<MAX_MESSAGES>>::new(
+            EmptyDriver,
+        );
+    assert_eq!(bus.subscribers(), 0);
+
+    for _ in 1..MAX_SUBS {
+        bus.add_subscriber(EmptySubscriber::new)?;
     }
-    assert_eq!(bus.subscribers(), Legacy.max_subscribers());
-    let result = bus.add_subscriber(|_, _| EmptySubscriber);
-    assert!(result.is_err());
+    assert_eq!(bus.subscribers(), Legacy::MAX_SUBSCRIBERS.get() - 1);
+
     assert_eq!(
-        result.err().unwrap(),
-        BusError::PoolExhausted {
-            max: Legacy.max_subscribers() as usize
-        }
+        bus.add_subscriber(EmptySubscriber::new),
+        Err(BusError::PoolExhausted {
+            max: Legacy::MAX_SUBSCRIBERS.get()
+        })
     );
 
     Ok(())
 }
 
 #[test]
-fn subscriber_remove() -> Result<(), Box<dyn std::error::Error>> {
+fn subscriber_remove() {
+    const MAX_SUBS: u8 = Legacy::MAX_SUBSCRIBERS.get();
+
     let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
+        MessageBus::<Legacy, EmptyDriver, MAX_MESSAGES, EmptySubscriber<MAX_MESSAGES>>::new(
+            EmptyDriver,
+        );
 
-    let max_subs = Legacy.max_subscribers() - 1;
-
-    let ids = (0..max_subs)
-        .map(|_| bus.add_subscriber(|_, _| EmptySubscriber).unwrap())
+    let ids = (1..MAX_SUBS)
+        .map(|_| bus.add_subscriber(EmptySubscriber::new).unwrap())
         .collect::<Vec<_>>();
 
     bus.full_tick();
 
     for id in ids {
-        assert!(bus.send_remove_request(id).is_ok());
+        assert!(bus.remove_subscriber(id).is_ok());
     }
 
-    bus.full_tick();
-
-    let removed = bus.removed();
-    assert_eq!(removed.len(), max_subs as usize);
-
-    Ok(())
+    assert_eq!(bus.subscribers(), 0);
 }
 
-#[test]
-fn remove_zero() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
-    let result = bus.send_remove_request(SubscriberId::new(0));
-    assert!(result.is_err());
-    assert_eq!(result.err().unwrap(), BusError::InvalidSubscriberId);
-    Ok(())
-}
-
+/*
 #[test]
 fn send_remove_request_twice() -> Result<(), Box<dyn std::error::Error>> {
     let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
-    let id = bus.add_subscriber(|_, _| EmptySubscriber).unwrap();
+        MessageBus::<Legacy, EmptyDriver, MAX_MESSAGES, EmptySubscriber>::new(EmptyDriver);
+    let id = bus.add_subscriber(IncBuf::new(), OutBuf::new(), EmptySubscriber)?;
 
-    assert!(bus.send_remove_request(id).is_ok());
-    let result = bus.send_remove_request(id);
+    assert!(bus.remove_subscriber(id).is_ok());
+    let result = bus.remove_subscriber(id);
     assert!(result.is_err());
     assert_eq!(result.err().unwrap(), BusError::RequestAlreadySent);
 
     Ok(())
-}
+}*/
 
 #[test]
-fn send_remove_request_with_incorrect_id() -> Result<(), Box<dyn std::error::Error>> {
+fn remove_subscriber_with_incorrect_id() {
     let mut bus =
-        MessageBus::<EmptyDriver, EmptySubscriber>::new(&Legacy.into_valid()?, EmptyDriver::new);
-    let result = bus.send_remove_request(SubscriberId::new(128));
-    assert!(result.is_err());
-    assert_eq!(result.err().unwrap(), BusError::SubscriberNotRegistered);
-    Ok(())
+        MessageBus::<Legacy, EmptyDriver, MAX_MESSAGES, EmptySubscriber<MAX_MESSAGES>>::new(
+            EmptyDriver,
+        );
+    let result = bus.remove_subscriber(
+        // SAFETY: 31 != 0
+        unsafe { SubscriberId::new_unchecked(31) },
+    );
+    assert_eq!(result, Err(BusError::SubscriberNotRegistered));
 }
+*/

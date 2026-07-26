@@ -5,14 +5,13 @@ pub enum BusError {
     #[error("Cannot remove subscriber with id == 0")]
     InvalidSubscriberId,
 
-    #[error("Remove request already sent")]
-    RequestAlreadySent,
-
+    //#[error("Remove request already sent")]
+    //RequestAlreadySent,
     #[error("Subscriber not registered")]
     SubscriberNotRegistered,
 
     #[error("Cannot allocate buffer. Pool is full. Possible count of subscribers: {max}")]
-    PoolExhausted { max: usize },
+    PoolExhausted { max: u8 },
 
     #[error("Size of pool is too big ({current}). Size should be less than {max} bytes")]
     TooBigPoolSize { current: usize, max: usize },

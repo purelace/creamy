@@ -1,22 +1,28 @@
 use alloc::vec::Vec;
-use core::ops::RangeInclusive;
+use core::{marker::PhantomData, ops::RangeInclusive};
 
 use as_guard::AsGuard;
+use cbus_core::{
+    Subscriber,
+    buffer::{RawBuf, RefMutBuf},
+};
 
 use crate::{
-    core::buffer::{Read, Write},
+    bus::SubscriberData,
+    config::BusConfig,
     cpu::{
         arch::AvailableStrategy,
         offsets::{MAX_SLICE_SIZE, Offsets},
     },
     lookup::LookupTable,
-    sys::{BufferPool, MessagePool},
+    sys::MessagePool,
 };
 
 mod offsets;
 mod runner;
 mod set;
 
+#[derive(Debug)]
 struct PipelinePlan {
     offsets: Offsets,
     indices: [u8; 256],
@@ -91,9 +97,14 @@ macro_rules! define_strategy {
             }
         }
 
-        impl StrategyRunner for $name {
+        impl<C, S, const M: usize> StrategyRunner<C, S, M> for $name
+        where
+            C: $crate::config::BusConfig,
+            S: $crate::core::Subscriber,
+        {
+            #[tracing::instrument(skip_all)]
             #[inline(always)]
-            fn run(pipeline: &mut MessagePipeline, data: &mut PipelineData) {
+            fn run(pipeline: &mut MessagePipeline<C, S, M>, data: &mut PipelineData<C, S, M>) {
                 let mut total_offset = 0;
 
                 macro_rules! slice {
@@ -131,13 +142,20 @@ mod arch;
 
 impl PipelinePlan {
     #[inline(always)]
-    fn prepare<S: Strategy>(&mut self, data: &PipelineData) {
+    #[tracing::instrument(skip_all)]
+    fn prepare<S, C, SU, const M: usize>(&mut self, data: &PipelineData<C, SU, M>)
+    where
+        S: Strategy,
+        C: BusConfig,
+        SU: Subscriber,
+    {
         self.offsets.reset();
         self.indices = [0; 256];
 
         for src in data.subscriber_range.clone() {
-            let count = data.memory.read.count_for(src);
-            S::add_offset(&mut self.offsets, count);
+            let sub_data = &data.memory.subscribers[src as usize];
+            let count = sub_data.outgoing_ref().count();
+            S::add_offset(&mut self.offsets, count as usize);
         }
 
         // 2. Получаем правильные начальные позиции (0, len_batch, len_batch + len_avx...)
@@ -145,8 +163,10 @@ impl PipelinePlan {
 
         // 3. Заполняем массив indices, используя смещения
         for src in data.subscriber_range.clone() {
-            let count = data.memory.read.count_for(src);
-            let bucket_idx = S::get_bucket_idx(count);
+            let sub_data = &data.memory.subscribers[src as usize];
+            let count = sub_data.outgoing_ref().count();
+
+            let bucket_idx = S::get_bucket_idx(count as usize);
 
             let pos = write_ptr[bucket_idx];
             self.indices[pos as usize] = src;
@@ -155,40 +175,53 @@ impl PipelinePlan {
     }
 }
 
-pub trait StrategyRunner {
-    fn run(pipeline: &mut MessagePipeline, data: &mut PipelineData);
+pub trait StrategyRunner<C, S, const M: usize>
+where
+    C: BusConfig,
+    S: Subscriber,
+{
+    fn run(pipeline: &mut MessagePipeline<C, S, M>, data: &mut PipelineData<C, S, M>);
 }
 
-pub struct MessagePipeline {
+#[derive(Debug)]
+pub struct MessagePipeline<C: BusConfig, S: Subscriber, const M: usize> {
     plan: PipelinePlan,
     // dst, count, ptr_location
     batch: Vec<(u8, u32, usize)>,
+    _phantom: PhantomData<(C, S)>,
 }
 
-impl MessagePipeline {
-    pub fn new(max_subscribers: u8) -> Self {
+impl<C, S, const M: usize> MessagePipeline<C, S, M>
+where
+    C: BusConfig,
+    S: Subscriber,
+{
+    pub fn new() -> Self {
         Self {
             plan: PipelinePlan::new(),
-            batch: Vec::with_capacity(max_subscribers as usize),
+            batch: Vec::with_capacity(C::MAX_SUBSCRIBERS.get() as usize),
+            _phantom: PhantomData,
         }
     }
 
-    #[inline(never)]
-    pub(crate) fn dispatch_messages(&mut self, data: &mut PipelineData) {
-        self.plan.prepare::<AvailableStrategy>(data);
+    #[tracing::instrument(skip_all)]
+    pub(crate) fn dispatch_messages(&mut self, data: &mut PipelineData<C, S, M>) {
+        self.plan.prepare::<AvailableStrategy, C, S, M>(data);
         AvailableStrategy::run(self, data);
     }
 
+    #[tracing::instrument(skip_all)]
     #[inline(always)]
-    fn sort_messages(data: &mut PipelineData) {
+    fn sort_messages(data: &mut PipelineData<C, S, M>) {
         data.memory
             .message
             .as_mut_slice()
             .sort_unstable_by_key(|m| m.dst);
     }
 
+    #[tracing::instrument(skip_all)]
     #[inline(always)]
-    pub(crate) fn batch_messages(&mut self, data: &mut PipelineData) {
+    pub(crate) fn batch_messages(&mut self, data: &mut PipelineData<C, S, M>) {
         Self::sort_messages(data);
         let mut ptr_location = 0;
         let pool_slice = data.memory.message.as_slice();
@@ -210,14 +243,38 @@ impl MessagePipeline {
     }
 }
 
-pub struct PipelineData<'a> {
-    pub(crate) lookup_table: &'a LookupTable,
-    pub(crate) memory: MemoryPools<'a>,
+pub struct PipelineData<'a, C: BusConfig, S: Subscriber, const M: usize> {
+    pub(crate) lookup_table: &'a LookupTable<C>,
+    pub(crate) memory: MemoryPools<'a, C, S, M>,
     pub(crate) subscriber_range: RangeInclusive<u8>,
+    pub(crate) _phantom: PhantomData<C>,
 }
 
-pub struct MemoryPools<'a> {
-    pub(crate) write: &'a mut BufferPool<Read>,
-    pub(crate) read: &'a mut BufferPool<Write>,
-    pub(crate) message: &'a mut MessagePool,
+pub struct MemoryPools<'a, C: BusConfig, S: Subscriber, const M: usize> {
+    pub(crate) subscribers: &'a mut [SubscriberData<S, M>],
+    pub(crate) message: &'a mut MessagePool<C>,
+}
+
+impl<C: BusConfig, S: Subscriber, const M: usize> MemoryPools<'_, C, S, M> {
+    #[allow(unused)]
+    pub const fn get_inc_raw_buf(&mut self, index: u8) -> RawBuf {
+        let data = &mut self.subscribers[index as usize];
+        unsafe { data.incoming_raw_ptr() }
+    }
+
+    /// Write
+    pub const fn get_mut_inc_buf(&mut self, index: usize) -> RefMutBuf<'_, M> {
+        unsafe {
+            let ptr = self.subscribers.as_mut_ptr().add(index);
+            (*ptr).incoming_mut()
+        }
+    }
+
+    /// Read
+    pub const fn get_mut_out_buf<'a>(&mut self, index: usize) -> RefMutBuf<'a, M> {
+        unsafe {
+            let ptr = self.subscribers.as_mut_ptr().add(index);
+            (*ptr).outgoing_mut()
+        }
+    }
 }

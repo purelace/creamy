@@ -8,7 +8,7 @@ license.workspace = true
 creamy-engine-core.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-wasmtime = { version = "46.0.1", default-features = false, features = [
+wasmtime = { version = "47.0.2", default-features = false, features = [
     "runtime",
     "cranelift",
 

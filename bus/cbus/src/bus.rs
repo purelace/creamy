@@ -1,60 +1,69 @@
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::boxed::Box;
 use core::ops::RangeInclusive;
 
-use cbus_core::SubscriberId;
+use cbus_core::{
+    SubscriberId,
+    buffer::{IncBuf, OutBuf, RawBuf, RefBuf, RefMutBuf},
+};
 use idmint::StackMint;
 
 use crate::{
-    BusDriver, BusError,
-    config::{BusConfig, ValidConfig},
-    core::{
-        Subscriber,
-        buffer::{Incoming, Outgoing, Read, Write},
-    },
-    cpu::MemoryPools,
-    defines::MESSAGE_SIZE,
-    driver::Driver,
-    sys::{BufferPool, MessagePool},
+    BusDriver, BusError, config::BusConfig, core::Subscriber, cpu::MemoryPools, driver::Driver,
+    sys::MessagePool,
 };
 
-struct SubscriberData {
-    id: u8,
-    incoming: Incoming,
-    outgoing: Outgoing,
+#[derive(Debug)]
+pub(crate) struct SubscriberData<S: Subscriber, const M: usize> {
+    incoming: IncBuf<M>,
+    outgoing: OutBuf<M>,
+    sub: Option<S>,
 }
 
-pub struct MessageBus<D, S = Box<dyn Subscriber>>
+impl<S: Subscriber, const M: usize> SubscriberData<S, M> {
+    pub unsafe fn null() -> Self {
+        //TODO: fix
+        Self {
+            incoming: IncBuf::default(),
+            outgoing: OutBuf::default(),
+            sub: None,
+        }
+    }
+
+    /// Write
+    pub const fn incoming_mut(&mut self) -> RefMutBuf<'_, M> {
+        self.incoming.as_inner_mut().as_mut_buf()
+    }
+
+    /// Read
+    pub const fn outgoing_mut(&mut self) -> RefMutBuf<'_, M> {
+        self.outgoing.as_inner_mut().as_mut_buf()
+    }
+
+    pub const fn outgoing_ref(&self) -> RefBuf<'_, M> {
+        self.outgoing.as_inner_ref().as_ref_buf()
+    }
+
+    pub const unsafe fn incoming_raw_ptr(&mut self) -> RawBuf {
+        unsafe { self.incoming.as_inner_mut().as_raw_buf() }
+    }
+}
+
+#[derive(Debug)]
+pub struct MessageBus<C, D, const M: usize, S = Box<dyn Subscriber>>
 where
+    C: BusConfig,
     D: BusDriver,
     S: Subscriber,
 {
-    pool: MessagePool,
-
-    write_pool: BufferPool<Read>,
-    read_pool: BufferPool<Write>,
-
-    subscribers: Vec<Option<S>>,
-    uninit: Vec<(SubscriberId, S)>,
-
-    remove_requests: Vec<SubscriberId>,
-    removed: Vec<S>,
-
+    pool: MessagePool<C>,
+    subscribers: Box<[SubscriberData<S, M>]>,
     mint: StackMint,
-
-    driver: Driver<D>,
+    driver: Driver<C, D, S, M>,
 }
 
-//impl<S: Subscriber> Default for MessageBus<(), S> {
-//    /// Creates a new message bus with default `Advanced` configuration and no driver.
-//    /// # Panics
-//    /// Panics if the default configuration `Advanced` is invalid.
-//    fn default() -> Self {
-//        Self::Self::new(Advanced, |_, _| ()).expect("fbus: config must be valid")
-//    }
-//}
-
-impl<D, S> MessageBus<D, S>
+impl<C, D, const M: usize, S> MessageBus<C, D, M, S>
 where
+    C: BusConfig,
     D: BusDriver,
     S: Subscriber,
 {
@@ -63,47 +72,76 @@ where
     /// * [`BusError::ValueTooSmall`] — if a value is below the minimum required.
     /// * [`BusError::ValueOutOfRange`] — if a value exceeds the architectural limits.
     /// * [`BusError::PoolExhausted`] - if a pool is exhausted.
-    pub fn new<C: BusConfig>(
-        config: &ValidConfig<C>,
-        mut driver: impl FnMut(&ValidConfig<C>, Incoming, Outgoing) -> D,
-    ) -> Self {
-        let max_subscribers = config.max_subscribers() as usize;
-        let max_messages = config.max_messages();
+    pub fn new(driver: D) -> Self {
+        let driver = Driver::new(driver);
 
-        let mut write_pool = BufferPool::new(max_subscribers, max_messages);
-        let mut read_pool = BufferPool::new(max_subscribers, max_messages);
-
-        let Some(outgoing) = read_pool.next_out(0) else {
-            unreachable!();
-        };
-
-        // Этот буфер используется в качестве мусорки
-        let Some(incoming) = write_pool.next_inc(0) else {
-            // Буферы должны нарезаться одинакого. Если буферы не нарезаются одинаково, то это ошибка.
-            unreachable!("Buffers must be sliced equally");
-        };
-
-        let driver = Driver::new(
-            driver(config, incoming, outgoing),
-            config.max_groups(),
-            config.max_subscribers(),
-        );
-
-        let subscribers = core::iter::repeat_with(|| None)
-            .take(max_subscribers)
-            .collect::<Vec<_>>();
+        let subscribers = core::iter::repeat_with(|| unsafe { SubscriberData::null() })
+            .take(C::MAX_SUBSCRIBERS.get() as usize)
+            .collect::<Box<[_]>>();
 
         Self {
-            pool: MessagePool::new(max_subscribers * max_messages * MESSAGE_SIZE),
-            write_pool,
-            read_pool,
+            pool: MessagePool::new(),
             subscribers,
-            uninit: Vec::with_capacity(32),
-            remove_requests: vec![],
-            removed: vec![],
-            mint: StackMint::new(1), // Reserve for the zero subscriber
+            mint: StackMint::new(1), // SubscriberId cannot be zero
             driver,
         }
+    }
+
+    pub const fn messages(&self) -> usize {
+        self.pool.count()
+    }
+
+    fn new_id(&mut self) -> Result<SubscriberId, BusError> {
+        let Some(id) = self.mint.issue() else {
+            return Err(BusError::PoolExhausted {
+                max: C::MAX_SUBSCRIBERS.get(),
+            });
+        };
+
+        if id >= C::MAX_SUBSCRIBERS.get() {
+            self.mint.recycle(id);
+            return Err(BusError::PoolExhausted {
+                max: C::MAX_SUBSCRIBERS.get(),
+            });
+        }
+
+        Ok(unsafe { SubscriberId::new_unchecked(id) })
+    }
+
+    fn add_subscriber_unchecked(
+        &mut self,
+        id: SubscriberId,
+        inc: IncBuf<M>,
+        out: OutBuf<M>,
+        sub: S,
+    ) {
+        //let len = C::MAX_MESSAGES.get() as usize * MESSAGE_SIZE + METADATA;
+        //assert!(
+        //    data.sub.is_none(),
+        //    "Invalid operation: cannot replace subscriber"
+        //);
+
+        let data = &mut self.subscribers[id.as_usize()];
+        data.incoming = inc;
+        data.outgoing = out;
+        data.sub = Some(sub);
+
+        self.driver.on_subscribe(id);
+    }
+
+    /// Adds a new subscriber with specified buffers
+    ///
+    /// # Errors
+    /// Returns an error if the pool is exhausted.
+    pub fn add_subscriber_with<R: Into<S>>(
+        &mut self,
+        inc: IncBuf<M>,
+        out: OutBuf<M>,
+        sub: R,
+    ) -> Result<SubscriberId, BusError> {
+        let id = self.new_id()?;
+        self.add_subscriber_unchecked(id, inc, out, sub.into());
+        Ok(id)
     }
 
     /// Adds a new subscriber
@@ -112,87 +150,40 @@ where
     /// Returns an error if the pool is exhausted.
     pub fn add_subscriber<R: Into<S>>(
         &mut self,
-        f: impl FnOnce(Incoming, Outgoing) -> R,
+        sub: impl FnOnce(IncBuf<M>, OutBuf<M>) -> R,
     ) -> Result<SubscriberId, BusError> {
-        let data = self.get_subscriber_data()?;
-        let id = SubscriberId::new(data.id);
-        self.uninit
-            .push((id, f(data.incoming, data.outgoing).into()));
+        let id = self.new_id()?;
+
+        let inc = IncBuf::default();
+        let out = OutBuf::default();
+
+        let sub = sub(inc.clone(), out.clone()).into();
+
+        self.add_subscriber_unchecked(id, inc, out, sub);
 
         Ok(id)
     }
 
-    fn get_subscriber_data(&mut self) -> Result<SubscriberData, BusError> {
-        let id = self.mint.issue().unwrap();
-        let Some(outgoing) = self.read_pool.next_out(id) else {
-            let max = self.read_pool.capacity();
-            return Err(BusError::PoolExhausted { max });
-        };
-
-        let Some(incoming) = self.write_pool.next_inc(id) else {
-            // Буферы должны нарезаться одинакого. Если буферы не нарезаются одинаково, то это ошибка.
-            unreachable!("Buffers must be sliced equally");
-        };
-
-        Ok(SubscriberData {
-            id,
-            incoming,
-            outgoing,
-        })
-    }
-
-    fn init_subscribers(&mut self) {
-        let uninit = core::mem::take(&mut self.uninit);
-        for (id, sub) in uninit {
-            assert!(
-                self.subscribers[id.cast_usize()].is_none(),
-                "Invalid operation: cannot replace subscriber"
-            );
-            self.subscribers[id.cast_usize()] = Some(sub);
-
-            self.driver.on_subscribe(id.u8());
-        }
-    }
-
     /// # Errors
     ///
-    /// This function will return an error if the subscriber ID is zero or if a remove request has already been sent.
-    pub fn send_remove_request(&mut self, id: SubscriberId) -> Result<(), BusError> {
-        if id == SubscriberId::new(0) {
+    /// This function will return an error if the subscriber ID is zero or a subscriber is not registered
+    pub fn remove_subscriber(&mut self, id: SubscriberId) -> Result<S, BusError> {
+        let Some(data) = self.subscribers.get_mut(id.as_usize()) else {
             return Err(BusError::InvalidSubscriberId);
-        }
+        };
 
-        if self.remove_requests.contains(&id) {
-            return Err(BusError::RequestAlreadySent);
-        }
-
-        if !self.mint.is_value_in_use(id.u8()) {
+        let Some(sub) = data.sub.take() else {
             return Err(BusError::SubscriberNotRegistered);
-        }
+        };
 
-        self.remove_requests.push(id);
-        Ok(())
+        self.driver.on_unsubscribe(id);
+        self.mint.recycle(id.as_u8());
+
+        Ok(sub)
     }
 
-    pub fn removed(&mut self) -> Vec<S> {
-        core::mem::take(&mut self.removed)
-    }
-
-    fn handle_remove_requests(&mut self) {
-        for id in self.remove_requests.drain(..) {
-            self.driver.on_unsubscribe(id.u8());
-
-            self.mint.recycle(*id);
-
-            let id = id.cast_usize();
-            self.read_pool.return_buffer(id);
-            self.write_pool.return_buffer(id);
-            let subscriber = self.subscribers.get_mut(id).unwrap().take().unwrap();
-            self.removed.push(subscriber);
-        }
-
-        //TODO last_id
-        //TODO buffer recycle
+    pub fn update_lookup_table(&mut self, id: SubscriberId) {
+        self.driver.on_subscribe(id);
     }
 
     // Попробовать подготовить данные так, чтобы можно было одной операцией их отправить
@@ -202,21 +193,18 @@ where
         0..=self.mint.last()
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn tick(&mut self) {
-        self.handle_remove_requests();
-        self.init_subscribers();
-
         let range = self.subscriber_range();
         let memory = MemoryPools {
-            write: &mut self.write_pool,
-            read: &mut self.read_pool,
+            subscribers: &mut self.subscribers,
             message: &mut self.pool,
         };
 
         self.driver.process_messages(memory, range);
         self.subscribers[1..=self.mint.last() as usize]
             .iter_mut()
-            .flatten()
+            .flat_map(|d| &mut d.sub)
             .for_each(|sub| {
                 sub.notify();
             });
@@ -229,13 +217,14 @@ where
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<D, S> MessageBus<D, S>
+impl<C, D, const M: usize, S> MessageBus<C, D, M, S>
 where
+    C: BusConfig,
     D: BusDriver,
     S: Subscriber,
 {
     pub const fn subscribers(&self) -> u8 {
-        self.mint.used()
+        self.mint.used() - 1
     }
 
     pub const fn get_driver_mut(&mut self) -> &mut D {

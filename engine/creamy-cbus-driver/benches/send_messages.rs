@@ -4,20 +4,18 @@ mod general;
 
 use cbus::{
     MessageBus,
-    config::{BusConfig, Legacy},
-    core::{
-        UntypedMessage,
-        buffer::{Buffer, Write},
-    },
+    core::{UntypedMessage, buffer::OutBuf},
 };
 use creamy_cbus_driver::CreamyDriver;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
+use self::general::Legacy;
 use crate::general::{
-    SimpleSubscriber, init_bus_legacy, init_bus_legacy_large_buf, init_bus_legacy_ularge_buf,
+    MAX_MESSAGES, SimpleSubscriber, init_bus_legacy, init_bus_legacy_large_buf,
+    init_bus_legacy_ularge_buf,
 };
 
-fn send_single(_indices: &[u8], out: &mut Buffer<Write>) {
+fn send_single<const M: usize>(_indices: &[u8], out: &mut OutBuf<M>) {
     assert!(out.send_many_iter_exact(std::iter::once(UntypedMessage {
         dst: 2,
         group: 1,
@@ -35,12 +33,12 @@ fn send_single_message(c: &mut Criterion) {
                 bus.tick();
                 bus.tick();
             },
-            BatchSize::LargeInput,
+            BatchSize::SmallInput,
         );
     });
 }
 
-fn send_multiple(indices: &[u8], out: &mut Buffer<Write>) {
+fn send_multiple<const M: usize>(indices: &[u8], out: &mut OutBuf<M>) {
     let total_count: usize = indices.iter().map(|&d| d as usize).sum();
     let iter = indices.iter().flat_map(|&dst| {
         let msg = UntypedMessage {
@@ -55,8 +53,7 @@ fn send_multiple(indices: &[u8], out: &mut Buffer<Write>) {
 
     assert!(
         out.send_many_iter_with_count(iter, total_count),
-        "Available capacity: {}",
-        out.capacity(),
+        "Available capacity: {M}",
     );
 }
 
@@ -75,12 +72,12 @@ fn send_multiple_ordered(c: &mut Criterion) {
                 bus.tick();
                 bus.tick();
             },
-            BatchSize::LargeInput,
+            BatchSize::SmallInput,
         );
     });
 }
 
-fn send_single_4k_sender(_indices: &[u8], out: &mut Buffer<Write>) {
+fn send_single_4k_sender<const M: usize>(_indices: &[u8], out: &mut OutBuf<M>) {
     let iter = std::iter::repeat_n(
         UntypedMessage {
             dst: 2,
@@ -108,7 +105,7 @@ fn send_single_4k(c: &mut Criterion) {
     });
 }
 
-fn send_mutlitple_65k_sender(indices: &[u8], out: &mut Buffer<Write>) {
+fn send_mutlitple_65k_sender<const M: usize>(indices: &[u8], out: &mut OutBuf<M>) {
     let total_count = indices.len() * 4096;
     let iter = indices.iter().flat_map(|&dst| {
         let msg = UntypedMessage {
@@ -139,16 +136,16 @@ fn send_multiple_65k(c: &mut Criterion) {
                 bus.tick();
                 bus.tick();
             },
-            BatchSize::LargeInput,
+            BatchSize::SmallInput,
         );
     });
 }
 
 fn empty(c: &mut Criterion) {
-    let mut bus = MessageBus::<CreamyDriver, SimpleSubscriber>::new(
-        &Legacy.into_valid().unwrap(),
-        CreamyDriver::new,
-    );
+    let mut bus =
+        MessageBus::<Legacy, CreamyDriver, MAX_MESSAGES, SimpleSubscriber<MAX_MESSAGES>>::new(
+            CreamyDriver::new::<Legacy>(),
+        );
 
     c.bench_function("empty", |b| {
         b.iter(|| {
@@ -159,10 +156,10 @@ fn empty(c: &mut Criterion) {
 
 criterion_group!(
     benches,
+    empty,
     send_single_message,
     send_multiple_ordered,
     send_single_4k,
     send_multiple_65k,
-    empty,
 );
 criterion_main!(benches);

@@ -3,10 +3,6 @@ use std::num::NonZeroU8;
 use creamy::engine::PluginEngine;
 use creamy_engine_core::{
     Constants,
-    bus::{
-        config::BusConfig,
-        defines::{MESSAGE_SIZE, METADATA},
-    },
     devkit::{semver::Version, xmlc::StringPoolResolver},
 };
 use creamy_engine_loader::Loader;
@@ -18,6 +14,7 @@ const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 fn compile_plugin() -> anyhow::Result<()> {
     std::process::Command::new("creamy")
         .arg("build")
+        //.current_dir("/mnt/ssd/fusionwm/creamy/examples/ping")
         .current_dir("../../examples/ping")
         .env_remove("RUSTC_WRAPPER")
         .env_remove("RUSTFLAGS")
@@ -39,12 +36,7 @@ fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader>> {
     let engine = PluginEngine::new(
         Constants {
             heap_size: 67_108_864,
-            buffer_size: u32::try_from(1024 * MESSAGE_SIZE + METADATA)?,
-            max_messages: 1024,
-            max_groups: 64,
-            max_subscribers: 64,
-        }
-        .into_valid()?,
+        },
         runtime,
         loader,
     );
@@ -64,6 +56,10 @@ fn init() -> anyhow::Result<()> {
 
     let plugin_path = tempdir.path().join("ping.cmy");
     std::fs::copy("../../target/creamy/ping.cmy", plugin_path.clone())?;
+    //std::fs::copy(
+    //    "/mnt/ssd/fusionwm/creamy/target/creamy/ping.cmy",
+    //    plugin_path.clone(),
+    //)?;
 
     engine.tick(ROUNDTRIP);
 

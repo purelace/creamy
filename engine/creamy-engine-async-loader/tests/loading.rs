@@ -2,13 +2,7 @@ use std::{num::NonZeroU8, time::Duration};
 
 use creamy::engine::PluginEngine;
 use creamy_engine_async_loader::{AsyncLoader, config::LoaderConfig};
-use creamy_engine_core::{
-    Constants,
-    bus::{
-        config::BusConfig,
-        defines::{MESSAGE_SIZE, METADATA},
-    },
-};
+use creamy_engine_core::Constants;
 use creamy_engine_wasmtime_impl::WasmtimeRuntime;
 
 fn compile_plugin() -> anyhow::Result<()> {
@@ -43,12 +37,7 @@ async fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, AsyncLoad
     let engine = PluginEngine::new(
         Constants {
             heap_size: 67_108_864,
-            buffer_size: u32::try_from(1024 * MESSAGE_SIZE + METADATA)?,
-            max_messages: 1024,
-            max_groups: 64,
-            max_subscribers: 64,
-        }
-        .into_valid()?,
+        },
         runtime,
         loader,
     );

@@ -1,11 +1,17 @@
+use cbus_core::Subscriber;
+
 use crate::{
+    config::BusConfig,
     core::UntypedMessage,
     cpu::{MessagePipeline, PipelineData},
     lookup::LookupTable,
-    sys::Header,
 };
 
-pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
+pub trait InstructionSet<C, S, const M: usize, const CHUNK_SIZE: usize>: Sized
+where
+    C: BusConfig,
+    S: Subscriber,
+{
     #[allow(dead_code)]
     const CHUNK_SIZE: usize = CHUNK_SIZE;
     /// Пишет сообщения в слайс с заданным размером
@@ -16,7 +22,7 @@ pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
 
     /// Подготавливает сообщения и пишет в слайс с заданным размером
     fn prepare_and_send_exactly(
-        lut: &LookupTable,
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage; CHUNK_SIZE],
         write: &mut [UntypedMessage; CHUNK_SIZE],
@@ -24,46 +30,47 @@ pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
 
     /// Подготавливает и пишет остаток сообщений в указанный слайс
     fn prepare_and_send_remainder(
-        lut: &LookupTable,
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     );
 
     /// Подготавливает и пишет остаток сообщений в глобальный буфер
+    #[tracing::instrument(skip_all)]
     #[inline(always)]
-    fn prepare_batches(subscribers: &[u8], data: &mut PipelineData) {
-        let capacity = data.memory.read.slice_capacity();
+    fn prepare_batches(subscribers: &[u8], data: &mut PipelineData<C, S, M>) {
         for src in subscribers.iter().copied() {
             let src = src as usize;
 
-            let header = data.memory.read.header_mut_ptr_for(src);
-            let read = Header::read_slice_mut_test(header, capacity);
+            let sub_data = &mut data.memory.subscribers[src];
+            let mut buffer = sub_data.outgoing_mut();
 
-            unsafe {
-                let write = data.memory.message.reserve_slice((*header).count as usize);
+            let write = data.memory.message.reserve_slice(buffer.count() as usize);
+            let read = buffer.read_slice();
 
-                Self::slices_prepare_and_send(data.lookup_table, src, read, write);
-                Header::set_count(header, 0);
-            }
+            Self::slices_prepare_and_send(data.lookup_table, src, read, write);
+
+            buffer.set_count(0);
         }
     }
 
     /// Читает сообщения из глобального буфера и пишет их в буферы подписчиков
+    #[tracing::instrument(skip_all)]
     #[inline(always)]
-    fn send_batches(pipeline: &mut MessagePipeline, data: &mut PipelineData) {
+    fn send_batches(pipeline: &mut MessagePipeline<C, S, M>, data: &mut PipelineData<C, S, M>) {
         let mut batch = core::mem::take(&mut pipeline.batch);
 
         for (dst, len, ptr_location) in batch.drain(..) {
             let read = data.memory.message.slice(len as usize, ptr_location);
-            let header = data.memory.write.header_mut_ptr_for(dst as usize);
-            let write = Header::write_slice_mut(header, len as usize);
+
+            let sub_data = &mut data.memory.subscribers[dst as usize];
+            let mut buffer = sub_data.incoming_mut();
+            let write = buffer.write_slice_mut(len as usize);
 
             Self::slices_send(read, write);
 
-            unsafe {
-                (*header).count += len;
-            }
+            buffer.add_count(len);
         }
 
         let _ = core::mem::replace(&mut pipeline.batch, batch);
@@ -71,6 +78,7 @@ pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
 
     /// Делит оба слайса на равные чанки и передает их в `InstructionSet::send_exaclty`.
     /// Остаток предается в `InstructionSet::send_remainder`
+    #[tracing::instrument(skip_all)]
     #[inline(always)]
     fn slices_send(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
         let (read_chunks, read_remainder) = read.as_chunks::<CHUNK_SIZE>();
@@ -85,13 +93,16 @@ pub trait InstructionSet<const CHUNK_SIZE: usize>: Sized {
 
     /// Делит оба слайса на равные чанки и передает их в `InstructionSet::prepare_and_send_exaclty`.
     /// Остаток предается в `InstructionSet::prepare_and_send_remainder`.
+    #[tracing::instrument(skip_all)]
     #[inline(always)]
     fn slices_prepare_and_send(
-        lut: &LookupTable,
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
+        tracing::info!("to write: {}", write.len());
+
         let (read_chunks, read_remainder) = read.as_chunks::<CHUNK_SIZE>();
         let (write_chunks, write_remainder) = write.as_chunks_mut::<CHUNK_SIZE>();
 

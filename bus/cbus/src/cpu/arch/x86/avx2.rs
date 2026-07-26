@@ -17,15 +17,16 @@ mod avx2_reexport {
 use as_guard::AsGuard;
 pub use avx_reexport::*;
 pub use avx2_reexport::*;
+use cbus_core::Subscriber;
 
 use crate::{
+    config::BusConfig,
     core::UntypedMessage,
     cpu::{
         PipelineData, arch::x86::Sse41InstructionSet, runner::InstructionRunner,
         set::InstructionSet,
     },
     lookup::LookupTable,
-    sys::Header,
 };
 
 pub const CHUNK_SIZE: usize = 8;
@@ -33,13 +34,13 @@ pub const CHUNK_SIZE: usize = 8;
 pub struct Avx2InstructionSet;
 impl Avx2InstructionSet {
     #[inline(always)]
-    fn get_valid_header(
-        lut: &LookupTable,
+    fn get_valid_header<C: BusConfig>(
+        lut: &LookupTable<C>,
         src: usize,
         ymm_messages: [__m256i; CHUNK_SIZE],
     ) -> __m256i {
         unsafe {
-            let bits = lut.max_groups().trailing_zeros() as usize;
+            let bits = LookupTable::<C>::MAX_GROUPS.trailing_zeros() as usize;
             let shifted_src = src << bits;
 
             let h0 = _mm256_extract_epi32(ymm_messages[0], 0);
@@ -64,18 +65,10 @@ impl Avx2InstructionSet {
 
             macro_rules! translate {
                 ($idx:expr) => {{
-                    let dst: usize = _mm256_extract_epi32(ymm_dst, $idx).safe_as();
+                    //let dst: usize = _mm256_extract_epi32(ymm_dst, $idx).safe_as();
                     let grp: usize = _mm256_extract_epi32(ymm_group, $idx).safe_as();
 
-                    // IN_LUT: [src][local_group]
-                    let g_grp = *lut.get_input().get_unchecked(shifted_src + grp);
-
-                    // OUT_LUT: [dst][global_group]
-                    let l_grp = *lut
-                        .get_output()
-                        .get_unchecked((dst << bits) + g_grp as usize);
-                    let l_grp: i32 = l_grp.safe_as();
-                    l_grp
+                    (*lut.get_input().get_unchecked(shifted_src + grp)).safe_as()
                 }};
             }
 
@@ -106,8 +99,8 @@ impl Avx2InstructionSet {
             let ymm_new_header = _mm256_or_si256(
                 ymm_dst,
                 _mm256_or_si256(
-                    _mm256_slli_epi32(ymm_src, 8),
-                    _mm256_or_si256(_mm256_slli_epi32(ymm_local_group, 16), ymm_kind),
+                    _mm256_slli_epi32(ymm_local_group, 8),
+                    _mm256_or_si256(_mm256_slli_epi32(ymm_src, 16), ymm_kind),
                 ),
             );
 
@@ -117,8 +110,8 @@ impl Avx2InstructionSet {
     }
 
     #[inline(always)]
-    fn validate_messages(
-        lut: &LookupTable,
+    fn validate_messages<C: BusConfig>(
+        lut: &LookupTable<C>,
         src: usize,
         mut ymm_msgs: [__m256i; CHUNK_SIZE],
     ) -> [__m256i; CHUNK_SIZE] {
@@ -161,8 +154,8 @@ impl Avx2InstructionSet {
     }
 
     #[inline(always)]
-    fn validate_and_write_messages(
-        lut: &LookupTable,
+    fn validate_and_write_messages<C: BusConfig>(
+        lut: &LookupTable<C>,
         src: usize,
         destinations: &[*mut __m256i; 8],
         messages: &[*const __m256i; 8],
@@ -204,7 +197,11 @@ fn cast_mut(from: &mut [UntypedMessage; 8]) -> [*mut __m256i; 8] {
     core::array::from_fn(|i| (&raw mut from[i]).cast::<__m256i>())
 }
 
-impl InstructionSet<8> for Avx2InstructionSet {
+impl<C, S, const M: usize> InstructionSet<C, S, M, 8> for Avx2InstructionSet
+where
+    C: BusConfig,
+    S: Subscriber,
+{
     #[inline(always)]
     fn send_exactly(read: &[UntypedMessage; 8], write: &mut [UntypedMessage; 8]) {
         let messages = cast(read);
@@ -214,12 +211,12 @@ impl InstructionSet<8> for Avx2InstructionSet {
 
     #[inline(always)]
     fn send_remainder(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
-        Sse41InstructionSet::slices_send(read, write);
+        <Sse41InstructionSet as InstructionSet<C, S, M, _>>::slices_send(read, write);
     }
 
     #[inline(always)]
     fn prepare_and_send_exactly(
-        lut: &LookupTable,
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage; 8],
         write: &mut [UntypedMessage; 8],
@@ -231,19 +228,26 @@ impl InstructionSet<8> for Avx2InstructionSet {
 
     #[inline(always)]
     fn prepare_and_send_remainder(
-        lut: &LookupTable,
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        Sse41InstructionSet::slices_prepare_and_send(lut, src, read, write);
+        <Sse41InstructionSet as InstructionSet<C, S, M, _>>::slices_prepare_and_send(
+            lut, src, read, write,
+        );
     }
 }
 
-impl InstructionRunner<8> for Avx2InstructionSet {
+impl<C, S, const M: usize> InstructionRunner<C, S, M, 8> for Avx2InstructionSet
+where
+    C: BusConfig,
+    S: Subscriber,
+{
     #[inline(always)]
+    #[allow(clippy::too_many_lines)]
     fn prepare_and_send_chunk_to_unknown(
-        data: &mut PipelineData,
+        data: &mut PipelineData<C, S, M>,
         src: usize,
         chunk: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
@@ -268,23 +272,23 @@ impl InstructionRunner<8> for Avx2InstructionSet {
             let dst_6 = msg6.cast::<u8>().add(1).read();
             let dst_7 = msg7.cast::<u8>().add(1).read();
 
-            let h0 = data.memory.write.header_mut_ptr_for(dst_0 as usize);
-            let h1 = data.memory.write.header_mut_ptr_for(dst_1 as usize);
-            let h2 = data.memory.write.header_mut_ptr_for(dst_2 as usize);
-            let h3 = data.memory.write.header_mut_ptr_for(dst_3 as usize);
-            let h4 = data.memory.write.header_mut_ptr_for(dst_4 as usize);
-            let h5 = data.memory.write.header_mut_ptr_for(dst_5 as usize);
-            let h6 = data.memory.write.header_mut_ptr_for(dst_6 as usize);
-            let h7 = data.memory.write.header_mut_ptr_for(dst_7 as usize);
+            let mut h0 = data.memory.get_inc_raw_buf(dst_0);
+            let mut h1 = data.memory.get_inc_raw_buf(dst_1);
+            let mut h2 = data.memory.get_inc_raw_buf(dst_2);
+            let mut h3 = data.memory.get_inc_raw_buf(dst_3);
+            let mut h4 = data.memory.get_inc_raw_buf(dst_4);
+            let mut h5 = data.memory.get_inc_raw_buf(dst_5);
+            let mut h6 = data.memory.get_inc_raw_buf(dst_6);
+            let mut h7 = data.memory.get_inc_raw_buf(dst_7);
 
-            let write_ptr_0 = Header::write_raw_mut_ptr(h0).cast::<__m256i>();
-            let write_ptr_1 = Header::write_raw_mut_ptr(h1).cast::<__m256i>();
-            let write_ptr_2 = Header::write_raw_mut_ptr(h2).cast::<__m256i>();
-            let write_ptr_3 = Header::write_raw_mut_ptr(h3).cast::<__m256i>();
-            let write_ptr_4 = Header::write_raw_mut_ptr(h4).cast::<__m256i>();
-            let write_ptr_5 = Header::write_raw_mut_ptr(h5).cast::<__m256i>();
-            let write_ptr_6 = Header::write_raw_mut_ptr(h6).cast::<__m256i>();
-            let write_ptr_7 = Header::write_raw_mut_ptr(h7).cast::<__m256i>();
+            let write_ptr_0 = h0.write_raw_mut_ptr().cast::<__m256i>();
+            let write_ptr_1 = h1.write_raw_mut_ptr().cast::<__m256i>();
+            let write_ptr_2 = h2.write_raw_mut_ptr().cast::<__m256i>();
+            let write_ptr_3 = h3.write_raw_mut_ptr().cast::<__m256i>();
+            let write_ptr_4 = h4.write_raw_mut_ptr().cast::<__m256i>();
+            let write_ptr_5 = h5.write_raw_mut_ptr().cast::<__m256i>();
+            let write_ptr_6 = h6.write_raw_mut_ptr().cast::<__m256i>();
+            let write_ptr_7 = h7.write_raw_mut_ptr().cast::<__m256i>();
 
             Self::validate_and_write_messages(
                 data.lookup_table,
@@ -302,26 +306,27 @@ impl InstructionRunner<8> for Avx2InstructionSet {
                 &[msg0, msg1, msg2, msg3, msg4, msg5, msg6, msg7],
             );
 
-            (*h0).count = ((*h0).count + 1) * u32::from(dst_0 != 0);
-            (*h1).count = ((*h1).count + 1) * u32::from(dst_1 != 0);
-            (*h2).count = ((*h2).count + 1) * u32::from(dst_2 != 0);
-            (*h3).count = ((*h3).count + 1) * u32::from(dst_3 != 0);
-            (*h4).count = ((*h4).count + 1) * u32::from(dst_4 != 0);
-            (*h5).count = ((*h5).count + 1) * u32::from(dst_5 != 0);
-            (*h6).count = ((*h6).count + 1) * u32::from(dst_6 != 0);
-            (*h7).count = ((*h7).count + 1) * u32::from(dst_7 != 0);
+            h0.set_count((h0.count() + 1) * u32::from(dst_0 != 0));
+            h1.set_count((h1.count() + 1) * u32::from(dst_1 != 0));
+            h2.set_count((h2.count() + 1) * u32::from(dst_2 != 0));
+            h3.set_count((h3.count() + 1) * u32::from(dst_3 != 0));
+            h4.set_count((h4.count() + 1) * u32::from(dst_4 != 0));
+            h5.set_count((h5.count() + 1) * u32::from(dst_5 != 0));
+            h6.set_count((h6.count() + 1) * u32::from(dst_6 != 0));
+            h7.set_count((h7.count() + 1) * u32::from(dst_7 != 0));
         }
     }
 
     #[inline(always)]
     fn prepare_and_send_direct_slice(
-        data: &mut PipelineData,
+        data: &mut PipelineData<C, S, M>,
         src: usize,
         messages: &mut [UntypedMessage],
     ) {
-        let mut chunks = messages.chunks_exact_mut(Self::CHUNK_SIZE);
-        for chunk in &mut chunks {
-            Self::prepare_and_send_chunk_to_unknown(data, src, chunk.try_into().unwrap());
+        //TODO: send remainder
+        let chunks = messages.as_chunks_mut::<CHUNK_SIZE>();
+        for chunk in chunks.0 {
+            Self::prepare_and_send_chunk_to_unknown(data, src, chunk);
         }
 
         Sse41InstructionSet::prepare_and_send_direct_slice(data, src, messages);

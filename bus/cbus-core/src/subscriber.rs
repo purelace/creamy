@@ -1,31 +1,51 @@
 use alloc::boxed::Box;
-use core::any::Any;
+use core::{any::Any, num::NonZeroU8};
 
 use downcast_rs::{Downcast, impl_downcast};
 
 #[repr(transparent)]
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SubscriberId(u8);
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SubscriberId(NonZeroU8);
 
 impl SubscriberId {
-    pub const ZERO: Self = Self(0);
-
     #[must_use]
-    #[inline(always)]
-    pub const fn new(id: u8) -> Self {
+    #[inline]
+    pub const fn new(id: NonZeroU8) -> Self {
         Self(id)
     }
 
     #[must_use]
-    #[inline(always)]
-    pub const fn u8(self) -> u8 {
+    #[inline]
+    pub const fn new_u8(id: u8) -> Option<Self> {
+        match NonZeroU8::new(id) {
+            Some(value) => Some(Self(value)),
+            None => None,
+        }
+    }
+
+    #[must_use]
+    #[inline]
+    pub const unsafe fn new_unchecked(id: u8) -> Self {
+        debug_assert!(id != 0);
+        unsafe { Self(NonZeroU8::new_unchecked(id)) }
+    }
+
+    #[must_use]
+    #[inline]
+    pub const fn as_inner(self) -> NonZeroU8 {
         self.0
     }
 
     #[must_use]
-    #[inline(always)]
-    pub const fn cast_usize(self) -> usize {
-        self.0 as usize
+    #[inline]
+    pub const fn as_u8(self) -> u8 {
+        self.0.get()
+    }
+
+    #[must_use]
+    #[inline]
+    pub const fn as_usize(self) -> usize {
+        self.0.get() as usize
     }
 }
 
@@ -36,18 +56,18 @@ impl SubscriberId {
 //}
 
 impl core::ops::Deref for SubscriberId {
-    type Target = u8;
+    type Target = NonZeroU8;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl core::ops::DerefMut for SubscriberId {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
+//impl core::ops::DerefMut for SubscriberId {
+//    fn deref_mut(&mut self) -> &mut Self::Target {
+//        &mut self.0
+//    }
+//}
 
 pub trait Subscriber: Downcast + Any + 'static {
     fn notify(&mut self);
@@ -70,6 +90,7 @@ macro_rules! subscribers {
             $variant:ident => $ty:ty,
         )*
     ) => {
+        #[derive(Debug)]
         pub enum $name {
             $(
                 $variant($ty),

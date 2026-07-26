@@ -1,9 +1,11 @@
-use std::collections::HashMap;
+use alloc::boxed::Box;
 
 use creamy_engine_core::devkit::{
     utils::strpool::StringPool,
     xmlc::{ProtocolDefinition, StringPoolResolver},
 };
+use creamy_sdk::bus::SubscriberId;
+use rustc_hash::FxHashMap;
 
 #[derive(Clone)]
 pub enum AccessPolicy {
@@ -20,13 +22,13 @@ impl Default for AccessPolicy {
 pub struct ProtocolRuntimeData {
     definition: ProtocolDefinition,
     storage: Box<[AccessPolicy]>,
-    owner: u8,
+    owner: SubscriberId,
 }
 
 impl ProtocolRuntimeData {
-    fn new(definition: ProtocolDefinition, owner: u8) -> Self {
+    fn new(definition: ProtocolDefinition, owner: SubscriberId) -> Self {
         let groups = definition.groups().len();
-        let storage = std::iter::repeat_n(AccessPolicy::default(), groups).collect();
+        let storage = core::iter::repeat_n(AccessPolicy::default(), groups).collect();
         Self {
             definition,
             storage,
@@ -38,7 +40,7 @@ impl ProtocolRuntimeData {
 #[derive(Default)]
 pub struct ProtocolRegistry {
     pool: StringPool,
-    map: HashMap<Box<str>, ProtocolRuntimeData>,
+    map: FxHashMap<Box<str>, ProtocolRuntimeData>,
 }
 
 impl ProtocolRegistry {
@@ -54,7 +56,7 @@ impl ProtocolRegistry {
         &mut self,
         name: impl Into<Box<str>>,
         definition: ProtocolDefinition,
-        owner: u8,
+        owner: SubscriberId,
     ) {
         let path = name.into();
         tracing::info!(

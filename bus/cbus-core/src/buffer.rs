@@ -1,178 +1,222 @@
-use core::{marker::PhantomData, ptr::NonNull, slice};
+pub mod runtime;
+
+use alloc::alloc::alloc_zeroed;
+use core::{alloc::Layout, fmt::Debug, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
 
 use as_guard::AsGuard;
 
-use crate::{UntypedMessage, message::TypedMessage};
+use self::runtime::DynSharedBuf;
+use crate::{
+    UntypedMessage,
+    defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN},
+    message::TypedMessage,
+};
 
-pub type Outgoing = Buffer<Write>;
-pub type Incoming = Buffer<Read>;
+const DANGLING_LAYOUT: Layout = match Layout::from_size_align(MESSAGE_SIZE + METADATA, TARGET_ALIGN)
+{
+    Ok(layout) => layout,
+    Err(_) => panic!("Failed to generate layout at compile-time"),
+};
 
-#[derive(Clone, Copy)]
-pub struct Buffer<O> {
-    count: NonNull<u32>,
-    slice: NonNull<UntypedMessage>,
-    capacity: u32,
-    _phantom: PhantomData<O>,
+//static DANGLING_SHARED_BUF: NonNull<u8> = unsafe {
+//    let ptr = alloc::alloc::alloc_zeroed(DANGLING_LAYOUT);
+//    NonNull::new(ptr).unwrap()
+//};
+
+bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct SharedBufFlags: u8 {
+        const SHOULD_BE_DROPPED = 0b0000_0001;
+        const DANGLING = 0b0000_0010;
+    }
 }
 
-unsafe impl<O> Send for Buffer<O> {}
-unsafe impl<O> Sync for Buffer<O> {}
+pub struct RawBuf {
+    count: NonNull<u32>,
+    data: NonNull<UntypedMessage>,
+}
 
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<O> Buffer<O> {
-    // 1) указатель на область с метаданными
-    // 2) указатель на буфер после метаданных
-    // 3) обьем буфера
-    #[must_use]
-    #[inline(always)]
-    pub const fn new(count: NonNull<u32>, slice: NonNull<UntypedMessage>, capacity: u32) -> Self {
-        Buffer {
-            count,
-            slice,
-            capacity,
-            _phantom: PhantomData,
-        }
-    }
-
-    #[must_use]
-    pub const fn null() -> Self {
-        Buffer {
-            count: NonNull::dangling(),
-            slice: NonNull::dangling(),
-            capacity: 0,
-            _phantom: PhantomData,
-        }
-    }
-
-    #[inline(always)]
-    pub const fn clear(&mut self) {
+impl RawBuf {
+    pub const fn write_raw_mut_ptr(&mut self) -> *mut UntypedMessage {
         unsafe {
-            self.count.write(0);
+            let count = self.count.read() as usize;
+            self.data.add(count).as_ptr()
+        }
+    }
+
+    pub const fn set_count(&mut self, count: u32) {
+        unsafe {
+            self.count.write(count);
         }
     }
 
     #[must_use]
-    #[inline(always)]
     pub const fn count(&self) -> u32 {
         unsafe { self.count.read() }
     }
+}
 
-    #[must_use]
-    #[inline(always)]
-    pub const fn available_space(&self) -> u32 {
-        unsafe { self.capacity - self.count.read() }
+pub struct RefMutBuf<'a, const SIZE: usize> {
+    count: &'a mut u32,
+    data: &'a mut [UntypedMessage; SIZE],
+}
+
+impl<const M: usize> RefMutBuf<'_, M> {
+    pub const fn set_count(&mut self, count: u32) {
+        *self.count = count;
+    }
+
+    pub const fn add_count(&mut self, count: u32) {
+        *self.count = *self.count + count;
     }
 
     #[must_use]
-    #[inline(always)]
-    pub const fn capacity(&self) -> u32 {
-        self.capacity
+    pub const fn count(&self) -> u32 {
+        *self.count
     }
 
-    #[inline(always)]
-    const fn increment_count(&mut self) {
-        unsafe {
-            self.count.write(self.count() + 1);
-        }
+    #[must_use]
+    //TODO: const
+    pub fn read_slice(&self) -> &[UntypedMessage] {
+        let count = *self.count as usize;
+        &self.data[M - count..M]
     }
 
-    #[inline(always)]
-    const fn reserve(&mut self, count: u32) {
-        unsafe {
-            self.count.write(self.count() + count);
-        }
+    // TODO: const
+    pub fn read_slice_mut(&mut self) -> &mut [UntypedMessage] {
+        let count = *self.count as usize;
+        &mut self.data[M - count..M]
     }
 
-    #[inline(always)]
-    const fn decrement_count(&mut self) {
-        unsafe {
-            self.count.write(self.count() - 1);
-        }
+    //TODO: non zero usize
+    //TODO: const
+    pub fn write_slice_mut(&mut self, slice_size: usize) -> &mut [UntypedMessage] {
+        let count = *self.count as usize;
+        &mut self.data[count..count + slice_size]
     }
 }
 
-impl<O> Buffer<O> {
+pub struct RefBuf<'a, const M: usize> {
+    count: &'a u32,
+    _data: &'a [UntypedMessage; M],
+}
+
+impl<const M: usize> RefBuf<'_, M> {
     #[must_use]
-    #[inline(always)]
-    const fn next_message_ptr(&mut self) -> Option<NonNull<UntypedMessage>> {
-        if self.count() >= self.capacity {
+    pub const fn count(&self) -> u32 {
+        *self.count
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct IncBuf<const M: usize> {
+    buf: SharedBuf<M>,
+}
+
+impl<const M: usize> IncBuf<M> {
+    #[must_use]
+    pub const fn from_buf(buf: SharedBuf<M>) -> Self {
+        Self { buf }
+    }
+
+    #[must_use]
+    pub const fn as_inner_ref(&self) -> &SharedBuf<M> {
+        &self.buf
+    }
+
+    pub const fn as_inner_mut(&mut self) -> &mut SharedBuf<M> {
+        &mut self.buf
+    }
+
+    #[must_use]
+    pub const fn count(&self) -> u32 {
+        self.buf.count()
+    }
+
+    pub const fn clear(&mut self) {
+        self.buf.set_count(0);
+    }
+
+    pub const fn pop(&mut self) -> Option<UntypedMessage> {
+        if self.count() == 0 {
             return None;
         }
 
-        let message_ptr = self.write_ptr();
-        self.increment_count();
-        Some(message_ptr)
+        let buffer = self.buf.as_mut_buf();
+        let start = buffer.count() as usize - 1;
+        *buffer.count -= 1;
+
+        Some(buffer.data[start])
     }
 
-    #[must_use]
-    #[inline(always)]
-    pub(crate) const fn send_internal_typed<M: TypedMessage>(&mut self, message: &M) -> bool {
-        let untyped = unsafe { &*core::ptr::from_ref::<M>(message).cast::<UntypedMessage>() };
-        self.send_internal_untyped(untyped)
-    }
-
-    #[must_use]
-    pub(crate) const fn send_internal_untyped(&mut self, message: &UntypedMessage) -> bool {
-        let Some(dst_ptr) = self.next_message_ptr() else {
-            return false;
-        };
-
-        unsafe {
-            dst_ptr.write(*message);
+    pub fn pop_all(&mut self) -> &[UntypedMessage] {
+        let count = self.buf.count() as usize;
+        if count == 0 {
+            return &[];
         }
 
-        true
-    }
+        let mut buffer = self.buf.as_mut_buf();
+        buffer.set_count(0);
 
-    pub(crate) const fn read_internal(&self) -> &[UntypedMessage] {
-        unsafe { core::slice::from_raw_parts(self.write_ptr().as_ptr(), self.count() as usize) }
+        &buffer.data[..count]
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct OutBuf<const M: usize> {
+    buf: SharedBuf<M>,
+}
+
+impl<const M: usize> OutBuf<M> {
+    #[must_use]
+    pub const fn from_buf(buf: SharedBuf<M>) -> Self {
+        Self { buf }
     }
 
     #[must_use]
-    #[inline(always)]
-    pub const fn as_slice(&self) -> &[UntypedMessage] {
-        self.read_internal()
+    pub const fn as_inner_ref(&self) -> &SharedBuf<M> {
+        &self.buf
     }
 
-    #[inline(always)]
+    pub const fn as_inner_mut(&mut self) -> &mut SharedBuf<M> {
+        &mut self.buf
+    }
+
+    #[allow(clippy::cast_possible_truncation)]
+    #[must_use]
+    pub const fn available_space(&self) -> u32 {
+        M as u32 - self.buf.count()
+    }
+
+    #[must_use]
+    pub const fn count(&self) -> u32 {
+        self.buf.count()
+    }
+
+    const fn reserve(&mut self, count: u32) {
+        self.buf.set_count(self.buf.count() + count);
+    }
+
+    #[inline]
     const fn write_ptr(&self) -> NonNull<UntypedMessage> {
         unsafe {
             // Перемещаем указатель на последний слот.
             // Capacity указывает на PADDING, поэтому вычитаем 1.
             // см. PADDING
-            let last_slot = self.slice.add((self.capacity as usize) - 1);
+            let last_slot = self.buf.get_slice_ptr().add(M);
 
             // Вычитаем уже занятые слоты, чтобы не затереть данные
-            last_slot.sub(self.count() as usize)
+            last_slot.sub(self.buf.count() as usize)
         }
     }
-}
 
-#[derive(Clone, Copy)]
-pub struct Write;
-impl Buffer<Write> {
-    /// Return false if the buffer is full
-    #[must_use]
-    pub const fn send<M: TypedMessage>(&mut self, message: &M) -> bool {
-        self.send_internal_typed(message)
-    }
-
-    //TODO fix bugs
-    /// Return false if the buffer is full
-    #[must_use]
-    pub const fn send_untyped(&mut self, message: &UntypedMessage) -> bool {
-        self.send_internal_untyped(message)
-    }
-
-    pub const fn as_mut_slice(&mut self) -> &mut [UntypedMessage] {
-        unsafe { slice::from_raw_parts_mut(self.write_ptr().as_ptr(), self.count() as usize) }
-    }
-
-    #[inline(never)]
-    pub fn send_many_iter_with_count<M, I>(&mut self, iter: I, count: usize) -> bool
+    #[inline]
+    pub fn send_many_iter_with_count<T, I>(&mut self, iter: I, count: usize) -> bool
     where
-        M: TypedMessage,
-        I: IntoIterator<Item = M>,
+        T: TypedMessage,
+        I: IntoIterator<Item = T>,
         <I as core::iter::IntoIterator>::IntoIter: core::iter::DoubleEndedIterator,
     {
         let iter = iter.into_iter();
@@ -182,10 +226,10 @@ impl Buffer<Write> {
             return false;
         }
 
-        unsafe {
-            // Заранее резервируем пространство
-            self.reserve(count.safe_as());
+        // Заранее резервируем пространство
+        self.reserve(count.safe_as());
 
+        unsafe {
             // Получаем указатель на начало свободной зоны
             // Мы не применяем смещение к указателю, так как он уже смещен в начало
             // зарезервированной памяти
@@ -201,11 +245,11 @@ impl Buffer<Write> {
 
     /// # Returns
     /// Возвращает bool которое указывает на то, хватает ли места в буфере.
-    #[inline(always)]
-    pub fn send_many_iter_exact<M, I>(&mut self, iter: I) -> bool
+    #[inline]
+    pub fn send_many_iter_exact<T, I>(&mut self, iter: I) -> bool
     where
-        M: TypedMessage,
-        I: IntoIterator<Item = M>,
+        T: TypedMessage,
+        I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,
         <I as core::iter::IntoIterator>::IntoIter: core::iter::DoubleEndedIterator,
     {
@@ -215,38 +259,297 @@ impl Buffer<Write> {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Read;
-impl Buffer<Read> {
-    pub const fn pop(&mut self) -> Option<UntypedMessage> {
-        if self.count() == 0 {
-            return None;
-        }
+//TODO: check for alignment
+#[derive(PartialEq, Eq)]
+pub struct SharedBuf<const M: usize> {
+    /// `[Count: 4-bytes]`
+    /// `[Refs: 4-bytes]`
+    /// `[Flags: 1-byte]`
+    /// `[Padding: 55-bytes]`
+    /// `[Data: M * MESSAGE_SIZE(32-bytes)]`
+    ptr: NonNull<u8>,
+    // Ties the struct to the thread by holding a non-thread-safe marker
+    _marker: PhantomData<*const ()>,
+}
 
-        let start = self.count() as usize - 1;
+impl<const M: usize> SharedBuf<M> {
+    const _ASSERT_SIZE: () = const { assert!(M != 0, "generic parameter cannot be zero") };
+
+    const SIZE: usize = M * MESSAGE_SIZE + METADATA;
+    const LAYOUT: Layout = {
+        match Layout::from_size_align(Self::SIZE, TARGET_ALIGN) {
+            Ok(layout) => layout,
+            Err(_) => panic!("Failed to generate layout at compile-time"),
+        }
+    };
+
+    #[must_use]
+    pub fn new() -> Self {
+        let mut instance = unsafe {
+            let raw_ptr = alloc_zeroed(Self::LAYOUT);
+
+            let ptr = NonNull::new(raw_ptr)
+                .unwrap_or_else(|| alloc::alloc::handle_alloc_error(Self::LAYOUT));
+            Self {
+                ptr,
+                _marker: PhantomData,
+            }
+        };
+
+        instance.add_reference();
+        *instance.get_flags_mut() |= SharedBufFlags::SHOULD_BE_DROPPED;
+        instance
+    }
+
+    #[must_use]
+    pub unsafe fn from_ptr(ptr: NonNull<u8>, should_be_dropped: bool) -> Self {
+        let mut instance = Self {
+            ptr,
+            _marker: PhantomData,
+        };
+
+        instance.reset_metadata();
+        instance.add_reference();
+        if should_be_dropped {
+            *instance.get_flags_mut() |= SharedBufFlags::SHOULD_BE_DROPPED;
+        }
+        instance
+    }
+
+    #[must_use]
+    pub const unsafe fn from_ptr_only(ptr: NonNull<u8>) -> Self {
+        let mut instance = Self {
+            ptr,
+            _marker: PhantomData,
+        };
+        instance.add_reference();
+        instance
+    }
+
+    const fn get_count_ptr(&self) -> NonNull<u32> {
+        self.ptr.cast::<u32>()
+    }
+
+    const fn get_reference_ptr(&self) -> NonNull<u32> {
+        unsafe { self.get_count_ptr().add(1) }
+    }
+
+    const fn get_flags_ptr(&self) -> NonNull<SharedBufFlags> {
+        unsafe { self.get_reference_ptr().add(1).cast() }
+    }
+
+    const fn get_slice_ptr(&self) -> NonNull<UntypedMessage> {
+        unsafe { self.ptr.add(METADATA).cast() }
+    }
+
+    const fn get_flags_mut(&mut self) -> &mut SharedBufFlags {
+        unsafe { self.get_flags_ptr().as_mut() }
+    }
+
+    const fn get_flags(&self) -> SharedBufFlags {
+        unsafe { self.get_flags_ptr().read() }
+    }
+
+    const fn count(&self) -> u32 {
+        unsafe { self.get_count_ptr().read() }
+    }
+
+    const fn set_count(&self, value: u32) {
         unsafe {
-            let message_ptr = self.slice.add(start);
-            self.decrement_count();
-            Some(*message_ptr.as_ptr())
+            self.get_count_ptr().write(value);
         }
     }
 
-    pub fn pop_all(&mut self) -> &[UntypedMessage] {
-        let count = self.count() as usize;
-        if count == 0 {
-            return &[];
+    const fn references(&self) -> u32 {
+        unsafe { self.get_reference_ptr().read() }
+    }
+
+    const fn add_reference(&self) {
+        unsafe {
+            let ptr = self.get_reference_ptr();
+            let count = ptr.read();
+            ptr.write(count + 1);
         }
+    }
+
+    const fn remove_reference(&self) {
+        unsafe {
+            let ptr = self.get_reference_ptr();
+            let count = ptr.read();
+            ptr.write(count - 1);
+        }
+    }
+
+    const fn reset_metadata(&mut self) {
+        unsafe {
+            self.get_count_ptr().write(0);
+            self.get_reference_ptr().write(0);
+            self.get_flags_ptr().write(SharedBufFlags::empty());
+        };
+    }
+
+    #[must_use]
+    pub const fn is_should_be_dropped(&self) -> bool {
+        unsafe {
+            self.get_flags().contains(SharedBufFlags::SHOULD_BE_DROPPED)
+                && self.get_reference_ptr().read() == 0
+        }
+    }
+
+    pub const fn as_mut_buf(&mut self) -> RefMutBuf<'_, M> {
+        let data: &mut [UntypedMessage; M] = unsafe {
+            let array_ptr = self.get_slice_ptr().as_ptr().cast::<[UntypedMessage; M]>();
+            &mut *array_ptr
+        };
 
         unsafe {
-            let start = count - 1;
-
-            // Берем указатель на начало данных
-            let start_ptr = self.slice.add(start).as_ptr();
-
-            // Обнуляем счетчик
-            self.count.write(0);
-
-            core::slice::from_raw_parts(start_ptr, count)
+            RefMutBuf {
+                count: self.get_count_ptr().as_mut(),
+                data,
+            }
         }
+    }
+
+    #[must_use]
+    pub const fn as_ref_buf(&self) -> RefBuf<'_, M> {
+        let data: &[UntypedMessage; M] = unsafe {
+            let array_ptr = self.get_slice_ptr().as_ptr() as *const [UntypedMessage; M];
+            &*array_ptr
+        };
+
+        unsafe {
+            RefBuf {
+                count: self.get_count_ptr().as_ref(),
+                _data: data,
+            }
+        }
+    }
+
+    pub const unsafe fn as_raw_buf(&mut self) -> RawBuf {
+        RawBuf {
+            count: self.get_count_ptr(),
+            data: self.get_slice_ptr(),
+        }
+    }
+
+    pub const unsafe fn as_dyn_buf(&mut self) -> DynSharedBuf {
+        unsafe { DynSharedBuf::from_ptr_only(self.ptr, NonZeroUsize::new_unchecked(M)) }
+    }
+}
+
+impl<const M: usize> Default for SharedBuf<M> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<const M: usize> Clone for SharedBuf<M> {
+    fn clone(&self) -> Self {
+        self.add_reference();
+        Self {
+            ptr: self.ptr,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<const M: usize> Drop for SharedBuf<M> {
+    fn drop(&mut self) {
+        self.remove_reference();
+        if self.is_should_be_dropped() {
+            unsafe {
+                alloc::alloc::dealloc(self.ptr.as_ptr(), Self::LAYOUT);
+            };
+        }
+    }
+}
+
+impl<const M: usize> Debug for SharedBuf<M> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SharedBuf")
+            .field("count", &self.count())
+            .field("references", &self.references())
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::{vec, vec::Vec};
+    use core::ptr::NonNull;
+
+    use super::SharedBuf;
+    use crate::{
+        UntypedMessage,
+        defines::{MESSAGE_SIZE, METADATA},
+    };
+
+    #[test]
+    fn shared_ref() {
+        let buf = SharedBuf::<1024>::new();
+        assert_eq!(buf.references(), 1);
+        let buf0 = buf.clone();
+        assert_eq!(buf.references(), 2);
+        assert_eq!(buf0.references(), 2);
+
+        drop(buf);
+
+        assert_eq!(buf0.references(), 1);
+    }
+
+    #[test]
+    #[should_panic = "zaebal"]
+    fn shared_ref_in_vec() {
+        let mut i = 0;
+        let vec = core::iter::repeat_with(|| {
+            assert!(i != 12, "zaebal");
+            i += 1;
+            SharedBuf::<1024>::new()
+        })
+        .take(24)
+        .collect::<Vec<_>>();
+
+        core::hint::black_box(&vec);
+
+        let vec0 = vec.clone();
+        drop(vec);
+        core::hint::black_box(&vec0);
+    }
+
+    const fn cast(array: [u8; MESSAGE_SIZE]) -> UntypedMessage {
+        unsafe { core::mem::transmute(array) }
+    }
+
+    #[test]
+    fn shared_ref_from_slice() {
+        const A: UntypedMessage = cast([0; MESSAGE_SIZE]);
+        const B: UntypedMessage = cast([1; MESSAGE_SIZE]);
+        const C: UntypedMessage = cast([2; MESSAGE_SIZE]);
+        const D: UntypedMessage = cast([3; MESSAGE_SIZE]);
+
+        #[repr(align(64))]
+        struct FixedBuffer([u8; SIZE]);
+
+        const M: usize = 4;
+        const SIZE: usize = MESSAGE_SIZE * M + METADATA;
+        let mut fixed_buf = FixedBuffer([0; SIZE]);
+        let mut buf = unsafe {
+            let ptr = NonNull::new_unchecked(fixed_buf.0.as_mut_ptr());
+            SharedBuf::<M>::from_ptr(ptr, false)
+        };
+
+        let mut buf0 = buf.clone();
+
+        let data = buf.as_mut_buf().data;
+        data[0] = A;
+        data[1] = B;
+
+        let data = buf0.as_mut_buf().data;
+        data[2] = C;
+        data[3] = D;
+
+        let mut buf = buf0.clone();
+
+        assert_eq!(buf.as_mut_buf().data, &mut [A, B, C, D]);
     }
 }

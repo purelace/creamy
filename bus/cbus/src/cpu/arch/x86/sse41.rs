@@ -17,25 +17,26 @@ mod sse2_reexports {
 }
 
 use as_guard::AsGuard;
+use cbus_core::Subscriber;
 pub use sse2_reexports::*;
 pub use sse41_reexports::*;
 
 use crate::{
+    config::BusConfig,
     core::UntypedMessage,
     cpu::{
         PipelineData, arch::generic::ScalarInstructionSet, runner::InstructionRunner,
         set::InstructionSet,
     },
     lookup::LookupTable,
-    sys::Header,
 };
 
 pub struct Sse41InstructionSet;
 impl Sse41InstructionSet {
     // Вносим коррективы в заголовки
     #[inline(always)]
-    fn get_valid_header(
-        lut: &LookupTable,
+    fn get_valid_header<C: BusConfig>(
+        lut: &LookupTable<C>,
         src: usize,
         xmm_msg0: __m128i,
         xmm_msg1: __m128i,
@@ -43,7 +44,7 @@ impl Sse41InstructionSet {
         xmm_msg3: __m128i,
     ) -> __m128i {
         unsafe {
-            let bits = lut.max_groups().trailing_zeros() as usize;
+            let bits = LookupTable::<C>::MAX_GROUPS.trailing_zeros() as usize;
             let shifted_id = src << bits;
 
             // Берем первые 4 байта [dst][group][src][kind]
@@ -63,18 +64,9 @@ impl Sse41InstructionSet {
 
             macro_rules! translate {
                 ($idx:expr) => {{
-                    let dst: usize = _mm_extract_epi32(xmm_dst, $idx).safe_as();
                     let grp: usize = _mm_extract_epi32(xmm_group, $idx).safe_as();
 
-                    // IN_LUT: [src][local_group]
-                    let g_grp = *lut.get_input().get_unchecked(shifted_id + grp);
-
-                    // OUT_LUT: [dst][global_group]
-                    let l_grp = *lut
-                        .get_output()
-                        .get_unchecked((dst << bits) + g_grp as usize);
-                    let l_grp: i32 = l_grp.safe_as();
-                    l_grp
+                    (*lut.get_input().get_unchecked(shifted_id + grp)).safe_as()
                 }};
             }
 
@@ -101,10 +93,10 @@ impl Sse41InstructionSet {
             let xmm_new_header = _mm_or_si128(
                 xmm_dst, // Src
                 _mm_or_si128(
-                    _mm_slli_epi32(xmm_src, 8), // Dst
+                    _mm_slli_epi32(xmm_local_group, 8), // Dst
                     _mm_or_si128(
-                        _mm_slli_epi32(xmm_local_group, 16), // L_Group
-                        xmm_kind,                            // Kind
+                        _mm_slli_epi32(xmm_src, 16), // L_Group
+                        xmm_kind,                    // Kind
                     ),
                 ),
             );
@@ -125,8 +117,8 @@ impl Sse41InstructionSet {
     }
 
     #[inline(always)]
-    fn validate_messages(
-        lut: &LookupTable,
+    fn validate_messages<C: BusConfig>(
+        lut: &LookupTable<C>,
         src: usize,
         xmm_msg0: __m128i,
         xmm_msg1: __m128i,
@@ -182,8 +174,8 @@ impl Sse41InstructionSet {
     }
 
     #[inline(always)]
-    fn validate_and_write_messages(
-        lut: &LookupTable,
+    fn validate_and_write_messages<C: BusConfig>(
+        lut: &LookupTable<C>,
         src: usize,
         destination_halves: [*mut __m128i; 4],
         destinations: [*mut __m128i; 4],
@@ -212,7 +204,11 @@ impl Sse41InstructionSet {
     }
 }
 
-impl InstructionSet<4> for Sse41InstructionSet {
+impl<C, S, const M: usize> InstructionSet<C, S, M, 4> for Sse41InstructionSet
+where
+    C: BusConfig,
+    S: Subscriber,
+{
     #[inline(always)]
     fn send_exactly(read: &[UntypedMessage; 4], write: &mut [UntypedMessage; 4]) {
         unsafe {
@@ -260,7 +256,7 @@ impl InstructionSet<4> for Sse41InstructionSet {
 
     #[inline(always)]
     fn prepare_and_send_exactly(
-        lut: &LookupTable,
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage; 4],
         write: &mut [UntypedMessage; 4],
@@ -304,7 +300,7 @@ impl InstructionSet<4> for Sse41InstructionSet {
 
     #[inline(always)]
     fn prepare_and_send_remainder(
-        lut: &LookupTable,
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
@@ -313,10 +309,14 @@ impl InstructionSet<4> for Sse41InstructionSet {
     }
 }
 
-impl InstructionRunner<4> for Sse41InstructionSet {
+impl<C, S, const M: usize> InstructionRunner<C, S, M, 4> for Sse41InstructionSet
+where
+    C: BusConfig,
+    S: Subscriber,
+{
     #[inline(always)]
     fn prepare_and_send_chunk_to_unknown(
-        data: &mut PipelineData,
+        data: &mut PipelineData<C, S, M>,
         src: usize,
         chunk: &mut [UntypedMessage; 4],
     ) {
@@ -335,15 +335,15 @@ impl InstructionRunner<4> for Sse41InstructionSet {
             let dst2_value = msg2.cast::<u8>().add(1).read();
             let dst3_value = msg3.cast::<u8>().add(1).read();
 
-            let h0 = data.memory.write.header_mut_ptr_for(dst0_value as usize);
-            let h1 = data.memory.write.header_mut_ptr_for(dst1_value as usize);
-            let h2 = data.memory.write.header_mut_ptr_for(dst2_value as usize);
-            let h3 = data.memory.write.header_mut_ptr_for(dst3_value as usize);
+            let mut h0 = data.memory.get_inc_raw_buf(dst0_value);
+            let mut h1 = data.memory.get_inc_raw_buf(dst1_value);
+            let mut h2 = data.memory.get_inc_raw_buf(dst2_value);
+            let mut h3 = data.memory.get_inc_raw_buf(dst3_value);
 
-            let dst0 = Header::write_raw_mut_ptr(h0).cast::<__m128i>();
-            let dst1 = Header::write_raw_mut_ptr(h1).cast::<__m128i>();
-            let dst2 = Header::write_raw_mut_ptr(h2).cast::<__m128i>();
-            let dst3 = Header::write_raw_mut_ptr(h3).cast::<__m128i>();
+            let dst0 = h0.write_raw_mut_ptr().cast::<__m128i>();
+            let dst1 = h1.write_raw_mut_ptr().cast::<__m128i>();
+            let dst2 = h2.write_raw_mut_ptr().cast::<__m128i>();
+            let dst3 = h3.write_raw_mut_ptr().cast::<__m128i>();
 
             let dst0_half = dst0.add(1);
             let dst1_half = dst1.add(1);
@@ -369,20 +369,23 @@ impl InstructionRunner<4> for Sse41InstructionSet {
                 messages,
             );
 
-            (*h0).count = ((*h0).count + 1) * u32::from(dst0_value != 0);
-            (*h1).count = ((*h1).count + 1) * u32::from(dst1_value != 0);
-            (*h2).count = ((*h2).count + 1) * u32::from(dst2_value != 0);
-            (*h3).count = ((*h3).count + 1) * u32::from(dst3_value != 0);
+            h0.set_count((h0.count() + 1) * u32::from(dst0_value != 0));
+            h1.set_count((h1.count() + 1) * u32::from(dst1_value != 0));
+            h2.set_count((h2.count() + 1) * u32::from(dst2_value != 0));
+            h3.set_count((h3.count() + 1) * u32::from(dst3_value != 0));
         }
     }
 
     #[inline(always)]
     fn prepare_and_send_direct_slice(
-        data: &mut PipelineData,
+        data: &mut PipelineData<C, S, M>,
         src: usize,
         messages: &mut [UntypedMessage],
     ) {
-        let mut chunks = messages.chunks_exact_mut(Self::CHUNK_SIZE);
+        //TODO: remainder
+
+        let mut chunks =
+            messages.chunks_exact_mut(<Self as InstructionSet<C, S, M, _>>::CHUNK_SIZE);
         for chunk in &mut chunks {
             let chunk = unsafe { &mut *chunk.as_mut_ptr().cast::<[UntypedMessage; 4]>() };
             Self::prepare_and_send_chunk_to_unknown(data, src, chunk);

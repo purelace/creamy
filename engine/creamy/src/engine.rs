@@ -1,12 +1,9 @@
-use std::{collections::HashMap, num::NonZeroU8};
+use alloc::boxed::Box;
+use core::num::NonZeroU8;
 
 use creamy_engine_core::{
-    Constants, PluginLoader, WasmRuntime,
-    bus::{
-        MessageBus, SubscriberLookupData,
-        config::ValidConfig,
-        core::buffer::{Incoming, Outgoing},
-    },
+    Constants, PluginLoader, WasmModule, WasmRuntime,
+    bus::{MessageBus, SubscriberLookupData, config::BusConfig, define_bus_config},
     devkit::{
         BinaryPlugin,
         manifest::{Manifest, RequestedProtocol},
@@ -15,8 +12,13 @@ use creamy_engine_core::{
         xmlc::{ProtocolDefinition, StringPoolResolver},
     },
 };
+use creamy_sdk::bus::{
+    Subscriber, SubscriberId,
+    buffer::{IncBuf, OutBuf, SharedBuf},
+};
+use rustc_hash::FxHashMap;
 
-use crate::{driver::EngineBusDriver, registry::ProtocolRegistry};
+use crate::{driver::EngineBusDriver, registry::ProtocolRegistry, system_plugin::SystemPlugin};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -38,12 +40,15 @@ pub enum Error {
         version_a: Version,
         version_b: Version,
     },
+
+    #[error("{0}")]
+    Bus(#[from] creamy_engine_core::bus::BusError),
 }
 
 struct TempPluginPackage {
     manifest: Manifest,
     pool: StringPool,
-    definitions: HashMap<Box<str>, (ProtocolDefinition, RequestedProtocol)>,
+    definitions: FxHashMap<Box<str>, (ProtocolDefinition, RequestedProtocol)>,
 }
 
 impl TempPluginPackage {
@@ -55,7 +60,7 @@ impl TempPluginPackage {
             ..
         }: BinaryPlugin,
     ) -> Result<Self, Error> {
-        let mut map = HashMap::new();
+        let mut map = FxHashMap::default();
         for (name, request) in manifest.requested_groups() {
             if let Some(index) = definitions.iter().enumerate().find_map(|(idx, def)| {
                 if def.name().resolve(&pool) == name.as_str() {
@@ -82,27 +87,52 @@ impl TempPluginPackage {
     }
 }
 
-pub struct PluginEngine<R: WasmRuntime, L: PluginLoader> {
-    bus: MessageBus<EngineBusDriver, R::Module>,
-    constants: ValidConfig<Constants>,
+pub(crate) const M: usize = 1024;
+define_bus_config! {
+    Legacy,
+    max_subscribers: 32,
+    max_messages: 1024,
+    max_groups: 32,
+}
+
+pub enum SubscriberType<R: WasmRuntime<Legacy> + 'static> {
+    Inner(SystemPlugin),
+    Wasm(R::Module),
+}
+
+impl<R: WasmRuntime<Legacy> + 'static> Subscriber for SubscriberType<R> {
+    fn notify(&mut self) {
+        match self {
+            SubscriberType::Inner(s) => s.notify(),
+            SubscriberType::Wasm(s) => s.notify(),
+        }
+    }
+}
+
+pub struct PluginEngine<R: WasmRuntime<Legacy> + 'static, L: PluginLoader> {
+    bus: MessageBus<Legacy, EngineBusDriver, M, SubscriberType<R>>,
+    constants: Constants,
     runtime: R,
     loader: L,
     registry: ProtocolRegistry,
-
-    incoming: Incoming,
-    outgoing: Outgoing,
 }
 
-impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
-    pub fn new(constants: ValidConfig<Constants>, runtime: R, loader: L) -> Self {
-        // TODO: fix this bullshit
-        let mut incoming = None;
-        let mut outgoing = None;
-        let bus = MessageBus::new(&constants, |_config, inc, out| {
-            incoming = Some(inc);
-            outgoing = Some(out);
-            EngineBusDriver::new(constants.max_subscribers, constants.max_groups)
-        });
+impl<R: WasmRuntime<Legacy>, L: PluginLoader> PluginEngine<R, L> {
+    pub fn new(constants: Constants, runtime: R, loader: L) -> Self {
+        let mut bus = MessageBus::new(EngineBusDriver::new(
+            Legacy::MAX_SUBSCRIBERS.get(),
+            Legacy::MAX_GROUPS.get(),
+        ));
+
+        let incoming = IncBuf::default();
+        let outgoing = OutBuf::default();
+
+        bus.add_subscriber_with(
+            incoming.clone(),
+            outgoing.clone(),
+            SubscriberType::Inner(SystemPlugin::new(incoming, outgoing)),
+        )
+        .unwrap();
 
         Self {
             bus,
@@ -110,8 +140,6 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
             runtime,
             loader,
             registry: ProtocolRegistry::default(),
-            incoming: incoming.unwrap(),
-            outgoing: outgoing.unwrap(),
         }
     }
 
@@ -120,10 +148,27 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
             .runtime
             .init_module(&self.constants, package.core())
             .unwrap();
-        let id = self.bus.add_subscriber(|_, _| module).unwrap().u8();
+        let inc_ptr = module.incoming_ptr();
+        let out_ptr = module.outgoing_ptr();
+
+        let inc = IncBuf::<M>::from_buf(unsafe { SharedBuf::from_ptr_only(inc_ptr) });
+        let out = OutBuf::<M>::from_buf(unsafe { SharedBuf::from_ptr_only(out_ptr) });
+
+        let id = self
+            .bus
+            .add_subscriber_with(inc, out, SubscriberType::Wasm(module))?;
 
         let package = TempPluginPackage::from_package(package)?;
         let protocol_name = package.manifest.name();
+
+        self.bus.get_driver_mut().provide_api(
+            SubscriberId::new_u8(1).unwrap(),
+            SubscriberLookupData {
+                consumer_group_id: 1,
+                provider_group_id: 1,
+                provider_id: SubscriberId::new_u8(1).unwrap(),
+            },
+        );
 
         for (name, (mut def, request)) in package.definitions {
             self.registry.replace_strings(&package.pool, &mut def);
@@ -141,6 +186,7 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
                     SubscriberLookupData {
                         consumer_group_id: 1,
                         provider_group_id: 1,
+                        provider_id: id,
                     },
                 );
             } else {
@@ -165,8 +211,11 @@ impl<R: WasmRuntime, L: PluginLoader> PluginEngine<R, L> {
             }
         }
 
+        self.bus.update_lookup_table(id);
+        self.bus
+            .update_lookup_table(SubscriberId::new_u8(1).unwrap());
+
         Ok(())
-        //let driver = self.bus.get_driver_mut();
     }
 
     pub fn tick(&mut self, roundtrip: NonZeroU8) {

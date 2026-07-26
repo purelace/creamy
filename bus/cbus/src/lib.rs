@@ -4,8 +4,9 @@
 #![deny(clippy::all)]
 #![deny(clippy::pedantic)]
 #![deny(clippy::panic)]
-// TODO: #![deny(clippy::unwrap_used)]
-#![allow(clippy::unreachable)]
+#![deny(clippy::unwrap_used)]
+#![deny(clippy::expect_used)]
+//#![deny(clippy::unreachable)]
 #![allow(clippy::inline_always)]
 #![allow(clippy::cast_ptr_alignment)]
 
@@ -35,6 +36,6 @@ pub mod defines {
 }
 
 pub use bus::MessageBus;
-pub use driver::{BusDriver, DataIterator, OldDataIterator};
+pub use driver::{BusDriver, DataIterator};
 pub use error::BusError;
-pub use lookup::{SubscriberLookupData, SubscriberOldLookupData};
+pub use lookup::SubscriberLookupData;

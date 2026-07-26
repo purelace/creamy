@@ -1,83 +1,91 @@
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec};
+use core::marker::PhantomData;
+
+use cbus_core::SubscriberId;
+
+use crate::config::BusConfig;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SubscriberLookupData {
     pub consumer_group_id: u8,
     pub provider_group_id: u8,
+    pub provider_id: SubscriberId,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct SubscriberOldLookupData {
-    pub provider_group_id: u8,
+#[derive(Debug)]
+pub struct LookupTable<C: BusConfig> {
+    input: Box<[u8]>,
+    _phantom: PhantomData<C>,
 }
 
-pub struct LookupTable {
-    input: Vec<u8>,
-    output: Vec<u8>,
-    max_groups: u8,
-}
+impl<C: BusConfig> LookupTable<C> {
+    pub const MAX_GROUPS: usize = C::MAX_GROUPS.get() as usize;
 
-impl LookupTable {
-    pub fn new(max_groups_u8: u8, max_subscribers: u8) -> Self {
-        let max_subscribers = max_subscribers as usize;
-        let max_groups = max_groups_u8 as usize;
+    pub fn new() -> Self {
+        let max_subscribers = C::MAX_SUBSCRIBERS.get() as usize;
 
         Self {
-            input: vec![0u8; max_subscribers * max_groups],
-            output: vec![0u8; max_subscribers * max_groups],
-            max_groups: max_groups_u8,
+            input: vec![0u8; max_subscribers * Self::MAX_GROUPS].into(),
+            //output: vec![0u8; max_subscribers * Self::MAX_GROUPS].into(),
+            _phantom: PhantomData,
         }
     }
 
-    pub fn add<I>(&mut self, id: u8, lookup_data_iter: I)
+    pub fn add<I>(&mut self, id: SubscriberId, lookup_data_iter: I)
     where
         I: IntoIterator<Item = SubscriberLookupData>,
     {
-        let id = id as usize;
+        let id = id.get() as usize;
 
         for lookup_data in lookup_data_iter {
-            // Индекс в IN: (ID подписчика * max groups) + Локальный ID группы
-            let in_idx = (id * self.max_groups as usize) + lookup_data.consumer_group_id as usize;
-            self.input[in_idx] = lookup_data.provider_group_id;
+            self.set_values(id, lookup_data);
+            self.set_values(
+                lookup_data.provider_id.get() as usize,
+                SubscriberLookupData {
+                    consumer_group_id: lookup_data.provider_group_id,
+                    provider_group_id: lookup_data.consumer_group_id,
+                    provider_id: lookup_data.provider_id,
+                },
+            );
 
-            // Индекс в OUT: (ID подписчика * max groups) + Глобальный ID группы
-            let out_idx = (id * self.max_groups as usize) + lookup_data.provider_group_id as usize;
-            self.output[out_idx] = lookup_data.consumer_group_id;
-
-            self.input[id * self.max_groups as usize] = 1;
-            self.output[id * self.max_groups as usize] = 1;
+            //self.input[id * Self::MAX_GROUPS] = 1;
+            //self.output[id * Self::MAX_GROUPS] = 1;
         }
     }
 
-    pub fn remove<I>(&mut self, id: u8, lookup_data_iter: I)
-    where
-        I: IntoIterator<Item = SubscriberOldLookupData>,
-    {
-        let id = id as usize;
-        let max_groups = self.max_groups as usize;
+    fn set_values(&mut self, id: usize, data: SubscriberLookupData) {
+        let slice = id * Self::MAX_GROUPS;
+        // Индекс в IN: (ID подписчика * max groups) + ID группы потребителя
+        let in_idx = slice + data.consumer_group_id as usize;
+        self.input[in_idx] = data.provider_group_id;
 
-        for lookup_data in lookup_data_iter {
-            let out_idx = (id * max_groups) + lookup_data.provider_group_id as usize;
-            let local_group_id = self.output[out_idx];
+        // Индекс в OUT: (ID подписчика * max groups) + ID группы поставщика
+        //let out_idx = slice + data.provider_group_id as usize;
+        //self.output[out_idx] = data.consumer_group_id;
+    }
 
-            let in_idx = (id * max_groups) + local_group_id as usize;
-            self.input[in_idx] = 0;
-            self.output[out_idx] = 0;
+    pub fn zeroize(&mut self, id: SubscriberId) {
+        let id = id.get() as usize;
 
-            self.input[id * self.max_groups as usize] = 0;
-            self.output[id * self.max_groups as usize] = 0;
+        let start = id * Self::MAX_GROUPS;
+        let end = start + Self::MAX_GROUPS;
+
+        let in_slice = &mut self.input[start..end];
+        for value in in_slice {
+            *value = 0;
         }
+
+        //let out_slice = &mut self.output[start..end];
+        //for value in out_slice {
+        //    *value = 0;
+        //}
     }
 
     pub const fn get_input(&self) -> &[u8] {
-        self.input.as_slice()
+        &self.input
     }
 
-    pub const fn get_output(&self) -> &[u8] {
-        self.output.as_slice()
-    }
-
-    pub const fn max_groups(&self) -> usize {
-        self.max_groups as usize
-    }
+    //pub const fn get_output(&self) -> &[u8] {
+    //    &self.output
+    //}
 }

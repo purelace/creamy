@@ -1,10 +1,11 @@
 use as_guard::AsGuard;
+use cbus_core::Subscriber;
 
 use crate::{
+    config::BusConfig,
     core::UntypedMessage,
     cpu::{PipelineData, runner::InstructionRunner, set::InstructionSet},
     lookup::LookupTable,
-    sys::Header,
 };
 
 pub struct ScalarInstructionSet;
@@ -13,25 +14,27 @@ impl ScalarInstructionSet {
     // * Устанавливаем src, тем самым убираем возможность подмены сообщений
     // * Проверяем права доступа и корректность DST, если он некорректный, то он обнуляется
     #[inline(always)]
-    fn prepare_single_message(lut: &LookupTable, src: usize, message: &mut UntypedMessage) {
-        let max_groups = lut.max_groups();
+    fn prepare_single_message<C: BusConfig>(
+        lut: &LookupTable<C>,
+        src: usize,
+        message: &mut UntypedMessage,
+    ) {
         // Устанавливаем актуальное значение
         message.src = src.safe_as();
 
-        let local_group_in = (src * max_groups) + message.group as usize;
-        let global_group = (message.dst as usize * max_groups)
-            + unsafe { *lut.get_input().get_unchecked(local_group_in) as usize };
-        let local_group_out = unsafe { *lut.get_output().get_unchecked(global_group) };
+        let in_idx = src * LookupTable::<C>::MAX_GROUPS + message.group as usize;
+        let relative_to_dst_group = unsafe { *lut.get_input().get_unchecked(in_idx) };
 
-        let is_valid = u8::from((global_group != 0) && (local_group_out != 0));
+        let is_valid = u8::from(relative_to_dst_group != 0);
         let final_dst = is_valid * message.dst;
 
         message.dst = final_dst;
-        message.group = local_group_out;
+        message.group = relative_to_dst_group;
     }
 
     #[inline(always)]
     pub fn send_to(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
+        tracing::info!("got message from");
         let len = core::cmp::min(read.len(), write.len());
         let read = &read[..len];
         let write = &mut write[..len];
@@ -44,8 +47,8 @@ impl ScalarInstructionSet {
     }
 
     #[inline(always)]
-    pub fn prepare_and_send_to(
-        lut: &LookupTable,
+    pub fn prepare_and_send_to<C: BusConfig>(
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
@@ -63,61 +66,78 @@ impl ScalarInstructionSet {
     }
 }
 
-impl InstructionSet<1> for ScalarInstructionSet {
+impl<C, S, const M: usize> InstructionSet<C, S, M, 1> for ScalarInstructionSet
+where
+    C: BusConfig,
+    S: Subscriber,
+{
+    #[inline(always)]
     fn send_exactly(read: &[UntypedMessage; 1], write: &mut [UntypedMessage; 1]) {
         Self::send_to(read, write);
     }
 
+    #[inline(always)]
     fn send_remainder(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
         Self::send_to(read, write);
     }
 
+    #[inline(always)]
     fn prepare_and_send_exactly(
-        lut: &LookupTable,
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage; 1],
         write: &mut [UntypedMessage; 1],
     ) {
+        tracing::info!("got message from: {src}");
         Self::prepare_and_send_to(lut, src, read, write);
     }
 
+    #[inline(always)]
     fn prepare_and_send_remainder(
-        lut: &LookupTable,
+        lut: &LookupTable<C>,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
+        tracing::info!("got message from: {src}");
         Self::prepare_and_send_to(lut, src, read, write);
     }
 }
 
-impl InstructionRunner<1> for ScalarInstructionSet {
+impl<C, S, const M: usize> InstructionRunner<C, S, M, 1> for ScalarInstructionSet
+where
+    C: BusConfig,
+    S: Subscriber,
+{
     #[cfg_attr(coverage_nightly, coverage(off))]
     fn prepare_and_send_chunk_to_unknown(
-        _data: &mut PipelineData,
+        _data: &mut PipelineData<C, S, M>,
         _src: usize,
         _chunk: &mut [UntypedMessage; 1],
     ) {
         unreachable!()
     }
 
+    #[tracing::instrument(skip_all)]
     #[inline(always)]
     fn prepare_and_send_direct_slice(
-        data: &mut PipelineData,
+        data: &mut PipelineData<C, S, M>,
         src: usize,
         messages: &mut [UntypedMessage],
     ) {
         for message in messages {
             Self::prepare_single_message(data.lookup_table, src, message);
-            let header = data.memory.write.header_mut_ptr_for(message.dst as usize);
-            let write_ptr = Header::write_raw_mut_ptr(header);
+            let mut buffer = data.memory.get_mut_inc_buf(message.dst as usize);
+
+            let write_ptr = buffer.write_slice_mut(1).as_mut_ptr();
             let read_ptr = core::ptr::from_ref(message);
+
             unsafe {
                 core::ptr::copy_nonoverlapping(read_ptr, write_ptr, 1);
 
                 // Инкрементируем count если dst не равен 0
                 // Это нужно чтобы все сообщения с dst == 0 отправлялись в мусорку (/dev/null)
-                (*header).count = ((*header).count + 1) * u32::from(message.dst != 0);
+                buffer.set_count((buffer.count() + 1) * u32::from(message.dst != 0));
             }
         }
     }

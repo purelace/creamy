@@ -5,8 +5,8 @@ include!(concat!(env!("OUT_DIR"), "/ping.rs"));
 
 use creamy_sdk::{
     api::Plugin,
-    bus::{UntypedMessage, buffer::Outgoing},
-    declare_plugin,
+    bus::{UntypedMessage, buffer::runtime::DynOutBuf},
+    declare_plugin, info, logging,
 };
 
 use self::dispatcher::MessageHandler;
@@ -15,11 +15,12 @@ use crate::ping::messages::{Ping, Pong};
 declare_plugin!(PingPlugin, dispatcher);
 
 struct PingPlugin {
-    outgoing: Outgoing,
+    outgoing: DynOutBuf,
 }
 
 impl Plugin for PingPlugin {
-    fn init(outgoing: Outgoing) -> Option<Self> {
+    fn init(outgoing: DynOutBuf) -> Option<Self> {
+        //info!("hello");
         Some(Self { outgoing })
     }
 }

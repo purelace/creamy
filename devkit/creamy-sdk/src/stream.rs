@@ -249,6 +249,7 @@ impl<W: StreamWriterFunctions> StreamWriter<W> {
         let mut outgoing = get_outgoing();
 
         let mut message = Log::PREPARED;
+        message.dst = 1;
         message.with_stream_id(self.id);
 
         let mut write_and_send = |data: [u8; 28], state: StreamChunkType| {
@@ -261,6 +262,9 @@ impl<W: StreamWriterFunctions> StreamWriter<W> {
         let head = self.writer.write_head(object);
         let data = head.cast_to_array();
         write_and_send(data, StreamChunkType::Head);
+
+        write_and_send([0; 28], StreamChunkType::Tail);
+        return;
 
         if let Some(payload) = self.writer.write_payload(object) {
             let data = payload.cast_to_array();

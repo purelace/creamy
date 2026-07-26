@@ -2,55 +2,60 @@
 #![allow(clippy::many_single_char_names)]
 
 use cbus::{
-    BusDriver, DataIterator, OldDataIterator, SubscriberLookupData, SubscriberOldLookupData,
-    config::{Advanced, BusConfig, ValidConfig},
+    BusDriver, DataIterator, SubscriberLookupData,
     core::{
-        Subscriber, UntypedMessage,
-        buffer::{Incoming, Outgoing},
+        Subscriber, SubscriberId, UntypedMessage,
+        buffer::{IncBuf, OutBuf},
         subscribers,
     },
+    define_bus_config,
 };
 
-struct Driver;
-
-impl Driver {
-    pub const fn new<C: BusConfig>(
-        _config: &ValidConfig<C>,
-        _incoming: Incoming,
-        _outgoing: Outgoing,
-    ) -> Self {
-        Self
-    }
+const MAX_MESSAGES: usize = 11000;
+define_bus_config! {
+    Advanced,
+    max_subscribers: u8::MAX - 1,
+    max_messages: 11000,
+    max_groups: 128,
 }
 
+#[derive(Debug)]
+struct Driver;
 impl BusDriver for Driver {
-    fn on_subscribe(&mut self, id: u8) -> impl DataIterator {
-        match id {
-            1 | 2 => std::iter::once(SubscriberLookupData {
-                consumer_group_id: 1,
-                provider_group_id: 10,
+    fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
+        match id.get() {
+            1 => std::iter::once(SubscriberLookupData {
+                consumer_group_id: 0,
+                provider_group_id: 0,
+                provider_id: id,
+            }),
+            2 => std::iter::once(SubscriberLookupData {
+                consumer_group_id: 10,
+                provider_group_id: 1,
+                provider_id:
+                //: SAFETY 1 != 0
+                unsafe {
+                    SubscriberId::new_unchecked(1)
+                },
             }),
             _ => unreachable!(),
         }
     }
 
-    fn on_unsubscribe(&mut self, _id: u8) -> impl OldDataIterator {
-        std::iter::once(SubscriberOldLookupData {
-            provider_group_id: 10,
-        })
-    }
+    fn on_unsubscribe(&mut self, _: SubscriberId) {}
 }
 
-type MessageBus<S> = cbus::MessageBus<Driver, S>;
+type MessageBus<S> = cbus::MessageBus<Advanced, Driver, MAX_MESSAGES, S>;
 
+#[derive(Debug)]
 struct TestListener<const A: usize> {
-    incoming: Incoming,
-    _outgoing: Outgoing,
+    incoming: IncBuf<MAX_MESSAGES>,
+    _outgoing: OutBuf<MAX_MESSAGES>,
     total_messages: usize,
 }
 
 impl<const A: usize> TestListener<A> {
-    pub const fn new(incoming: Incoming, outgoing: Outgoing) -> Self {
+    pub const fn new(incoming: IncBuf<MAX_MESSAGES>, outgoing: OutBuf<MAX_MESSAGES>) -> Self {
         Self {
             incoming,
             _outgoing: outgoing,
@@ -64,7 +69,7 @@ impl<const A: usize> Subscriber for TestListener<A> {
         while let Some(message) = self.incoming.pop() {
             assert_eq!(message.dst, 2);
             assert_eq!(message.src, 1);
-            assert_eq!(message.group, 1);
+            assert_eq!(message.group, 10);
             assert_eq!(message.kind, 1);
 
             let [a, b, c, d] = message.payload[0..4].try_into().unwrap();
@@ -85,16 +90,18 @@ impl<const A: usize> Subscriber for TestListener<A> {
 impl<const A: usize> Drop for TestListener<A> {
     fn drop(&mut self) {
         assert_eq!(self.total_messages, A);
+        //TODO: drop
     }
 }
 
+#[derive(Debug)]
 struct TestSender<const A: usize> {
-    _incoming: Incoming,
-    outgoing: Outgoing,
+    _incoming: IncBuf<MAX_MESSAGES>,
+    outgoing: OutBuf<MAX_MESSAGES>,
 }
 
 impl<const A: usize> TestSender<A> {
-    pub const fn new(incoming: Incoming, outgoing: Outgoing) -> Self {
+    pub const fn new(incoming: IncBuf<MAX_MESSAGES>, outgoing: OutBuf<MAX_MESSAGES>) -> Self {
         Self {
             _incoming: incoming,
             outgoing,
@@ -148,9 +155,15 @@ subscribers! {
     Listener => TestListener::<1000>,
 }
 
+subscribers! {
+    TSubs10000,
+    Sender => TestSender::<10000>,
+    Listener => TestListener::<10000>,
+}
+
 #[test]
 pub fn send_1_message() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs1>::new(&Advanced.into_valid()?, Driver::new);
+    let mut bus = MessageBus::<TSubs1>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -161,7 +174,7 @@ pub fn send_1_message() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_10_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs10>::new(&Advanced.into_valid()?, Driver::new);
+    let mut bus = MessageBus::<TSubs10>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -172,7 +185,7 @@ pub fn send_10_messages() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_100_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs100>::new(&Advanced.into_valid()?, Driver::new);
+    let mut bus = MessageBus::<TSubs100>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -183,7 +196,18 @@ pub fn send_100_messages() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_1k_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs1000>::new(&Advanced.into_valid()?, Driver::new);
+    let mut bus = MessageBus::<TSubs1000>::new(Driver);
+    bus.add_subscriber(TestSender::new)?;
+    bus.add_subscriber(TestListener::new)?;
+    bus.tick();
+    bus.tick();
+
+    Ok(())
+}
+
+#[test]
+pub fn send_10k_messages() -> Result<(), Box<dyn std::error::Error>> {
+    let mut bus = MessageBus::<TSubs10000>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
