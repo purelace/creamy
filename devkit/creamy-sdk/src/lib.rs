@@ -56,4 +56,17 @@ pub fn get_outgoing() -> DynOutBuf {
     }
 }
 
+#[cfg(feature = "internal-testing")]
+pub fn initialize_buffers(
+    messages: core::num::NonZeroUsize,
+) -> Result<(), core::alloc::LayoutError> {
+    unsafe {
+        use cbus_core::buffer::runtime::DynSharedBuf;
+        INCOMING = Some(DynIncBuf::from_buf(DynSharedBuf::new(messages)?));
+        OUTGOING = Some(DynOutBuf::from_buf(DynSharedBuf::new(messages)?));
+    }
+
+    Ok(())
+}
+
 include!(concat!(env!("OUT_DIR"), "/system.rs"));

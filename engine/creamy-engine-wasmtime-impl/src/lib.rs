@@ -8,7 +8,7 @@ use creamy_engine_core::{
     Constants, WasmModule, WasmRuntime,
     bus::{config::BusConfig, core::Subscriber},
 };
-use wasmtime::{Config, Engine, Instance, Module, Store, TypedFunc};
+use wasmtime::{Config, Engine, Instance, Module, PoolingAllocationConfig, Store, TypedFunc};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
@@ -45,9 +45,12 @@ pub struct WasmtimeRuntime {
 }
 
 impl WasmtimeRuntime {
-    pub fn new() -> Result<Self, RuntimeError> {
+    pub fn new(heap_size: u32) -> Result<Self, RuntimeError> {
         let mut config = Config::default();
+        let mut pooling = PoolingAllocationConfig::new();
+        pooling.max_memory_size(heap_size as usize);
         config.compiler_inlining(wasmtime::Inlining::Yes);
+        config.allocation_strategy(pooling);
         Ok(Self {
             engine: Engine::new(&config)?,
         })

@@ -194,6 +194,11 @@ impl DynSharedBuf {
         }
     }
 
+    #[must_use]
+    pub const fn messages(&self) -> &[UntypedMessage] {
+        unsafe { core::slice::from_raw_parts(self.get_slice_ptr().as_ptr(), self.size.get()) }
+    }
+
     pub const unsafe fn as_const_sized<const M: usize>(&mut self) -> SharedBuf<M> {
         unsafe { SharedBuf::from_ptr_only(self.ptr) }
     }
@@ -272,6 +277,7 @@ impl DynIncBuf {
         Some(buffer.data[start])
     }
 
+    //TODO: bugged, fix needed
     pub fn pop_all(&mut self) -> &[UntypedMessage] {
         let count = self.buf.count() as usize;
         if count == 0 {
@@ -318,6 +324,11 @@ impl DynOutBuf {
         self.buf.set_count(self.buf.count() + count);
     }
 
+    #[must_use]
+    pub const fn messages(&self) -> &[UntypedMessage] {
+        self.buf.messages()
+    }
+
     #[inline]
     const fn write_ptr(&self) -> NonNull<UntypedMessage> {
         unsafe {
@@ -327,7 +338,7 @@ impl DynOutBuf {
             let last_slot = self.buf.get_slice_ptr().add(self.buf.size.get());
 
             // Вычитаем уже занятые слоты, чтобы не затереть данные
-            last_slot.sub(self.buf.count() as usize)
+            last_slot.sub(self.buf.count() as usize + 1)
         }
     }
 

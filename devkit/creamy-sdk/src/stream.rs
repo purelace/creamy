@@ -99,7 +99,8 @@ pub trait StreamWriterFunctions {
     where
         Self: 'a;
 
-    //fn read_single(&mut self, single: <Self::Stream as StreamMessage>::Payload);
+    fn start<'a>(&mut self, object: &'a Self::Object<'a>);
+
     fn write_head<'a>(
         &mut self,
         object: &'a Self::Object<'a>,
@@ -114,6 +115,8 @@ pub trait StreamWriterFunctions {
         &mut self,
         object: &'a Self::Object<'a>,
     ) -> <Self::Stream as StreamMessage>::Tail;
+
+    fn remaining_length(&self) -> usize;
 }
 
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -231,8 +234,6 @@ pub struct StreamWriter<W: StreamWriterFunctions> {
     writer: W,
     frame: u8,
     id: StreamId,
-    //_phantom: PhantomData<'a>,
-    //state: StreamChunkType,
 }
 
 impl<W: StreamWriterFunctions> StreamWriter<W> {
@@ -259,21 +260,35 @@ impl<W: StreamWriterFunctions> StreamWriter<W> {
             assert!(outgoing.send(&message));
         };
 
+        self.writer.start(object);
+
         let head = self.writer.write_head(object);
         let data = head.cast_to_array();
         write_and_send(data, StreamChunkType::Head);
 
-        write_and_send([0; 28], StreamChunkType::Tail);
-        return;
-
-        if let Some(payload) = self.writer.write_payload(object) {
-            let data = payload.cast_to_array();
-            write_and_send(data, StreamChunkType::Payload);
-        } else {
-            let tail = self.writer.write_tail(object);
-            let data = tail.cast_to_array();
-            write_and_send(data, StreamChunkType::Tail);
+        loop {
+            if let Some(payload) = self.writer.write_payload(object) {
+                let data = payload.cast_to_array();
+                write_and_send(data, StreamChunkType::Payload);
+            } else {
+                let tail = self.writer.write_tail(object);
+                let data = tail.cast_to_array();
+                write_and_send(data, StreamChunkType::Tail);
+                break;
+            }
         }
+
+        let _messages = outgoing.messages();
+        core::hint::black_box("dummy");
+
+        //if let Some(payload) = self.writer.write_payload(object) {
+        //    let data = payload.cast_to_array();
+        //    write_and_send(data, StreamChunkType::Payload);
+        //} else {
+        //    let tail = self.writer.write_tail(object);
+        //    let data = tail.cast_to_array();
+        //    write_and_send(data, StreamChunkType::Tail);
+        //}
     }
 
     pub const fn tick(&mut self) {

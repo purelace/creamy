@@ -11,6 +11,7 @@ tracing.workspace = true
 wasmtime = { version = "47.0.2", default-features = false, features = [
     "runtime",
     "cranelift",
+    "pooling-allocator",
 
     # debug features
     "demangle",

@@ -8,7 +8,7 @@ use creamy_sdk::{
     logging::LogReader,
     stream::{StreamId, StreamMessage, StreamReader},
     system::builtin::{
-        Log, PluginAppeared, PluginDisappeared, ProtocolDeclared, ProtocolRedeclared,
+        Log, LogType, PluginAppeared, PluginDisappeared, ProtocolDeclared, ProtocolRedeclared,
         ProtocolUndeclared, StreamCancel, StreamKeepAlive,
     },
 };
@@ -58,6 +58,7 @@ impl MessageHandler for SystemPlugin {
     fn handle_stream_keep_alive(&mut self, _: StreamKeepAlive) {}
     fn handle_stream_cancel(&mut self, _: StreamCancel) {}
 
+    // Receive, not send
     fn handle_log(&mut self, message: Log) {
         let stream = self
             .logs
@@ -69,11 +70,20 @@ impl MessageHandler for SystemPlugin {
             Err(e) => panic!("{e}"),
         };
 
-        let stream = self.logs.remove(&message.stream_id()).unwrap();
+        if !result {
+            return;
+        }
 
-        if result {
-            let message = stream.into_reader().into_string().unwrap();
-            tracing::info!("log: {message}");
+        let stream = self.logs.remove(&message.stream_id()).unwrap();
+        let reader = stream.into_reader();
+        let log_type = reader.log_type();
+        let content = reader.into_string().unwrap();
+
+        match log_type {
+            LogType::Debug => tracing::debug!("{content}"),
+            LogType::Info => tracing::info!("{content}"),
+            LogType::Warning => tracing::warn!("{content}"),
+            LogType::Error => tracing::error!("{content}"),
         }
     }
 

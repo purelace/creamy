@@ -17,3 +17,11 @@ bit-set = "0.11.1"
 [build-dependencies]
 creamy-libgen-rs = { workspace = true, features = ["sdk_internal_use"] }
 creamy-xmlc.workspace = true
+
+
+[features]
+internal-testing = []
+
+[[test]]
+name = "stream"
+required-features = ["internal-testing"]

@@ -212,7 +212,7 @@ impl<const M: usize> OutBuf<M> {
             let last_slot = self.buf.get_slice_ptr().add(M);
 
             // Вычитаем уже занятые слоты, чтобы не затереть данные
-            last_slot.sub(self.buf.count() as usize)
+            last_slot.sub(self.buf.count() as usize + 1)
         }
     }
 

@@ -2,21 +2,37 @@ use alloc::{string::String, vec::Vec};
 use core::fmt::Arguments;
 
 use crate::{
-    stream::{StreamMessage, StreamReaderFunctions, StreamWriterFunctions},
+    stream::{
+        StreamChunkType::Payload, StreamMessage, StreamReaderFunctions, StreamWriterFunctions,
+    },
     system::builtin::{
         Log, LogType,
         log::{LogHead, LogPayload, LogTail},
     },
 };
 
-#[derive(Default)]
 pub struct LogReader {
     buffer: Vec<u8>,
+    kind: LogType,
+}
+
+impl Default for LogReader {
+    fn default() -> Self {
+        Self {
+            buffer: Vec::new(),
+            kind: LogType::Debug,
+        }
+    }
 }
 
 impl LogReader {
     pub fn into_string(self) -> Result<String, alloc::string::FromUtf8Error> {
         String::from_utf8(self.buffer)
+    }
+
+    #[must_use]
+    pub const fn log_type(&self) -> LogType {
+        self.kind
     }
 }
 
@@ -31,16 +47,20 @@ impl StreamReaderFunctions for LogReader {
         }
 
         self.buffer.extend(head.data);
+        self.kind = head.log_type;
     }
 
     fn read_payload(&mut self, payload: <Self::Stream as StreamMessage>::Payload) {
         self.buffer.extend(payload.data);
     }
 
-    fn read_tail(&mut self, _tail: <Self::Stream as StreamMessage>::Tail) {}
+    fn read_tail(&mut self, tail: <Self::Stream as StreamMessage>::Tail) {
+        self.buffer.extend(tail.data);
+    }
 }
 
 pub struct LogWriter {
+    size: usize,
     sent: usize,
     kind: LogType,
 }
@@ -48,13 +68,21 @@ pub struct LogWriter {
 impl LogWriter {
     #[must_use]
     pub const fn new(kind: LogType) -> Self {
-        Self { sent: 0, kind }
+        Self {
+            size: 0,
+            sent: 0,
+            kind,
+        }
     }
 }
 
 impl StreamWriterFunctions for LogWriter {
     type Stream = Log;
     type Object<'a> = str;
+
+    fn start<'a>(&mut self, object: &'a Self::Object<'a>) {
+        self.size = object.len();
+    }
 
     fn write_head<'a>(
         &mut self,
@@ -111,6 +139,10 @@ impl StreamWriterFunctions for LogWriter {
 
         LogTail { __unused: 0, data }
     }
+
+    fn remaining_length(&self) -> usize {
+        self.size - self.sent
+    }
 }
 
 pub fn send_log(string: Arguments, log_type: LogType) {
@@ -146,7 +178,7 @@ macro_rules! warn {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::system::builtin::LogType::Warn
+            $crate::system::builtin::LogType::Warning
         );
     };
 }

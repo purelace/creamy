@@ -15,7 +15,7 @@ pub trait CustomHandler {
 
 const HEADER_MASK: u32 = 0x00_FF_00_FF;
 pub fn handle_incoming<H: MessageHandler>(handler: &mut H, mut incoming: DynIncBuf) {
-    for &message in incoming.pop_all() {
+    while let Some(message) = incoming.pop() {
         let dispatch_value = {
             let message: &UntypedMessage = &message;
             (u32::from(message.group) << 16 | u32::from(message.kind)) & HEADER_MASK

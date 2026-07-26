@@ -23,7 +23,8 @@ fn compile_plugin() -> anyhow::Result<()> {
 }
 
 async fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, AsyncLoader>> {
-    let runtime = WasmtimeRuntime::new()?;
+    const HEAP_SIZE: u32 = 67_108_864;
+    let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
     let loader = AsyncLoader::new(
         LoaderConfig {
             parallel_downloads: 4,
@@ -36,7 +37,7 @@ async fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, AsyncLoad
 
     let engine = PluginEngine::new(
         Constants {
-            heap_size: 67_108_864,
+            heap_size: HEAP_SIZE,
         },
         runtime,
         loader,
