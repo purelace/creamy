@@ -87,10 +87,6 @@ where
         }
     }
 
-    pub const fn messages(&self) -> usize {
-        self.pool.count()
-    }
-
     fn new_id(&mut self) -> Result<SubscriberId, BusError> {
         let Some(id) = self.mint.issue() else {
             return Err(BusError::PoolExhausted {

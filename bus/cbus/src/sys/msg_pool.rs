@@ -57,10 +57,6 @@ impl<C: BusConfig> MessagePool<C> {
         self.count = 0;
     }
 
-    pub const fn count(&self) -> usize {
-        self.count
-    }
-
     pub const fn slice(&mut self, len: usize, ptr_location: usize) -> &[UntypedMessage] {
         unsafe {
             let ptr = self.ptr.add(ptr_location).as_ptr();
