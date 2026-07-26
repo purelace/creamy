@@ -178,6 +178,18 @@ where
         Ok(sub)
     }
 
+    pub fn get_subscriber(&self, id: SubscriberId) -> Option<&S> {
+        self.subscribers
+            .get(id.get() as usize)
+            .and_then(|data| data.sub.as_ref())
+    }
+
+    pub fn get_subscriber_mut(&mut self, id: SubscriberId) -> Option<&mut S> {
+        self.subscribers
+            .get_mut(id.get() as usize)
+            .and_then(|data| data.sub.as_mut())
+    }
+
     pub fn update_lookup_table(&mut self, id: SubscriberId) {
         self.driver.on_subscribe(id);
     }
