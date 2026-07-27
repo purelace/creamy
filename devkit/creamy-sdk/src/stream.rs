@@ -1,6 +1,9 @@
-use core::fmt::Display;
+use alloc::boxed::Box;
+use core::{any::TypeId, fmt::Display};
 
 use cbus_core::message::TypedMessage;
+use downcast_rs::Downcast;
+use rustc_hash::FxHashMap;
 use thiserror::Error;
 
 use crate::{get_outgoing, system::builtin::Log, utils::extract_payload};
@@ -157,6 +160,7 @@ impl<R: StreamReaderFunctions> StreamReader<R> {
 
     /// Возвращает true когда чтение потока было полностью завершено
     pub fn read(&mut self, message: R::Stream) -> Result<bool, StreamReaderError> {
+        let d = message.discriminant();
         match self.state {
             StreamChunkType::Single => {
                 todo!();
@@ -277,18 +281,6 @@ impl<W: StreamWriterFunctions> StreamWriter<W> {
                 break;
             }
         }
-
-        let _messages = outgoing.messages();
-        core::hint::black_box("dummy");
-
-        //if let Some(payload) = self.writer.write_payload(object) {
-        //    let data = payload.cast_to_array();
-        //    write_and_send(data, StreamChunkType::Payload);
-        //} else {
-        //    let tail = self.writer.write_tail(object);
-        //    let data = tail.cast_to_array();
-        //    write_and_send(data, StreamChunkType::Tail);
-        //}
     }
 
     pub const fn tick(&mut self) {
@@ -307,3 +299,38 @@ impl<W: StreamWriterFunctions> StreamWriter<W> {
         self.writer
     }
 }
+
+pub trait StreamStorage {
+    fn get_or_add_writer(&mut self, writer: dyn StreamWriterMarker);
+    fn get_or_add_reader(&mut self, reader: dyn StreamReaderMarker);
+}
+
+pub struct TypedStreamStorage<R: StreamReaderFunctions, W: StreamWriterFunctions> {
+    readers: FxHashMap<u16, StreamReader<R>>,
+    writers: FxHashMap<u16, StreamWriter<W>>,
+}
+
+pub struct StreamStorages {
+    inner: FxHashMap<TypeId, Box<dyn StreamStorage>>,
+}
+
+impl StreamStorages {
+    pub fn read_message(&mut self, message: impl StreamMessage) {}
+}
+
+pub trait StreamReaderMarker: Downcast {}
+downcast_rs::impl_downcast!(StreamReaderMarker);
+
+pub trait StreamWriterMarker: Downcast {}
+downcast_rs::impl_downcast!(StreamWriterMarker);
+
+impl StreamReaderFunctions for () {
+    type Stream = Log;
+
+    fn read_single(&mut self, single: <Self::Stream as StreamMessage>::Payload) {}
+    fn read_head(&mut self, head: <Self::Stream as StreamMessage>::Head) {}
+    fn read_payload(&mut self, payload: <Self::Stream as StreamMessage>::Payload) {}
+    fn read_tail(&mut self, tail: <Self::Stream as StreamMessage>::Tail) {}
+}
+
+//static STREAMS: [StreamReader<()>; 64] = [StreamReader::new(StreamId::new(0), ()); 64];

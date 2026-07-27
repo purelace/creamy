@@ -1,0 +1,10 @@
+[package]
+name = "creamy-system-plugin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rustc-hash.workspace = true
+creamy-sdk.workspace = true
+log = "0.4.33"

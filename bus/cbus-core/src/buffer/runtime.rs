@@ -256,6 +256,11 @@ impl DynIncBuf {
         Self { buf }
     }
 
+    #[must_use]
+    pub unsafe fn into_buf(self) -> DynSharedBuf {
+        self.buf
+    }
+
     pub const fn clear(&mut self) {
         self.buf.set_count(0);
     }
@@ -307,6 +312,11 @@ impl DynOutBuf {
     #[must_use]
     pub const fn from_buf(buf: DynSharedBuf) -> Self {
         Self { buf }
+    }
+
+    #[must_use]
+    pub unsafe fn into_buf(self) -> DynSharedBuf {
+        self.buf
     }
 
     #[allow(clippy::cast_possible_truncation)]

@@ -22,6 +22,7 @@ members = [
     "devkit/creamy-manifest",
     "devkit/creamy-protocol-tui",
     "devkit/creamy-sdk",
+    "devkit/creamy-testbench",
     "devkit/creamy-utils",
     "devkit/creamy-xmlc",
     "engine/creamy",
@@ -30,6 +31,7 @@ members = [
     "engine/creamy-engine-async-loader",
     "engine/creamy-engine-loader",
     "engine/creamy-engine-wasmtime-impl",
+    "engine/creamy-system-plugin",
     "engine/pathenv",
     "examples/ping/plugin",
 ]
@@ -47,6 +49,7 @@ creamy-protocol-tui = { path = "devkit/creamy-protocol-tui" }
 creamy-utils = { path = "devkit/creamy-utils" }
 creamy-xmlc = { path = "devkit/creamy-xmlc" }
 creamy-sdk = { path = "devkit/creamy-sdk" }
+creamy-testbench = { path = "devkit/creamy-testbench"}
 
 # Engine
 creamy = { path = "engine/creamy" }
@@ -55,6 +58,7 @@ creamy-engine-core = { path = "engine/creamy-engine-core" }
 creamy-engine-async-loader = { path = "engine/creamy-engine-async-loader" }
 creamy-engine-loader = { path = "engine/creamy-engine-loader" }
 creamy-engine-wasmtime-impl = { path = "engine/creamy-engine-wasmtime-impl" }
+creamy-system-plugin = { path = "engine/creamy-system-plugin" }
 pathenv = { path = "engine/pathenv" }
 
 anyhow = "1.0.104"
@@ -89,6 +93,7 @@ ptree = "0.5.2"
 console = "0.16.4"
 semver = { version = "1.0.28", features = ["serde"] }
 inotify = "0.11.4"
+rustc-hash = "2.1.3"
 
 [workspace.dependencies.serde]
 version = "1.0.229"

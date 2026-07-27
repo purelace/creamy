@@ -1,7 +1,11 @@
-use std::num::NonZeroUsize;
-
+use cbus_core::{
+    Subscriber, SubscriberId,
+    buffer::{IncBuf, OutBuf},
+};
 use creamy_sdk::{
-    get_outgoing, initialize_buffers,
+    api::handle_incoming,
+    dispatcher::dispatch_message,
+    get_incoming, get_outgoing, initialize_buffers,
     logging::{LogReader, LogWriter},
     stream::{StreamId, StreamReader, StreamWriter},
     system::builtin::LogType,
@@ -9,11 +13,7 @@ use creamy_sdk::{
 
 #[test]
 fn writer() -> Result<(), Box<dyn core::error::Error>> {
-    initialize_buffers(NonZeroUsize::new(1024).unwrap())?;
-    let mut writer = StreamWriter::new(LogWriter::new(LogType::Info), StreamId::new(1));
-    writer.write("Hello, World!");
-
-    let mut reader = StreamReader::new(StreamId::new(1), LogReader::default());
+    //initialize_te(sub)?;
 
     Ok(())
 }

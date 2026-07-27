@@ -63,12 +63,6 @@ impl core::ops::Deref for SubscriberId {
     }
 }
 
-//impl core::ops::DerefMut for SubscriberId {
-//    fn deref_mut(&mut self) -> &mut Self::Target {
-//        &mut self.0
-//    }
-//}
-
 pub trait Subscriber: Downcast + Any + 'static {
     fn notify(&mut self);
 }

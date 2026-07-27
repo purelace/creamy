@@ -16,9 +16,10 @@ use creamy_sdk::bus::{
     Subscriber, SubscriberId,
     buffer::{IncBuf, OutBuf, SharedBuf},
 };
+use creamy_system_plugin::SystemPlugin;
 use rustc_hash::FxHashMap;
 
-use crate::{driver::EngineBusDriver, registry::ProtocolRegistry, system_plugin::SystemPlugin};
+use crate::{driver::EngineBusDriver, registry::ProtocolRegistry};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -96,7 +97,7 @@ define_bus_config! {
 }
 
 pub enum SubscriberType<R: WasmRuntime<Legacy> + 'static> {
-    System(SystemPlugin),
+    System(SystemPlugin<M, ()>),
     Wasm(R::Module),
 }
 
@@ -110,7 +111,7 @@ impl<R: WasmRuntime<Legacy> + 'static> Subscriber for SubscriberType<R> {
 }
 
 impl<R: WasmRuntime<Legacy> + 'static> SubscriberType<R> {
-    fn as_system_mut(&mut self) -> &mut SystemPlugin {
+    fn as_system_mut(&mut self) -> &mut SystemPlugin<M, ()> {
         match self {
             SubscriberType::System(p) => p,
             SubscriberType::Wasm(_) => unreachable!(),
@@ -139,7 +140,7 @@ impl<R: WasmRuntime<Legacy>, L: PluginLoader> PluginEngine<R, L> {
         bus.add_subscriber_with(
             incoming.clone(),
             outgoing.clone(),
-            SubscriberType::System(SystemPlugin::new(incoming, outgoing)),
+            SubscriberType::System(SystemPlugin::new(incoming, outgoing, ())),
         )
         .unwrap();
 

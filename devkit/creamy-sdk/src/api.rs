@@ -7,10 +7,17 @@ use crate::dispatcher::MessageHandler;
 
 pub trait Plugin: Sized + CustomHandler {
     fn init(outgoing: DynOutBuf) -> Option<Self>;
+    fn notify(&mut self) {}
 }
 
-pub trait CustomHandler {
+pub trait CustomHandler: 'static {
     fn handle_message(&mut self, dispatch_value: u32, message: UntypedMessage);
+}
+
+impl CustomHandler for () {
+    fn handle_message(&mut self, _: u32, _: UntypedMessage) {
+        // ignore
+    }
 }
 
 const HEADER_MASK: u32 = 0x00_FF_00_FF;
@@ -50,6 +57,7 @@ macro_rules! declare_plugin {
                 let incoming = $crate::get_incoming();
                 if let Some(state) = STATE.as_mut() {
                     $crate::api::handle_incoming(state, incoming);
+                    state.notify();
                 }
             }
         }

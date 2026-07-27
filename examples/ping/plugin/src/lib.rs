@@ -25,6 +25,10 @@ impl Plugin for PingPlugin {
         error!("Как дела?");
         Some(Self { outgoing })
     }
+
+    fn notify(&mut self) {
+        info!("Йо-йо-йо 1-4-8-3 да 3-6-9, Альбукерке жжёт, чё-кого, сучара, жди сигнала");
+    }
 }
 
 impl MessageHandler for PingPlugin {

@@ -209,12 +209,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
-
-[[package]]
-name = "base64"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
@@ -779,6 +773,7 @@ dependencies = [
  "creamy-engine-loader",
  "creamy-engine-wasmtime-impl",
  "creamy-sdk",
+ "creamy-system-plugin",
  "garde",
  "log",
  "pathenv",
@@ -936,10 +931,30 @@ dependencies = [
  "bit-set",
  "cbus-core",
  "creamy-libgen-rs",
+ "creamy-testbench",
  "creamy-xmlc",
+ "downcast-rs",
  "rlsf",
+ "rustc-hash",
  "spin",
  "thiserror 2.0.19",
+]
+
+[[package]]
+name = "creamy-system-plugin"
+version = "0.1.0"
+dependencies = [
+ "creamy-sdk",
+ "log",
+ "rustc-hash",
+]
+
+[[package]]
+name = "creamy-testbench"
+version = "0.1.0"
+dependencies = [
+ "cbus",
+ "creamy-sdk",
 ]
 
 [[package]]
@@ -2202,15 +2217,14 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "rlsf"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1646a59a9734b8b7a0ac51689388a60fe1625d4b956348e9de07591a1478457a"
+checksum = "07393724337be2ee43a9d86164df4505746874a3fa65913374bc6d6a92314362"
 dependencies = [
  "cfg-if",
  "const-default",
  "libc",
  "rustversion",
- "svgbobdoc",
 ]
 
 [[package]]
@@ -2523,30 +2537,6 @@ name = "supports-unicode"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7401a30af6cb5818bb64852270bb722533397edcfc7344954a38f420819ece2"
-
-[[package]]
-name = "svgbobdoc"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2c04b93fc15d79b39c63218f15e3fdffaa4c227830686e3b7c5f41244eb3e50"
-dependencies = [
- "base64 0.13.1",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "unicode-width 0.1.14",
-]
-
-[[package]]
-name = "syn"
-version = "1.0.109"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
-dependencies = [
- "proc-macro2",
- "quote",
- "unicode-ident",
-]
 
 [[package]]
 name = "syn"

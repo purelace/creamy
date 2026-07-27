@@ -2,9 +2,7 @@ use alloc::{string::String, vec::Vec};
 use core::fmt::Arguments;
 
 use crate::{
-    stream::{
-        StreamChunkType::Payload, StreamMessage, StreamReaderFunctions, StreamWriterFunctions,
-    },
+    stream::{StreamMessage, StreamReaderFunctions, StreamWriterFunctions},
     system::builtin::{
         Log, LogType,
         log::{LogHead, LogPayload, LogTail},
@@ -108,20 +106,21 @@ impl StreamWriterFunctions for LogWriter {
         &mut self,
         object: &'a Self::Object<'a>,
     ) -> Option<<Self::Stream as StreamMessage>::Payload> {
+        const DATA_SIZE: usize = 27;
+
         if self.sent == object.len() {
             return None;
         }
 
-        const DATA_SIZE: usize = 27;
+        if object.len() - self.sent <= DATA_SIZE {
+            // We will send a remainder in tail part
+            return None;
+        }
 
         let mut data = [0; DATA_SIZE];
         let slice = &object.as_bytes()[self.sent..];
         let to_read = slice.len().min(DATA_SIZE);
-
-        if to_read <= DATA_SIZE {
-            // We will send a remainder in tail part
-            return None;
-        }
+        self.sent += to_read;
 
         data[..to_read].copy_from_slice(&slice[..to_read]);
 

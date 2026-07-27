@@ -1,3 +1,7 @@
+#![no_std]
+
+extern crate alloc;
+
 use alloc::boxed::Box;
 
 use creamy_sdk::{
@@ -16,23 +20,25 @@ use creamy_sdk::{
 };
 use rustc_hash::FxHashMap;
 
-use crate::engine::M;
-
-pub struct SystemPlugin {
+pub struct SystemPlugin<const M: usize, S: CustomHandler> {
     inc: IncBuf<M>,
     out: OutBuf<M>,
     logs: FxHashMap<StreamId, StreamReader<LogReader>>,
 
     names: FxHashMap<SubscriberId, Box<str>>,
+
+    extend: S,
 }
 
-impl SystemPlugin {
-    pub fn new(inc: IncBuf<M>, out: OutBuf<M>) -> Self {
+impl<const M: usize, S: CustomHandler> SystemPlugin<M, S> {
+    #[must_use]
+    pub fn new(inc: IncBuf<M>, out: OutBuf<M>, extend: S) -> Self {
         Self {
             inc,
             out,
             logs: FxHashMap::default(),
             names: FxHashMap::default(),
+            extend,
         }
     }
 
@@ -45,7 +51,7 @@ impl SystemPlugin {
     }
 }
 
-impl Subscriber for SystemPlugin {
+impl<const M: usize, H: CustomHandler> Subscriber for SystemPlugin<M, H> {
     fn notify(&mut self) {
         unsafe {
             let dyn_buf = self.inc.as_inner_mut().as_dyn_buf();
@@ -55,13 +61,13 @@ impl Subscriber for SystemPlugin {
     }
 }
 
-impl CustomHandler for SystemPlugin {
+impl<const M: usize, H: CustomHandler> CustomHandler for SystemPlugin<M, H> {
     fn handle_message(&mut self, dispatch_value: u32, message: UntypedMessage) {
         creamy_sdk::dispatcher::dispatch_message(dispatch_value, message, self);
     }
 }
 
-impl MessageHandler for SystemPlugin {
+impl<const M: usize, H: CustomHandler> MessageHandler for SystemPlugin<M, H> {
     // Send, not receive
     fn handle_plugin_appeared(&mut self, _: PluginAppeared) {}
     fn handle_plugin_disappeared(&mut self, _: PluginDisappeared) {}
@@ -105,5 +111,7 @@ impl MessageHandler for SystemPlugin {
         }
     }
 
-    fn handle_unknown_message(&mut self, dispatch_value: u32, message: UntypedMessage) {}
+    fn handle_unknown_message(&mut self, dispatch_value: u32, message: UntypedMessage) {
+        self.extend.handle_message(dispatch_value, message);
+    }
 }

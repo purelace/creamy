@@ -11,11 +11,17 @@ use crate::{
 
 pub struct InnerState<P: Plugin> {
     plugin: P,
+    // Group id + kind
+    //streams: FxHashMap<u16>,
 }
 
 impl<P: Plugin> InnerState<P> {
     pub const fn new(plugin: P) -> Self {
         Self { plugin }
+    }
+
+    pub fn notify(&mut self) {
+        self.plugin.notify();
     }
 }
 
@@ -48,6 +54,7 @@ impl<P: Plugin> MessageHandler for InnerState<P> {
     #[inline(always)]
     fn handle_stream_cancel(&mut self, message: StreamCancel) {}
 
+    /// Send, not receive
     fn handle_log(&mut self, _: Log) {}
 
     #[inline(always)]

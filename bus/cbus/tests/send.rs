@@ -220,4 +220,6 @@ pub fn send_10k_messages() -> Result<(), Box<dyn std::error::Error>> {
  * Когда плагин уходит мы одну часть обнуляем полностью, а вторую должны изменить точечно.
  * Что исправить:
  * Buffer overflow
+ *
+ * TODO: bus test sdk
  */
