@@ -21,7 +21,10 @@
             <field name="count" type="u32" />
         </start>
         <payload>
+
+            <!--
             <array name="player_name" type="u8" len_type="u32" />
+            -->
         </payload>
         <end>
             <field name="checksum" type="u32" />
@@ -43,10 +46,12 @@
         <payload>
             <field name="data" type="[u8; 27]"/>
         </payload>
+        <!--
         <result>
             <field name="result" type="LogType" source="kind"/>
             <field name="bytes" type="u8" is_dynamic="true" capacity="length"/>
         </result>
+        -->
     </stream>
 
     <group name="first" access="Public">
