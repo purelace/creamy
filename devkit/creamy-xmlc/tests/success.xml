@@ -38,10 +38,15 @@
     <stream kind="1" name="Log" timeout="4">
         <start>
             <field name="kind" type="LogType" />
+            <field name="length" type="u32"/>
         </start>
         <payload>
-            <array name="player_name" type="u8" len_type="u32" />
+            <field name="data" type="[u8; 27]"/>
         </payload>
+        <result>
+            <field name="result" type="LogType" source="kind"/>
+            <field name="bytes" type="u8" is_dynamic="true" capacity="length"/>
+        </result>
     </stream>
 
     <group name="first" access="Public">

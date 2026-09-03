@@ -3,8 +3,7 @@ use crate::{
     error::AstError,
     model::symbols::U8_ID,
     nodes::{
-        ArrayFieldNode, FieldNode, FieldTypeNode, MessageNode, MessageNodeType, StreamNode,
-        StreamPayloadFieldNode,
+        FieldNode, FieldTypeNode, MessageNode, MessageNodeType, StreamNode, StreamPayloadFieldNode,
     },
     tokenizer::{Identifier, Token},
     tree::RangeBuilder,
@@ -13,7 +12,7 @@ use crate::{
 
 #[inline]
 const fn token_stream_payload_field(t: &Token) -> bool {
-    matches!(t, Token::Field { .. } | Token::Array { .. })
+    matches!(t, Token::Field { .. })
 }
 
 #[derive(Default)]
@@ -37,21 +36,11 @@ impl StreamPayloadFieldParser {
             FieldTypeNode::Type(U8_ID),
         ));
         crate::push_node! {
-            to: self.vec,node: node,flag: self.has_error,diag,AstError::TooManyFields
+            to: self.vec, node: node, flag: self.has_error, diag, AstError::TooManyFields
         };
         self.builder.next();
         while let Some(token) = iter.next_if(token_stream_payload_field) {
             let node = match token {
-                Token::Array {
-                    name,
-                    kind,
-                    len,
-                    span: _,
-                } => StreamPayloadFieldNode::Array(ArrayFieldNode::new(
-                    name.intern(pool),
-                    kind.intern(pool),
-                    len.intern(pool),
-                )),
                 Token::Field {
                     name,
                     kind,
@@ -64,7 +53,7 @@ impl StreamPayloadFieldParser {
             };
 
             crate::push_node! {
-                to: self.vec,node: node,flag: self.has_error,diag,AstError::TooManyFields
+                to: self.vec,node: node,flag: self.has_error, diag, AstError::TooManyFields
             }
             self.builder.next();
         }
@@ -116,6 +105,7 @@ impl MessageParser {
         let mut start = None;
         let mut payload = None;
         let mut end = None;
+        //let mut result = None;
 
         //Fix: ебаный костыль. надо сделать внедрение полей или на уровне семантической модели или хз
         for i in 0..3 {
@@ -148,6 +138,10 @@ impl MessageParser {
                     ctx.field.builder.next();
                     end = Some(ctx.field.parse_fields(ctx.diag, ctx.pool, iter));
                 }
+                //Some(Token::StreamResult { .. }) if result.is_none() => {
+                //    let _ = iter.next();
+                //    ctx.field.builder.next();
+                //}
                 _ => {
                     if payload.is_some() {
                         break;

@@ -160,7 +160,6 @@ impl<R: StreamReaderFunctions> StreamReader<R> {
 
     /// Возвращает true когда чтение потока было полностью завершено
     pub fn read(&mut self, message: R::Stream) -> Result<bool, StreamReaderError> {
-        let d = message.discriminant();
         match self.state {
             StreamChunkType::Single => {
                 todo!();

@@ -39,59 +39,59 @@ const fn missing_attr_error(tag: &'static str, attr: &'static str) -> ProtocolEr
     })
 }
 
-#[test]
-fn other() {
-    const CONTENT: &str = r#"
+const CONTENT: &str = r#"
 <?xml version="1.0" encoding="UTF-8" ?>
 <protocol>
 
 
-    <!-- InvalidAccess, UnknownTag -->
-    <group name="access" access="777">
-        <error>
-        </error>
-    </group>
+<!-- InvalidAccess, UnknownTag -->
+<group name="access" access="777">
+    <error>
+    </error>
+</group>
 
 
-    <!-- Missing attributes -->
-    <group>
-        <message kind="0">
-            <field/>
-        </message>
+<!-- Missing attributes -->
+<group>
+    <message kind="0">
+        <field/>
+    </message>
 
-        <struct>
-            <field name="data" type="u8"/>
-        </struct>
+    <struct>
+        <field name="data" type="u8"/>
+    </struct>
 
-        <enum>
-            <variant/>
-            <variant name="Foo" value="10"/>
-        </enum>
-    </group>
+    <enum>
+        <variant/>
+        <variant name="Foo" value="10"/>
+    </enum>
+</group>
 
-    <group name="test" access="Private">
-        <message kind="0" name="test">
-            <field name="field0" type="[u8; should_be_a_number]"/>
-            <field name="field1" type="[u8;28"/>
-            <field name="field2" type="u8;28]"/>
-            <field name="field3" type="[28]"/>
-            <field name="field4" type="[u64; 2]"/>
-        </message>
-    </group>
+<group name="test" access="Private">
+    <message kind="0" name="test">
+        <field name="field0" type="[u8; should_be_a_number]"/>
+        <field name="field1" type="[u8;28"/>
+        <field name="field2" type="u8;28]"/>
+        <field name="field3" type="[28]"/>
+        <field name="field4" type="[u64; 2]"/>
+    </message>
+</group>
 
-    <group name="42bratuha" access="Private">
-        <message kind="0" name="penis@gmail.com">
-            <field name="" type="u32"/>
-        </message>
+<group name="42bratuha" access="Private">
+    <message kind="0" name="penis@gmail.com">
+        <field name="" type="u32"/>
+    </message>
 
-        <enum name="Identifier" repr="i64">
-            <variant name="Error" value="NaN"/>
-        </enum>
-    </group>
+    <enum name="Identifier" repr="i64">
+        <variant name="Error" value="NaN"/>
+    </enum>
+</group>
 
 </protocol>
-    "#;
+"#;
 
+#[test]
+fn other() {
     let _ = miette::set_hook(Box::new(|_| {
         Box::new(
             miette::MietteHandlerOpts::new()

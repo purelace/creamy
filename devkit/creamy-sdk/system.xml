@@ -59,49 +59,16 @@
             <end>
                 <field name="data" type="[u8; 27]" />
             </end>
+            <!--
+            <result>
+                <field name="log_type" type="LogType" source="log_type"/>
+                <field name="bytes" type="u8" is_dynamic="true" capacity="length" source="data"/>
+            </result>
+
+            -->
         </stream>
 
         <!--
-        <stream kind="8" name="LogInfo" timeout="4">
-            <start>
-                <field name="length" type="u32" />
-                <field name="data" type="[u8; 20]" />
-            </start>
-            <payload>
-                <field name="data" type="[u8; 26]" />
-            </payload>
-            <end>
-                <field name="data" type="[u8; 26]" />
-            </end>
-        </stream>
-
-        <stream kind="9" name="LogWarning" timeout="4">
-            <start>
-                <field name="length" type="u32" />
-                <field name="data" type="[u8; 20]" />
-            </start>
-            <payload>
-                <field name="data" type="[u8; 26]" />
-            </payload>
-            <end>
-                <field name="data" type="[u8; 26]" />
-            </end>
-        </stream>
-
-        <stream kind="10" name="LogError" timeout="4">
-            <start>
-                <field name="length" type="u32" />
-                <field name="data" type="[u8; 20]" />
-            </start>
-            <payload>
-                <field name="data" type="[u8; 26]" />
-            </payload>
-            <end>
-                <field name="data" type="[u8; 26]" />
-            </end>
-        </stream>
-
-
         <obsolete until="2.0" reason="Test" replaced_by="ProtocolRedeclared">
             <message kind="4" name="ProtocolRedeclaredOld">
                 <field name="version" type="u32" />

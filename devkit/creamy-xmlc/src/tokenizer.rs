@@ -130,12 +130,6 @@ pub enum Token<'src> {
         kind: IdentifierOrArray<'src>,
         span: SourceSpan,
     },
-    Array {
-        name: Identifier<'src>,
-        kind: Identifier<'src>,
-        len: Identifier<'src>,
-        span: SourceSpan,
-    },
     Stream {
         kind: u8,
         name: Identifier<'src>,
@@ -151,6 +145,9 @@ pub enum Token<'src> {
     StreamEnd {
         span: SourceSpan,
     },
+    StreamResult {
+        span: SourceSpan,
+    },
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -164,7 +161,6 @@ impl Display for Token<'_> {
             Token::Enum { .. } => "enum",
             Token::Variant { .. } => "variant",
             Token::Field { .. } => "field",
-            Token::Array { .. } => "remainder",
             Token::Flags { .. } => "flags",
             Token::Option { .. } => "option",
             Token::Bitset { .. } => "bitset",
@@ -173,6 +169,7 @@ impl Display for Token<'_> {
             Token::StreamStart { .. } => "start",
             Token::StreamPayload { .. } => "payload",
             Token::StreamEnd { .. } => "end",
+            Token::StreamResult { .. } => "result",
         };
 
         write!(f, "<{token}>")
@@ -535,15 +532,6 @@ impl<'a, 'src: 'a> Token<'src> {
         }
     }
 
-    fn new_array(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Array {
-            name: ctx.read_ident("name"),
-            kind: ctx.read_ident("type"),
-            len: ctx.read_ident("len_type"),
-            span: span_for(ctx.node),
-        }
-    }
-
     fn new_stream_start(ctx: &Context<'a, 'src>) -> Token<'src> {
         Token::StreamStart {
             span: span_for(ctx.node),
@@ -605,12 +593,6 @@ impl<'a, 'src: 'a> Token<'src> {
                 kind: _,
                 span,
             }
-            | Token::Array {
-                name: _,
-                len: _,
-                kind: _,
-                span,
-            }
             | Token::Stream {
                 kind: _,
                 name: _,
@@ -619,7 +601,8 @@ impl<'a, 'src: 'a> Token<'src> {
             }
             | Token::StreamStart { span }
             | Token::StreamPayload { span }
-            | Token::StreamEnd { span } => span,
+            | Token::StreamEnd { span }
+            | Token::StreamResult { span } => span,
         }
     }
 }
@@ -681,7 +664,6 @@ pub fn tokenize<'a, 'src: 'a>(
             "start" => tokens.push(Token::new_stream_start(&ctx)),
             "payload" => tokens.push(Token::new_stream_payload(&ctx)),
             "end" => tokens.push(Token::new_stream_end(&ctx)),
-            "array" => tokens.push(Token::new_array(&ctx)),
 
             _ => diagnostics
                 .borrow_mut()
