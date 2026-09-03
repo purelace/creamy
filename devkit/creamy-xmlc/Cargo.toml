@@ -18,7 +18,7 @@ miette = { version = "7.6.0", features = ["fancy", "syntect-highlighter"] }
 semver.workspace = true
 
 termtree = "1.0.0"
-owo-colors = "4.3.0"
+owo-colors = "4.4.0"
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"

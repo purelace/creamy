@@ -22,7 +22,7 @@ assert_cmd = "2.2.2"
 
 [build-dependencies]
 clap.workspace = true
-clap_complete = "4.6.7"
+clap_complete = "4.6.9"
 
 [[bin]]
 name = "creamy"
