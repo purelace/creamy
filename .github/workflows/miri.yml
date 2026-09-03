@@ -32,9 +32,6 @@ jobs:
         with:
           cache-on-failure: true
 
-      - name: Run Miri (native)
-        run: RUSTFLAGS="-C target-cpu=native" cargo +nightly miri test -p cbus
-
       - name: Run Miri (avx2)
         run: RUSTFLAGS="-C target-feature=+avx2" cargo +nightly miri test -p cbus
 
