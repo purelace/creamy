@@ -22,7 +22,7 @@ fn compile_plugin() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, AsyncLoader>> {
+async fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, AsyncLoader, ()>> {
     const HEAP_SIZE: u32 = 67_108_864;
     let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
     let loader = AsyncLoader::new(
@@ -41,6 +41,7 @@ async fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, AsyncLoad
         },
         runtime,
         loader,
+        (),
     );
 
     Ok(engine)

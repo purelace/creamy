@@ -31,7 +31,7 @@ fn compile_plugin() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader>> {
+fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader, ()>> {
     const HEAP_SIZE: u32 = 67_108_864;
     let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
     let loader = Loader::new(to_absolute_path("$CREAMY_TEST_PLUGIN_DIR").unwrap())?;
@@ -42,6 +42,7 @@ fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader>> {
         },
         runtime,
         loader,
+        (),
     );
 
     Ok(engine)

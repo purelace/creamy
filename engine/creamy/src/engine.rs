@@ -12,9 +12,12 @@ use creamy_engine_core::{
         xmlc::{ProtocolDefinition, StringPoolResolver},
     },
 };
-use creamy_sdk::bus::{
-    Subscriber, SubscriberId,
-    buffer::{IncBuf, OutBuf, SharedBuf},
+use creamy_sdk::{
+    api::CustomHandler,
+    bus::{
+        Subscriber, SubscriberId,
+        buffer::{IncBuf, OutBuf, SharedBuf},
+    },
 };
 use creamy_system_plugin::SystemPlugin;
 use rustc_hash::FxHashMap;
@@ -96,12 +99,12 @@ define_bus_config! {
     max_groups: 32,
 }
 
-pub enum SubscriberType<R: WasmRuntime<Legacy> + 'static> {
-    System(SystemPlugin<M, ()>),
+pub enum SubscriberType<R: WasmRuntime<Legacy> + 'static, S: CustomHandler> {
+    System(SystemPlugin<M, S>),
     Wasm(R::Module),
 }
 
-impl<R: WasmRuntime<Legacy> + 'static> Subscriber for SubscriberType<R> {
+impl<R: WasmRuntime<Legacy> + 'static, S: CustomHandler> Subscriber for SubscriberType<R, S> {
     fn notify(&mut self) {
         match self {
             SubscriberType::System(s) => s.notify(),
@@ -110,8 +113,8 @@ impl<R: WasmRuntime<Legacy> + 'static> Subscriber for SubscriberType<R> {
     }
 }
 
-impl<R: WasmRuntime<Legacy> + 'static> SubscriberType<R> {
-    fn as_system_mut(&mut self) -> &mut SystemPlugin<M, ()> {
+impl<R: WasmRuntime<Legacy> + 'static, S: CustomHandler> SubscriberType<R, S> {
+    fn as_system_mut(&mut self) -> &mut SystemPlugin<M, S> {
         match self {
             SubscriberType::System(p) => p,
             SubscriberType::Wasm(_) => unreachable!(),
@@ -119,16 +122,16 @@ impl<R: WasmRuntime<Legacy> + 'static> SubscriberType<R> {
     }
 }
 
-pub struct PluginEngine<R: WasmRuntime<Legacy> + 'static, L: PluginLoader> {
-    bus: MessageBus<Legacy, EngineBusDriver, M, SubscriberType<R>>,
+pub struct PluginEngine<R: WasmRuntime<Legacy> + 'static, L: PluginLoader, S: CustomHandler> {
+    bus: MessageBus<Legacy, EngineBusDriver, M, SubscriberType<R, S>>,
     constants: Constants,
     runtime: R,
     loader: L,
     registry: ProtocolRegistry,
 }
 
-impl<R: WasmRuntime<Legacy>, L: PluginLoader> PluginEngine<R, L> {
-    pub fn new(constants: Constants, runtime: R, loader: L) -> Self {
+impl<R: WasmRuntime<Legacy>, L: PluginLoader, S: CustomHandler> PluginEngine<R, L, S> {
+    pub fn new(constants: Constants, runtime: R, loader: L, custom: S) -> Self {
         let mut bus = MessageBus::new(EngineBusDriver::new(
             Legacy::MAX_SUBSCRIBERS.get(),
             Legacy::MAX_GROUPS.get(),
@@ -140,7 +143,7 @@ impl<R: WasmRuntime<Legacy>, L: PluginLoader> PluginEngine<R, L> {
         bus.add_subscriber_with(
             incoming.clone(),
             outgoing.clone(),
-            SubscriberType::System(SystemPlugin::new(incoming, outgoing, ())),
+            SubscriberType::System(SystemPlugin::new(incoming, outgoing, custom)),
         )
         .unwrap();
 

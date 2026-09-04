@@ -22,7 +22,7 @@ use rustc_hash::FxHashMap;
 
 pub struct SystemPlugin<const M: usize, S: CustomHandler> {
     inc: IncBuf<M>,
-    out: OutBuf<M>,
+    _out: OutBuf<M>,
     logs: FxHashMap<StreamId, StreamReader<LogReader>>,
 
     names: FxHashMap<SubscriberId, Box<str>>,
@@ -35,7 +35,7 @@ impl<const M: usize, S: CustomHandler> SystemPlugin<M, S> {
     pub fn new(inc: IncBuf<M>, out: OutBuf<M>, extend: S) -> Self {
         Self {
             inc,
-            out,
+            _out: out,
             logs: FxHashMap::default(),
             names: FxHashMap::default(),
             extend,
