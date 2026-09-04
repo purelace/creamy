@@ -1,5 +1,4 @@
 #![allow(clippy::cast_possible_truncation)]
-#![allow(clippy::missing_errors_doc)]
 
 mod error;
 mod load;
@@ -21,7 +20,7 @@ pub mod semver {
     pub use semver::*;
 }
 
-use std::{collections::HashMap, ffi::OsString, path::Path, str::FromStr};
+use std::{fs::ReadDir, path::Path, str::FromStr};
 
 use ::semver::Version;
 use binrw::binrw;
@@ -32,16 +31,22 @@ use fs_err as fs;
 
 pub use crate::error::Error;
 
+/// Represents a compiled binary plugin containing metadata, protocol definitions, and core logic.
 #[binrw]
 #[brw(magic = b"CMY!", little)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct BinaryPlugin {
+    /// The semantic version of the plugin.
     #[br(map = |val: BString| Version::from_str(&val).unwrap())]
     #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
     pub version: Version,
+    /// The manifest containing plugin metadata.
     pub manifest: Manifest,
+    /// The string pool used for shared string references.
     pub pool: StringPool,
+    /// A list of compiled protocol definitions.
     pub definitions: List<ProtocolDefinition>,
+    /// The raw core logic of the plugin.
     core: List<u8>,
 }
 
@@ -67,25 +72,44 @@ impl BinaryPlugin {
     }
 }
 
+/// Compiles a plugin from a directory and a core module into a `BinaryPlugin`.
+///
+/// This function reads the `.creamy` directory, parses the `manifest.toml`,
+/// compiles any XML protocol definitions found in the `definitions` folder,
+/// and bundles everything with the provided core logic.
+///
+/// # Arguments
+///
+/// * `plugin_dir` - A path to the directory containing the plugin's source files.
+/// * `module` - The raw bytes representing the plugin's core logic.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// * The `.creamy` directory is missing.
+/// * The `manifest.toml` is malformed or missing.
+/// * There are issues reading the filesystem or parsing XML definitions.
+/// * The version string is invalid.
 pub fn compile_to_binary(
     plugin_dir: impl AsRef<Path>,
     module: Vec<u8>,
 ) -> Result<BinaryPlugin, Error> {
-    let plugin_dir = plugin_dir.as_ref();
-    let files = fs::read_dir(plugin_dir)?
-        .flatten()
-        .map(|dir| (dir.file_name(), dir))
-        .collect::<HashMap<_, _>>();
-
-    let manifest_file = files
-        .get(&OsString::from("manifest.toml"))
-        .ok_or(Error::MissingManifest)?;
-    let manifest = compile_manifest(manifest_file)?;
-
     let mut pool = StringPool::default();
 
-    let definitions = if let Some(entry) = files.get(&OsString::from("definitions")) {
-        compile_protocols(entry, &mut pool)?
+    let plugin_dir = plugin_dir.as_ref();
+    let creamy_dir = plugin_dir.join(".creamy");
+    if !std::fs::exists(&creamy_dir)? {
+        return Err(Error::MissingDirectory);
+    }
+
+    let manifest_path = creamy_dir.join("manifest.toml");
+    let manifest_file = std::fs::read_to_string(manifest_path)?;
+    let manifest = Manifest::read_manifest(&manifest_file)?;
+
+    let definitions_path = creamy_dir.join("definitions");
+    let definitions = if std::fs::exists(&definitions_path)? {
+        let dir = std::fs::read_dir(definitions_path)?;
+        compile_protocols(dir, &mut pool)?
     } else {
         List::default()
     };
@@ -99,25 +123,11 @@ pub fn compile_to_binary(
     })
 }
 
-fn compile_manifest(entry: &fs::DirEntry) -> Result<Manifest, Error> {
-    if !entry.file_type()?.is_file() {
-        return Err(Error::NotAFile("manifest.toml".to_string()));
-    }
-    let manifest_content = fs::read_to_string(entry.path())?;
-
-    Ok(Manifest::read_manifest(&manifest_content)?)
-}
-
 fn compile_protocols(
-    entry: &fs::DirEntry,
+    dir: ReadDir,
     pool: &mut StringPool,
 ) -> Result<List<ProtocolDefinition>, Error> {
-    if !entry.file_type()?.is_dir() {
-        return Err(Error::NotADirectory("definitions".to_string()));
-    }
-
-    let definitions_dir = fs::read_dir(entry.path())?;
-    let files = definitions_dir
+    let files = dir
         .flatten()
         .filter(|e| e.path().extension().is_some_and(|p| p == "xml"))
         .map(|e| e.path())

@@ -2,15 +2,17 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("Manifest file not found")]
-    MissingManifest,
+    #[error("`.creamy` directory not found")]
+    MissingDirectory,
 
-    #[error("{0} is not a file")]
-    NotAFile(String),
+    //#[error("Manifest file not found")]
+    //MissingManifest,
 
-    #[error("{0} is not a directory")]
-    NotADirectory(String),
+    //#[error("{0} is not a file")]
+    //NotAFile(String),
 
+    //#[error("{0} is not a directory")]
+    //NotADirectory(String),
     #[error("{0}")]
     IO(#[from] std::io::Error),
 

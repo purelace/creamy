@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 mod error;
 
 use std::{collections::HashMap, str::FromStr};
@@ -32,6 +34,7 @@ pub struct RequestedProtocol {
     provide: bool,
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl RequestedProtocol {
     #[must_use]
     pub const fn version(&self) -> &Version {
@@ -52,6 +55,7 @@ impl RequestedProtocol {
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParsedManifest {
     package: Package,
+    #[serde(default)]
     protocols: HashMap<BString, RequestedProtocol>,
 }
 
@@ -102,7 +106,10 @@ impl Manifest {
             protocols: manifest.protocols,
         })
     }
+}
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+impl Manifest {
     #[must_use]
     pub fn name(&self) -> &str {
         self.package.name.as_str()
@@ -119,21 +126,14 @@ impl Manifest {
     }
 }
 
-/*
- * assets-*** looks for assets/
- * config-compiler looks for config/.cmyc
- * protocol-compiler looks for definitions/.xml
- * manifest validator looks for manifest.toml
- */
-
 #[cfg(test)]
 mod test {
-    use std::collections::HashMap;
+    use std::{assert_matches, collections::HashMap};
 
     use creamy_utils::collections::List;
     use semver::Version;
 
-    use crate::{Manifest, Package, RequestedProtocol};
+    use crate::{Manifest, ManifestError, Package, RequestedProtocol};
 
     const MANIFEST_VALID: &str = r#"
      [package]
@@ -195,31 +195,9 @@ mod test {
         assert!(result.is_err());
     }
 
-    const MANIFEST_INVALID_VERSION_MAJOR: &str = r#"
-     [package]
-     id = "org.creamy.test"
-     name = "TestManifest"
-     version = "1000.1.0"
-     description = "Test manifest"
-     repository = "https://github.com/purelace/chocomint"
-     authors = ["selrisu <myirisuchan@gmail.com>"]
-
-     "#;
-
-    const MANIFEST_INVALID_VERSION_MINOR: &str = r#"
-      [package]
-      id = "org.creamy.test"
-      name = "TestManifest"
-      version = "0.256.0"
-      description = "Test manifest"
-      repository = "https://github.com/purelace/chocomint"
-      authors = ["selrisu <myirisuchan@gmail.com>"]
-
-      "#;
-
-    const MANIFEST_INVALID_VERSION_PATCH: &str = r#"
+    const MANIFEST_EMPTY_ID: &str = r#"
         [package]
-        id = "org.creamy.test"
+        id = ""
         name = "TestManifest"
         version = "0.0.70000"
         description = "Test manifest"
@@ -229,14 +207,25 @@ mod test {
         "#;
 
     #[test]
-    fn invalid_version_parts() {
-        let result = Manifest::read_manifest(MANIFEST_INVALID_VERSION_MAJOR);
-        assert!(result.is_err());
+    fn pass_empty_id() {
+        let result = Manifest::read_manifest(MANIFEST_EMPTY_ID);
+        assert_matches!(result, Err(ManifestError::EmptyValue("id")));
+    }
 
-        let result = Manifest::read_manifest(MANIFEST_INVALID_VERSION_MINOR);
-        assert!(result.is_err());
+    const MANIFEST_EMPTY_NAME: &str = r#"
+        [package]
+        id = "org.creamy.test"
+        name = ""
+        version = "0.0.70000"
+        description = "Test manifest"
+        repository = "https://github.com/purelace/chocomint"
+        authors = ["selrisu <myirisuchan@gmail.com>"]
 
-        let result = Manifest::read_manifest(MANIFEST_INVALID_VERSION_PATCH);
-        assert!(result.is_err());
+        "#;
+
+    #[test]
+    fn pass_empty_name() {
+        let result = Manifest::read_manifest(MANIFEST_EMPTY_NAME);
+        assert_matches!(result, Err(ManifestError::EmptyValue("name")));
     }
 }

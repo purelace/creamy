@@ -54,7 +54,7 @@ macro_rules! define_readonly_struct {
             )* $(,)?
         }
     } => {
-        #[derive(::binrw::BinWrite, ::binrw::BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(binrw::BinWrite, binrw::BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name {
             $(
                 $(
@@ -76,7 +76,8 @@ macro_rules! define_readonly_struct {
             )* $(,)?
         }
     } => {
-        #[derive(::binrw::BinWrite, ::binrw::BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[binrw::binrw]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name {
             $(
                 $(
@@ -105,6 +106,7 @@ macro_rules! define_readonly_struct {
         }
     } => {
         impl $name {
+            #[allow(unused)]
             pub const fn new($($field: $field_type,)*) -> Self {
                 Self { $($field,)* }
             }

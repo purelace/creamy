@@ -59,7 +59,7 @@ impl NonZeroStringId {
     }
 }
 
-#[derive(BinRead, BinWrite, Debug)]
+#[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
 pub struct StringPool {
     #[br(parse_with = read_pool)]
     #[bw(write_with = write_pool)]

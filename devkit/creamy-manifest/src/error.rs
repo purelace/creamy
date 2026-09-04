@@ -14,6 +14,7 @@ pub enum ManifestError {
 
 impl Eq for ManifestError {}
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl PartialEq for ManifestError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {

@@ -1,0 +1,13 @@
+[package]
+name = "creamy-template"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+creamy-manifest.workspace = true
+lazy-regex = "3.6.1"
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -16,3 +16,7 @@ thiserror.workspace = true
 binrw.workspace = true
 semver.workspace = true
 fs-err = { version = "3.3.1", features = ["debug"] }
+
+[dev-dependencies]
+creamy-template.workspace = true
+tempfile.workspace = true

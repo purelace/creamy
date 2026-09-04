@@ -33,7 +33,7 @@ members = [
     "engine/creamy-wasmtime",
     "engine/creamy-system-plugin",
     "engine/pathenv",
-    "examples/ping/plugin",
+    "examples/ping/plugin", "devkit/creamy-template",
 ]
 
 [workspace.dependencies]
@@ -49,6 +49,7 @@ creamy-protocol-tui = { path = "devkit/creamy-protocol-tui" }
 creamy-utils = { path = "devkit/creamy-utils" }
 creamy-xmlc = { path = "devkit/creamy-xmlc" }
 creamy-sdk = { path = "devkit/creamy-sdk" }
+creamy-template = { path = "devkit/creamy-template" }
 creamy-testbench = { path = "devkit/creamy-testbench"}
 
 # Engine
