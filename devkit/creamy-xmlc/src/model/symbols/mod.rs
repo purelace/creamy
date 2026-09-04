@@ -133,7 +133,9 @@ impl_with_ident!(StreamSymbol);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, BinRead, BinWrite, Hash)]
 pub enum MessageSymbolType {
+    #[brw(magic = 0u8)]
     Single(MessageSymbol),
+    #[brw(magic = 1u8)]
     Stream(StreamSymbol),
 }
 
