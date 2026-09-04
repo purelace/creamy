@@ -1,9 +1,11 @@
 use std::num::NonZeroU8;
 
-use creamy::engine::PluginEngine;
-use creamy_engine_core::{
-    Constants,
-    devkit::{semver::Version, xmlc::StringPoolResolver},
+use creamy::{
+    core::{
+        Constants,
+        devkit::{semver::Version, xmlc::StringPoolResolver},
+    },
+    engine::PluginEngine,
 };
 use creamy_engine_loader::Loader;
 use creamy_engine_wasmtime_impl::WasmtimeRuntime;
