@@ -957,6 +957,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "creamy-wasmtime"
+version = "0.1.0"
+dependencies = [
+ "creamy-engine-core",
+ "thiserror 2.0.20",
+ "tracing",
+ "wasmtime",
+]
+
+[[package]]
 name = "creamy-xmlc"
 version = "0.1.0"
 dependencies = [
