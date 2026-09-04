@@ -26,7 +26,7 @@ pub struct InnerLoader {
     watcher: FileWatcher,
     directory: PathBuf,
     semaphore: Arc<Semaphore>,
-    loading: Vec<JoinHandle<BinaryPlugin>>,
+    loading: Vec<JoinHandle<Option<BinaryPlugin>>>,
     loaded: Vec<BinaryPlugin>,
 }
 
@@ -58,7 +58,7 @@ impl InnerLoader {
     }
 
     async fn store_loaded(
-        loading: &mut Vec<JoinHandle<BinaryPlugin>>,
+        loading: &mut Vec<JoinHandle<Option<BinaryPlugin>>>,
         loaded: &mut Vec<BinaryPlugin>,
     ) {
         let mut i = 0;
@@ -68,7 +68,9 @@ impl InnerLoader {
             if handle.is_finished() {
                 match handle.await {
                     Ok(package) => {
-                        loaded.push(package);
+                        if let Some(package) = package {
+                            loaded.push(package);
+                        }
                     }
                     Err(error) => {
                         tracing::error!("{error}");
@@ -105,7 +107,14 @@ impl InnerLoader {
 
             drop(permit);
 
-            load_package(&state_write.data).unwrap()
+            match load_package(&state_write.data) {
+                Ok(package) => Some(package),
+                Err(err) => {
+                    tracing::error!("Got an error while the plugin is loading:");
+                    println!("{err}");
+                    None
+                }
+            }
         });
 
         self.loading.push(handle);
