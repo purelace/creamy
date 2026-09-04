@@ -1,0 +1,27 @@
+[package]
+name = "creamy-async-loader"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+creamy-engine-core.workspace = true
+inotify.workspace = true
+tracing.workspace = true
+futures-util = "0.3.34"
+garde = { version = "0.23.0", features = ["derive"] }
+serde.workspace = true
+thiserror.workspace = true
+pathenv.workspace = true
+
+[dependencies.tokio]
+version = "1.53.1"
+default-features = false
+features = ["fs", "rt", "io-util", "macros", "sync", "time", "rt-multi-thread"]
+
+[dev-dependencies]
+anyhow.workspace = true
+creamy.workspace = true
+tempfile.workspace = true
+tracing-subscriber.workspace = true
+creamy-wasmtime.workspace = true

@@ -6,8 +6,8 @@ license.workspace = true
 
 [dependencies]
 creamy-engine-core.workspace = true
-creamy-engine-wasmtime-impl.workspace = true
-creamy-engine-async-loader.workspace = true
+creamy-wasmtime.workspace = true
+creamy-async-loader.workspace = true
 creamy-sdk.workspace = true
 serde.workspace = true
 tracing.workspace = true
@@ -22,4 +22,4 @@ tempfile.workspace = true
 anyhow.workspace = true
 tracing-subscriber.workspace = true
 pathenv.workspace = true
-creamy-engine-loader.workspace = true
+creamy-loader.workspace = true

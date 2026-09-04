@@ -768,12 +768,12 @@ name = "creamy"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "creamy-engine-async-loader",
+ "creamy-async-loader",
  "creamy-engine-core",
- "creamy-engine-loader",
- "creamy-engine-wasmtime-impl",
+ "creamy-loader",
  "creamy-sdk",
  "creamy-system-plugin",
+ "creamy-wasmtime",
  "garde",
  "log",
  "pathenv",
@@ -781,6 +781,26 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror 2.0.20",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "creamy-async-loader"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "creamy",
+ "creamy-engine-core",
+ "creamy-wasmtime",
+ "futures-util",
+ "garde",
+ "inotify",
+ "pathenv",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]
@@ -827,52 +847,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "creamy-engine-async-loader"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "creamy",
- "creamy-engine-core",
- "creamy-engine-wasmtime-impl",
- "futures-util",
- "garde",
- "inotify",
- "pathenv",
- "serde",
- "tempfile",
- "thiserror 2.0.20",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "creamy-engine-core"
 version = "0.1.0"
 dependencies = [
  "cbus",
  "creamy-devkit",
  "serde",
-]
-
-[[package]]
-name = "creamy-engine-loader"
-version = "0.1.0"
-dependencies = [
- "creamy-engine-core",
- "inotify",
- "thiserror 2.0.20",
- "tracing",
-]
-
-[[package]]
-name = "creamy-engine-wasmtime-impl"
-version = "0.1.0"
-dependencies = [
- "creamy-engine-core",
- "thiserror 2.0.20",
- "tracing",
- "wasmtime",
 ]
 
 [[package]]
@@ -900,6 +880,16 @@ dependencies = [
  "creamy-utils",
  "creamy-xmlc",
  "heck",
+]
+
+[[package]]
+name = "creamy-loader"
+version = "0.1.0"
+dependencies = [
+ "creamy-engine-core",
+ "inotify",
+ "thiserror 2.0.20",
+ "tracing",
 ]
 
 [[package]]

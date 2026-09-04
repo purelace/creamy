@@ -7,8 +7,8 @@ use creamy::{
     },
     engine::PluginEngine,
 };
-use creamy_engine_loader::Loader;
-use creamy_engine_wasmtime_impl::WasmtimeRuntime;
+use creamy_loader::Loader;
+use creamy_wasmtime::WasmtimeRuntime;
 use pathenv::to_absolute_path;
 
 const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();

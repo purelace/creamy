@@ -28,9 +28,9 @@ members = [
     "engine/creamy",
     "engine/creamy-cbus-driver",
     "engine/creamy-engine-core",
-    "engine/creamy-engine-async-loader",
-    "engine/creamy-engine-loader",
-    "engine/creamy-engine-wasmtime-impl",
+    "engine/creamy-async-loader",
+    "engine/creamy-loader",
+    "engine/creamy-wasmtime",
     "engine/creamy-system-plugin",
     "engine/pathenv",
     "examples/ping/plugin",
@@ -55,9 +55,9 @@ creamy-testbench = { path = "devkit/creamy-testbench"}
 creamy = { path = "engine/creamy" }
 creamy-cbus-driver = { path = "engine/creamy-cbus-driver" }
 creamy-engine-core = { path = "engine/creamy-engine-core" }
-creamy-engine-async-loader = { path = "engine/creamy-engine-async-loader" }
-creamy-engine-loader = { path = "engine/creamy-engine-loader" }
-creamy-engine-wasmtime-impl = { path = "engine/creamy-engine-wasmtime-impl" }
+creamy-async-loader = { path = "engine/creamy-async-loader" }
+creamy-loader = { path = "engine/creamy-loader" }
+creamy-wasmtime= { path = "engine/creamy-wasmtime" }
 creamy-system-plugin = { path = "engine/creamy-system-plugin" }
 pathenv = { path = "engine/pathenv" }
 
