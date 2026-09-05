@@ -95,7 +95,7 @@ define_readonly_range! {
 
 //TODO: pack range
 define_readonly_range! {
-    struct BValuesRange {
+    struct BitsetValuesRange {
         start: u16,
         len: u16,
     }

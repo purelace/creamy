@@ -13,12 +13,12 @@ fn success() {
     let protocol = compile(&mut pool, SUCCESS_TEST).unwrap();
     assert_eq!(protocol.name().resolve(&pool), "test");
     assert_eq!(protocol.version(), &Version::new(0, 0, 1));
-    assert_eq!(protocol.table().type_count(), 19); //Builtin (12) + Custom (6)
+    assert_eq!(protocol.table().type_count(), 19); //Builtin (12) + Custom (7)
     let first = &protocol.table().types()[12];
-    assert_eq!(first.ident().resolve(&pool), "BucketSmall");
+    assert_eq!(first.ident().resolve(&pool), "TypeOptions");
 
     let second = &protocol.table().types()[13];
-    assert_eq!(second.ident().resolve(&pool), "Status");
+    assert_eq!(second.ident().resolve(&pool), "TypeMeta");
 }
 
 #[test]

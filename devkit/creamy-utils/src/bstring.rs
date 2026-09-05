@@ -18,6 +18,11 @@ impl BString {
     pub const fn wrap(value: String) -> Self {
         Self(value)
     }
+
+    #[must_use]
+    pub fn into_inner(self) -> String {
+        self.0
+    }
 }
 
 impl BinRead for BString {

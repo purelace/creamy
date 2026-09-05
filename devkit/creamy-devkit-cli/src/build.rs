@@ -48,7 +48,7 @@ fn optimize_wasm_module(
 pub fn build(workdir: Option<String>) -> anyhow::Result<()> {
     let workdir = get_workdir(workdir)?;
 
-    let build_path = workdir.join("build.toml");
+    let build_path = workdir.join(".creamy").join("build.toml");
     let content = fs::read_to_string(&build_path)
         .with_context(|| format!("Path: {}", build_path.display()))?;
 

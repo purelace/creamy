@@ -116,7 +116,7 @@ impl Iterator for XMLGenerator {
                     self.child_created = 0;
                     self.state = State::MessageFields;
                     Some(format!(
-                        r#"<message kind="0" name="Message{value}">"#,
+                        r#"<message kind="0" name="Message{value}" direction="Duplex">"#,
                         value = self.messages_created,
                     ))
                 } else {

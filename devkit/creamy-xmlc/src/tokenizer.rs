@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt::Display, ops::Deref, str::FromStr};
+use std::{cell::RefCell, ops::Deref, str::FromStr};
 
 use creamy_utils::strpool::{NonZeroStringId, StringId, StringPool};
 use miette::SourceSpan;
@@ -9,6 +9,7 @@ use crate::{
     Access, StringPoolIntern, VariantValue,
     diagnostics::Diagnostics,
     error::{Fallback, ProtocolError, ProtocolErrorExt, SyntaxError},
+    model::definition::Direction,
     version::parse_version,
 };
 
@@ -76,110 +77,97 @@ impl Fallback for Number<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, strum::Display)]
 pub enum Token<'src> {
+    #[strum(to_string = "<protocol>")]
     Protocol {
         name: Identifier<'src>,
         version: Version,
         span: SourceSpan,
     },
+    #[strum(to_string = "<global>")]
+    Global { span: SourceSpan },
+    #[strum(to_string = "<group>")]
     Group {
         name: Identifier<'src>,
         access: Access,
         span: SourceSpan,
     },
+    #[strum(to_string = "<flags>")]
     Flags {
         name: Identifier<'src>,
         span: SourceSpan,
     },
+    #[strum(to_string = "<option>")]
     Option {
         name: Identifier<'src>,
         span: SourceSpan,
     },
+    #[strum(to_string = "<bitset>")]
     Bitset {
         name: Identifier<'src>,
         span: SourceSpan,
     },
+    #[strum(to_string = "<value>")]
     BValue {
         name: Identifier<'src>,
         bits: usize,
         repr: Identifier<'src>,
         span: SourceSpan,
     },
+    #[strum(to_string = "<message>")]
     Message {
         kind: u8,
         name: Identifier<'src>,
+        direction: Direction,
         span: SourceSpan,
     },
+    #[strum(to_string = "<struct>")]
     Struct {
         name: Identifier<'src>,
         span: SourceSpan,
     },
+    #[strum(to_string = "<enum>")]
     Enum {
         name: Identifier<'src>,
         repr: Identifier<'src>,
         span: SourceSpan,
     },
+    #[strum(to_string = "<variant>")]
     Variant {
         name: Identifier<'src>,
         value: VariantValue,
         span: SourceSpan,
     },
+    #[strum(to_string = "<field>")]
     Field {
         name: Identifier<'src>,
         kind: IdentifierOrArray<'src>,
         span: SourceSpan,
     },
+    #[strum(to_string = "<stream>")]
     Stream {
         kind: u8,
         name: Identifier<'src>,
         timeout: u8,
+        direction: Direction,
         span: SourceSpan,
     },
-    StreamStart {
-        span: SourceSpan,
-    },
-    StreamPayload {
-        span: SourceSpan,
-    },
-    StreamEnd {
-        span: SourceSpan,
-    },
-    StreamResult {
-        span: SourceSpan,
-    },
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl Display for Token<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let token = match self {
-            Token::Protocol { .. } => "protocol",
-            Token::Group { .. } => "group",
-            Token::Message { .. } => "message",
-            Token::Struct { .. } => "struct",
-            Token::Enum { .. } => "enum",
-            Token::Variant { .. } => "variant",
-            Token::Field { .. } => "field",
-            Token::Flags { .. } => "flags",
-            Token::Option { .. } => "option",
-            Token::Bitset { .. } => "bitset",
-            Token::BValue { .. } => "value",
-            Token::Stream { .. } => "stream",
-            Token::StreamStart { .. } => "start",
-            Token::StreamPayload { .. } => "payload",
-            Token::StreamEnd { .. } => "end",
-            Token::StreamResult { .. } => "result",
-        };
-
-        write!(f, "<{token}>")
-    }
+    #[strum(to_string = "<head>")]
+    StreamHead { span: SourceSpan },
+    #[strum(to_string = "<payload>")]
+    StreamPayload { span: SourceSpan },
+    #[strum(to_string = "<tail>")]
+    StreamTail { span: SourceSpan },
+    #[strum(to_string = "<result>")]
+    StreamResult { span: SourceSpan },
 }
 
 const ERROR_IDENT: &str = "Error";
 const ERROR_VERSION: &str = "0.0.0";
 const ERROR_ACCESS: &str = "Private";
 const ERROR_NUMBER: &str = "1";
+const ERROR_DIRECTION: &str = "Incoming";
 
 fn span_for(node: Node) -> SourceSpan {
     let node_slice = &node.document().input_text()[node.range()];
@@ -215,9 +203,9 @@ impl<'src> Context<'_, 'src> {
             "bitset" => "bitset",
             "value" => "value",
             "stream" => "stream",
-            "start" => "start",
+            "head" => "head",
             "payload" => "payload",
-            "end" => "end",
+            "tail" => "tail",
             "array" => "array",
             _ => unreachable!(),
         }
@@ -278,6 +266,17 @@ impl<'src> Context<'_, 'src> {
         )
     }
 
+    fn read_direction(&self) -> Direction {
+        self.parse_direction(
+            self.parse_ident(
+                self.read_attr("direction", ERROR_DIRECTION),
+                "direction",
+                ERROR_DIRECTION,
+            ),
+            "direction",
+        )
+    }
+
     fn report_err(&self, error: impl Into<ProtocolError>) {
         self.diagnostics.borrow_mut().report_err(error);
     }
@@ -318,17 +317,28 @@ impl<'src> Context<'_, 'src> {
     }
 
     fn parse_access(&self, value: Identifier, attr: &'static str) -> Access {
-        match value.0 {
-            "Public" => Access::Public,
-            "Private" => Access::Private,
-            _ => {
-                self.diagnostics
-                    .borrow_mut()
-                    .report_err(SyntaxError::InvalidAccess {
-                        span: self.attribute_value_span(attr),
-                    });
-                Access::Private
-            }
+        if let Ok(access) = Access::from_str(value.0) {
+            access
+        } else {
+            self.diagnostics
+                .borrow_mut()
+                .report_err(SyntaxError::InvalidAccess {
+                    span: self.attribute_value_span(attr),
+                });
+            Access::Private
+        }
+    }
+
+    fn parse_direction(&self, value: Identifier, attr: &'static str) -> Direction {
+        if let Ok(value) = Direction::from_str(&value) {
+            value
+        } else {
+            self.diagnostics
+                .borrow_mut()
+                .report_err(SyntaxError::InvalidDirection {
+                    span: self.attribute_value_span(attr),
+                });
+            Direction::Incoming
         }
     }
 
@@ -446,6 +456,12 @@ impl<'a, 'src: 'a> Token<'src> {
         }
     }
 
+    fn new_global(ctx: &Context<'a, 'src>) -> Token<'src> {
+        Token::Global {
+            span: span_for(ctx.node),
+        }
+    }
+
     fn new_group(ctx: &Context<'a, 'src>) -> Token<'src> {
         Token::Group {
             name: ctx.read_ident("name"),
@@ -458,6 +474,7 @@ impl<'a, 'src: 'a> Token<'src> {
         Token::Message {
             kind: ctx.read_u8("kind"),
             name: ctx.read_ident("name"),
+            direction: ctx.read_direction(),
             span: span_for(ctx.node),
         }
     }
@@ -528,12 +545,13 @@ impl<'a, 'src: 'a> Token<'src> {
             kind: ctx.read_u8("kind"),
             name: ctx.read_ident("name"),
             timeout: ctx.read_u8("timeout"),
+            direction: ctx.read_direction(),
             span: span_for(ctx.node),
         }
     }
 
-    fn new_stream_start(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::StreamStart {
+    fn new_stream_head(ctx: &Context<'a, 'src>) -> Token<'src> {
+        Token::StreamHead {
             span: span_for(ctx.node),
         }
     }
@@ -544,8 +562,8 @@ impl<'a, 'src: 'a> Token<'src> {
         }
     }
 
-    fn new_stream_end(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::StreamEnd {
+    fn new_stream_tail(ctx: &Context<'a, 'src>) -> Token<'src> {
+        Token::StreamTail {
             span: span_for(ctx.node),
         }
     }
@@ -553,55 +571,22 @@ impl<'a, 'src: 'a> Token<'src> {
     #[must_use]
     pub const fn span(&self) -> SourceSpan {
         *match self {
-            Token::Protocol {
-                name: _,
-                version: _,
-                span,
-            }
-            | Token::Group {
-                name: _,
-                access: _,
-                span,
-            }
-            | Token::Flags { name: _, span }
-            | Token::Option { name: _, span }
-            | Token::Bitset { name: _, span }
-            | Token::BValue {
-                name: _,
-                bits: _,
-                repr: _,
-                span,
-            }
-            | Token::Message {
-                kind: _,
-                name: _,
-                span,
-            }
-            | Token::Struct { name: _, span }
-            | Token::Enum {
-                name: _,
-                repr: _,
-                span,
-            }
-            | Token::Variant {
-                name: _,
-                value: _,
-                span,
-            }
-            | Token::Field {
-                name: _,
-                kind: _,
-                span,
-            }
-            | Token::Stream {
-                kind: _,
-                name: _,
-                timeout: _,
-                span,
-            }
-            | Token::StreamStart { span }
+            Token::Protocol { span, .. }
+            | Token::Global { span }
+            | Token::Group { span, .. }
+            | Token::Flags { span, .. }
+            | Token::Option { span, .. }
+            | Token::Bitset { span, .. }
+            | Token::BValue { span, .. }
+            | Token::Message { span, .. }
+            | Token::Struct { span, .. }
+            | Token::Enum { span, .. }
+            | Token::Variant { span, .. }
+            | Token::Field { span, .. }
+            | Token::Stream { span, .. }
+            | Token::StreamHead { span }
             | Token::StreamPayload { span }
-            | Token::StreamEnd { span }
+            | Token::StreamTail { span }
             | Token::StreamResult { span } => span,
         }
     }
@@ -650,6 +635,7 @@ pub fn tokenize<'a, 'src: 'a>(
         let ctx = Context { diagnostics, node };
         match node.tag_name().name() {
             "protocol" => tokens.push(Token::new_protocol(&ctx)),
+            "global" => tokens.push(Token::new_global(&ctx)),
             "group" => tokens.push(Token::new_group(&ctx)),
             "message" => tokens.push(Token::new_message(&ctx)),
             "struct" => tokens.push(Token::new_struct(&ctx)),
@@ -661,9 +647,9 @@ pub fn tokenize<'a, 'src: 'a>(
             "bitset" => tokens.push(Token::new_bitset(&ctx)),
             "value" => tokens.push(Token::new_value(&ctx)),
             "stream" => tokens.push(Token::new_stream(&ctx)),
-            "start" => tokens.push(Token::new_stream_start(&ctx)),
+            "head" => tokens.push(Token::new_stream_head(&ctx)),
             "payload" => tokens.push(Token::new_stream_payload(&ctx)),
-            "end" => tokens.push(Token::new_stream_end(&ctx)),
+            "tail" => tokens.push(Token::new_stream_tail(&ctx)),
 
             _ => diagnostics
                 .borrow_mut()

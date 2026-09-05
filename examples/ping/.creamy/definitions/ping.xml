@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <protocol name="ping" version="1.0.0">
     <group name="messages" access="Public">
-        <message kind="0" name="Ping">
+        <message kind="0" name="Ping" direction="Duplex">
             <field name="serial" type="u32" />
         </message>
-        <message kind="1" name="Pong">
+        <message kind="1" name="Pong" direction="Duplex">
             <field name="serial" type="u32" />
         </message>
     </group>

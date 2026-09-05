@@ -33,7 +33,8 @@ members = [
     "engine/creamy-wasmtime",
     "engine/creamy-system-plugin",
     "engine/pathenv",
-    "examples/ping/plugin", "devkit/creamy-template",
+    "examples/ping",
+    "devkit/creamy-template",
 ]
 
 [workspace.dependencies]

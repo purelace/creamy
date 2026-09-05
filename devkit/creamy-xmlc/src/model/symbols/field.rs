@@ -2,8 +2,14 @@ use binrw::{BinRead, BinWrite};
 use creamy_utils::strpool::StringId;
 
 use crate::{
-    constraints::MAX_FIELDS, define_readonly_struct, impl_with_ident, model::symbols::ArraySymbol,
-    table::TypeId, utils::FieldsRange,
+    constraints::MAX_FIELDS,
+    define_readonly_struct, impl_with_ident,
+    model::{
+        storage::{Symbol, SymbolKey},
+        symbols::ArraySymbol,
+    },
+    table::TypeId,
+    utils::FieldsRange,
 };
 
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -22,6 +28,10 @@ define_readonly_struct! {
     }
 }
 impl_with_ident!(FieldSymbol);
+
+impl Symbol for FieldSymbol {
+    const KEY: SymbolKey = SymbolKey::Field;
+}
 
 impl FieldSymbol {
     #[must_use]

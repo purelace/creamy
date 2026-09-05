@@ -8,6 +8,7 @@ use creamy_utils::{
 };
 use semver::Version;
 
+use super::{storage::SymbolStorage, symbols::GlobalTypesSymbol};
 use crate::{
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     error::{Fallback, SemanticError},
@@ -16,19 +17,55 @@ use crate::{
         StreamPayloadFieldSymbol, Type, VariantSymbol,
     },
     table::{FinishedTypeTable, TypeMeta},
-    utils::{BValuesRange, BoundedVec, FieldsRange, MessagesRange, OptionsRange, VariantsRange},
+    utils::{BitsetValuesRange, FieldsRange, MessagesRange, OptionsRange, VariantsRange},
 };
 
 #[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Access {
-    #[brw(magic(1u8))]
+    #[brw(magic(0u8))]
     /// Один поставщик - много пользователей
     Public,
 
     #[default]
-    #[brw(magic(2u8))]
+    #[brw(magic(1u8))]
     /// Один поставщик - один пользователей
     Private,
+}
+
+impl FromStr for Access {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Public" => Ok(Access::Public),
+            "Private" => Ok(Access::Private),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Direction {
+    #[default]
+    #[brw(magic = 0u8)]
+    Incoming,
+    #[brw(magic = 1u8)]
+    Outgoing,
+    #[brw(magic = 2u8)]
+    Duplex,
+}
+
+impl FromStr for Direction {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Incoming" => Ok(Direction::Incoming),
+            "Outgoing" => Ok(Direction::Outgoing),
+            "Duplex" => Ok(Direction::Duplex),
+            _ => Err(()),
+        }
+    }
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -54,51 +91,26 @@ pub struct ProtocolDefinition {
     #[br(map = |val: BString| Version::from_str(&val).unwrap())]
     #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
     version: Version,
-    global: GroupSymbol,
-
-    groups: BoundedVec<GroupSymbol>,
-    messages: BoundedVec<MessageSymbolType>,
-
-    values: BoundedVec<BitsetValueSymbol>,
-    options: BoundedVec<OptionSymbol>,
-    variants: BoundedVec<VariantSymbol>,
-    fields: BoundedVec<FieldSymbol>,
-    payload: BoundedVec<StreamPayloadFieldSymbol>,
-
+    global: GlobalTypesSymbol,
+    storage: SymbolStorage,
     table: FinishedTypeTable,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl ProtocolDefinition {
-    #[allow(clippy::too_many_arguments)]
     #[must_use]
     pub const fn new(
         name: StringId,
         version: Version,
-        global: GroupSymbol,
-
-        groups: BoundedVec<GroupSymbol>,
-        messages: BoundedVec<MessageSymbolType>,
-
-        values: BoundedVec<BitsetValueSymbol>,
-        options: BoundedVec<OptionSymbol>,
-        variants: BoundedVec<VariantSymbol>,
-        fields: BoundedVec<FieldSymbol>,
-        payload: BoundedVec<StreamPayloadFieldSymbol>,
-
+        global: GlobalTypesSymbol,
+        storage: SymbolStorage,
         table: FinishedTypeTable,
     ) -> Self {
         Self {
             name,
             version,
             global,
-            groups,
-            messages,
-            values,
-            options,
-            variants,
-            fields,
-            payload,
+            storage,
             table,
         }
     }
@@ -114,18 +126,18 @@ impl ProtocolDefinition {
     }
 
     #[must_use]
-    pub const fn global(&self) -> GroupSymbol {
+    pub const fn global_types(&self) -> GlobalTypesSymbol {
         self.global
     }
 
     #[must_use]
     pub fn groups(&self) -> &[GroupSymbol] {
-        self.groups.as_slice()
+        self.storage.get_symbol_slice::<GroupSymbol>()
     }
 
     #[must_use]
     pub fn messages(&self) -> &[MessageSymbolType] {
-        self.messages.as_slice()
+        self.storage.get_symbol_slice::<MessageSymbolType>()
     }
 
     #[must_use]
@@ -139,33 +151,39 @@ impl ProtocolDefinition {
     }
 
     #[must_use]
-    pub fn messages_slice(&self, messages: MessagesRange) -> &[MessageSymbolType] {
-        &self.messages[messages]
+    pub fn global_types_range(&self) -> &[Type] {
+        &self.table[self.global.types()]
     }
 
     #[must_use]
-    pub fn fields_slice(&self, fields: FieldsRange) -> &[FieldSymbol] {
-        &self.fields[fields]
+    pub fn message_range(&self, range: MessagesRange) -> &[MessageSymbolType] {
+        self.storage.get_symbol_range(range)
     }
 
     #[must_use]
-    pub fn payload_slice(&self, fields: FieldsRange) -> &[StreamPayloadFieldSymbol] {
-        &self.payload[fields]
+    pub fn fields_range(&self, range: FieldsRange) -> &[FieldSymbol] {
+        self.storage.get_symbol_range::<FieldSymbol>(range)
     }
 
     #[must_use]
-    pub fn variants_slice(&self, variants: VariantsRange) -> &[VariantSymbol] {
-        &self.variants[variants]
+    pub fn payload_slice(&self, range: FieldsRange) -> &[StreamPayloadFieldSymbol] {
+        self.storage
+            .get_symbol_range::<StreamPayloadFieldSymbol>(range)
     }
 
     #[must_use]
-    pub fn bvalues_slice(&self, bvalues: BValuesRange) -> &[BitsetValueSymbol] {
-        &self.values[bvalues]
+    pub fn variants_slice(&self, range: VariantsRange) -> &[VariantSymbol] {
+        self.storage.get_symbol_range::<VariantSymbol>(range)
     }
 
     #[must_use]
-    pub fn options_slice(&self, options: OptionsRange) -> &[OptionSymbol] {
-        &self.options[options]
+    pub fn bvalues_slice(&self, range: BitsetValuesRange) -> &[BitsetValueSymbol] {
+        self.storage.get_symbol_range::<BitsetValueSymbol>(range)
+    }
+
+    #[must_use]
+    pub fn options_slice(&self, range: OptionsRange) -> &[OptionSymbol] {
+        self.storage.get_symbol_range::<OptionSymbol>(range)
     }
 }
 
@@ -217,9 +235,15 @@ impl ProtocolDefinition {
         &self,
         mut f: impl FnMut(GroupSymbol, &[MessageSymbolType], &[Type]) -> Result<(), E>,
     ) -> Result<(), E> {
-        self.groups
+        self.groups()
             .iter()
-            .map(|g| (g, &self.messages[g.messages()], self.types_for_group(*g)))
+            .map(|g| {
+                (
+                    g,
+                    self.message_range(g.messages()),
+                    self.types_for_group(*g),
+                )
+            })
             .try_for_each(|(g, m, t)| f(*g, m, t))
     }
 
@@ -239,49 +263,38 @@ impl ProtocolDefinition {
                 *$symbol = $symbol.with_ident(id);
             };
         }
-        //name: StringId,
-        //version: Version,
-        //global: GroupSymbol,
-
-        //groups: BoundedVec<GroupSymbol>,
-        //messages: BoundedVec<MessageSymbolType>,
-
-        //values: BoundedVec<BitsetValueSymbol>,
-        //options: BoundedVec<OptionSymbol>,
-        //variants: BoundedVec<VariantSymbol>,
-        //fields: BoundedVec<FieldSymbol>,
-        //payload: BoundedVec<StreamPayloadFieldSymbol>,
-
-        //table: FinishedTypeTable,
 
         replace!(self.name);
-        replace_symbol!(&mut self.global);
+        //replace_symbol!(&mut self.global);
 
-        for symbol in self.groups.iter_mut() {
+        for symbol in self.storage.get_symbol_slice_mut::<GroupSymbol>() {
             replace_symbol!(symbol);
         }
 
-        for symbol in self.messages.iter_mut() {
+        for symbol in self.storage.get_symbol_slice_mut::<MessageSymbolType>() {
             replace_symbol!(symbol);
         }
 
-        for symbol in self.values.iter_mut() {
+        for symbol in self.storage.get_symbol_slice_mut::<BitsetValueSymbol>() {
             replace_symbol!(symbol);
         }
 
-        for symbol in self.options.iter_mut() {
+        for symbol in self.storage.get_symbol_slice_mut::<OptionSymbol>() {
             replace_symbol!(symbol);
         }
 
-        for symbol in self.variants.iter_mut() {
+        for symbol in self.storage.get_symbol_slice_mut::<VariantSymbol>() {
             replace_symbol!(symbol);
         }
 
-        for symbol in self.fields.iter_mut() {
+        for symbol in self.storage.get_symbol_slice_mut::<FieldSymbol>() {
             replace_symbol!(symbol);
         }
 
-        for symbol in self.payload.iter_mut() {
+        for symbol in self
+            .storage
+            .get_symbol_slice_mut::<StreamPayloadFieldSymbol>()
+        {
             replace_symbol!(symbol);
         }
 

@@ -41,7 +41,7 @@ pub fn show_all_messages(def: &ProtocolDefinition, pool: &StringPool) {
     println!("+ List of messages");
 
     for (group_idx, group) in def.groups().iter().enumerate() {
-        for (message_idx, message) in def.messages_slice(group.messages()).iter().enumerate() {
+        for (message_idx, message) in def.message_range(group.messages()).iter().enumerate() {
             let name_id = message.ident();
             print_item(
                 group_idx as u8 + 1,
@@ -60,7 +60,7 @@ pub fn show_one_group_by_idx(def: &ProtocolDefinition, pool: &StringPool, idx: N
     println!("+ List of messages ({group_name})");
     print_header(def, pool);
 
-    let slice = def.messages_slice(group.messages());
+    let slice = def.message_range(group.messages());
     for (message_idx, message) in slice.iter().enumerate() {
         let id = message.ident();
         print_item(idx.get(), message_idx as u8, id.resolve(pool), STRUCT_COLOR);
@@ -101,13 +101,13 @@ pub fn show_memory_layout(
     msg: u8,
 ) {
     let group = &def.groups()[group.get() as usize - 1];
-    let messages = def.messages_slice(group.messages());
+    let messages = def.message_range(group.messages());
     let message = messages[msg as usize];
     let field_range = match message {
         MessageSymbolType::Single(s) => s.fields(),
         MessageSymbolType::Stream(s) => s.payload(), //TODO: support stream messages in memory report
     };
-    let fields = def.fields_slice(field_range);
+    let fields = def.fields_range(field_range);
 
     let mut report = MemoryReport::new(message.ident().resolve(pool));
     if flat {
@@ -157,7 +157,7 @@ fn make_flat_report(
             FieldType::Type(tid) => match tt.get_type(tid) {
                 Type::Array(_) => unreachable!(),
                 Type::Struct(symbol) => {
-                    let fields = def.fields_slice(symbol.fields());
+                    let fields = def.fields_range(symbol.fields());
                     make_flat_report(def, report, fields, pool);
                 }
                 Type::Numeric(_) | Type::Enum(_) => {
@@ -217,7 +217,7 @@ fn make_report(
             Type::Array(_) => unreachable!(),
             Type::Struct(sym) => {
                 report.start_report();
-                let fields = def.fields_slice(sym.fields());
+                let fields = def.fields_range(sym.fields());
                 make_report(def, report, fields, pool);
                 report.end_report(SimpleField {
                     name: field.ident().resolve(pool).to_string(),

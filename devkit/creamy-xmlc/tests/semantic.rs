@@ -26,7 +26,7 @@ const CONTENT: &str = r#"
     </struct>
 
     <!-- Message size limit -->
-    <message kind="0" name="Signal">
+    <message kind="0" name="Signal" direction="Duplex">
         <field name="value0" type="u8"/>
         <field name="value1" type="u16"/>
         <field name="value2" type="u32"/>
@@ -47,7 +47,8 @@ const CONTENT: &str = r#"
 <!-- Zero sized types -->
 <group name="zst" access="Public">
     <struct name="test0"/>
-    <message kind ="0" name="test1"/>
+    <!-- ZST messages are allowed -->
+    <message kind ="0" name="test1" direction="Outgoing"/>
     <enum name="test2" repr="u8"/>
 </group>
 
@@ -77,7 +78,6 @@ fn semantic_errors() {
             SemanticError::InvalidSize { actual: 224 }.into(),
             SemanticError::InvalidSize { actual: 84 }.into(),
             // ZST
-            SemanticError::ZeroSizedType.into(),
             SemanticError::InvalidSize { actual: 0 }.into(),
             SemanticError::InvalidSize { actual: 0 }.into(),
             // Enum errors

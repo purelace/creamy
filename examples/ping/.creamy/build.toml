@@ -1,0 +1,3 @@
+command = "cargo build --target wasm32-unknown-unknown --release -p ping"
+input = "../../target/wasm32-unknown-unknown/release/ping.wasm"
+output="../../target/creamy"

@@ -84,7 +84,7 @@ fn get_message_index(
         StringOrNumber::String(name) => {
             let name_id = name.intern(pool);
             let group = &def.groups()[group as usize];
-            let messages = def.messages_slice(group.messages());
+            let messages = def.message_range(group.messages());
 
             messages
                 .iter()

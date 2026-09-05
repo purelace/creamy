@@ -11,14 +11,25 @@ use crate::{
     },
     define_readonly_struct,
     error::Fallback,
+    model::definition::Direction,
     tokenizer::IdentifierOrArray,
     utils::{
-        BValuesRange, BitsetsRange, EnumsRange, FieldsRange, FlagsRange, GroupsRange,
+        BitsetValuesRange, BitsetsRange, EnumsRange, FieldsRange, FlagsRange, GroupsRange,
         MessagesRange, OptionsRange, StreamsFieldsRange, StructsRange, VariantsRange,
         VectorElement,
     },
 };
 
+macro_rules! define_node {
+    ($key:expr, $name:ident, $is_type: expr) => {
+        impl $crate::tree::storage::Node for $name {
+            const KEY: $crate::tree::storage::NodeKey = $crate::tree::storage::NodeKey::new($key);
+            const IS_TYPE: bool = $is_type;
+        }
+    };
+}
+
+define_node!("enum.node", EnumNode, true);
 define_readonly_struct! {
     [no_brw]
     [element(MAX_ENUMS, EnumsRange)]
@@ -29,6 +40,7 @@ define_readonly_struct! {
     }
 }
 
+define_node!("enum.variant.node", VariantNode, false);
 define_readonly_struct! {
     [no_brw]
     [element(MAX_VARIANTS, VariantsRange)]
@@ -64,6 +76,28 @@ impl Fallback for VariantValue {
 
 define_readonly_struct! {
     [no_brw]
+    struct GlobalTypesNode {
+        structs: StructsRange,
+        enums: EnumsRange,
+        flags: FlagsRange,
+        bitsets: BitsetsRange,
+    }
+}
+
+impl Default for GlobalTypesNode {
+    fn default() -> Self {
+        Self {
+            structs: StructsRange::new(0, 0),
+            enums: EnumsRange::new(0, 0),
+            flags: FlagsRange::new(0, 0),
+            bitsets: BitsetsRange::new(0, 0),
+        }
+    }
+}
+
+define_node!("group.node", GroupNode, false);
+define_readonly_struct! {
+    [no_brw]
     [element(MAX_GROUPS, GroupsRange)]
     struct GroupNode {
         name: StringId,
@@ -76,6 +110,7 @@ define_readonly_struct! {
     }
 }
 
+define_node!("message.node.type", MessageNodeType, false);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MessageNodeType {
     Single(MessageNode),
@@ -96,15 +131,18 @@ impl MessageNodeType {
     }
 }
 
+//define_node!("message.node", MessageNode, false);
 define_readonly_struct! {
     [no_brw]
     struct MessageNode {
         name: StringId,
         fields: FieldsRange,
+        direction: Direction,
         kind: u8,
     }
 }
 
+define_node!("struct.node", StructNode, true);
 define_readonly_struct! {
     [no_brw]
     [element(MAX_STRUCTS, StructsRange)]
@@ -114,6 +152,7 @@ define_readonly_struct! {
     }
 }
 
+//define_node!("array.node", ArrayNode, false);
 define_readonly_struct! {
     [no_brw]
     struct ArrayNode {
@@ -147,6 +186,7 @@ impl FieldTypeNode {
     }
 }
 
+define_node!("field.node", FieldNode, false);
 define_readonly_struct! {
     [no_brw]
     [element(MAX_FIELDS, FieldsRange)]
@@ -156,6 +196,7 @@ define_readonly_struct! {
     }
 }
 
+define_node!("flags.node", FlagsNode, true);
 define_readonly_struct! {
     [no_brw]
     [element(MAX_FLAGS, FlagsRange)]
@@ -165,6 +206,7 @@ define_readonly_struct! {
     }
 }
 
+define_node!("option.node", OptionNode, false);
 define_readonly_struct! {
     [no_brw]
     [element(MAX_OPTIONS, OptionsRange)]
@@ -173,41 +215,46 @@ define_readonly_struct! {
     }
 }
 
+define_node!("bitset.node", BitsetNode, true);
 define_readonly_struct! {
     [no_brw]
     [element(MAX_BITSETS, BitsetsRange)]
     struct BitsetNode {
         ident: StringId,
-        values: BValuesRange,
+        values: BitsetValuesRange,
     }
 }
 
+define_node!("bitset.value.node", BitsetValueNode, false);
 define_readonly_struct! {
     [no_brw]
-    [element(MAX_BITSET_VALUES, BValuesRange)]
-    struct BValueNode {
+    [element(MAX_BITSET_VALUES, BitsetValuesRange)]
+    struct BitsetValueNode {
         ident: StringId,
         repr: StringId,
         bits: usize,
     }
 }
 
+//define_node!("stream.node", StreamNode, false);
 define_readonly_struct! {
     [no_brw]
     struct StreamNode {
         name: StringId,
+        direction: Direction,
         timeout: u8,
         kind: u8,
-        start: Option<FieldsRange>,
+        head: Option<FieldsRange>,
         payload: FieldsRange,
-        end: Option<FieldsRange>,
+        tail: Option<FieldsRange>,
     }
 }
 
+define_node!("stream.payload.node", StreamPayloadFieldNode, false);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StreamPayloadFieldNode {
     Field(FieldNode),
-    Array(ArrayFieldNode),
+    //Array(ArrayFieldNode),
 }
 
 impl VectorElement for StreamPayloadFieldNode {
@@ -215,11 +262,12 @@ impl VectorElement for StreamPayloadFieldNode {
     type RangeType = StreamsFieldsRange;
 }
 
-define_readonly_struct! {
-    [no_brw]
-    struct ArrayFieldNode {
-        name: StringId,
-        kind: StringId,
-        len: StringId,
-    }
-}
+//define_node!("array.field.node", ArrayFieldNode, false);
+//define_readonly_struct! {
+//    [no_brw]
+//    struct ArrayFieldNode {
+//        name: StringId,
+//        kind: StringId,
+//        len: StringId,
+//    }
+//}

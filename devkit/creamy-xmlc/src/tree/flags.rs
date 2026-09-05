@@ -1,7 +1,7 @@
+use super::nodes::{FlagsNode, OptionNode};
 use crate::{
     StringPoolIntern, define_misc_parser, define_toplevel_parser,
     error::AstError,
-    nodes::{FlagsNode, OptionNode},
     tokenizer::{Identifier, Token},
     utils::OptionsRange,
 };

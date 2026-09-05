@@ -988,11 +988,13 @@ dependencies = [
  "as-guard",
  "binrw",
  "creamy-utils",
+ "downcast-rs",
  "miette",
  "owo-colors",
  "pretty_assertions",
  "roxmltree",
  "semver",
+ "smol_str",
  "strum",
  "termtree 1.0.0",
  "thiserror 2.0.20",
@@ -1994,6 +1996,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
+name = "ping"
+version = "0.1.0"
+dependencies = [
+ "creamy-libgen-rs",
+ "creamy-sdk",
+]
+
+[[package]]
 name = "pkg-config"
 version = "0.3.33"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2038,14 +2048,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51bae2ac328883f7acdfea3d66a7c35751187f870bc81f94563733a154d7a670"
 dependencies = [
  "plotters-backend",
-]
-
-[[package]]
-name = "plugin"
-version = "0.1.0"
-dependencies = [
- "creamy-libgen-rs",
- "creamy-sdk",
 ]
 
 [[package]]
@@ -2513,6 +2515,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "smol_str"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4aaa7368fcf4852a4c2dd92df0cace6a71f2091ca0a23391ce7f3a31833f1523"
+dependencies = [
+ "borsh",
+ "serde_core",
 ]
 
 [[package]]

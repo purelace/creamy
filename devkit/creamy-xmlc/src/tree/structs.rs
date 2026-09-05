@@ -1,7 +1,5 @@
-use crate::{
-    StringPoolIntern, define_toplevel_parser, error::AstError, nodes::StructNode,
-    tokenizer::Identifier,
-};
+use super::nodes::StructNode;
+use crate::{StringPoolIntern, define_toplevel_parser, error::AstError, tokenizer::Identifier};
 
 define_toplevel_parser!(
     name:       StructParser,

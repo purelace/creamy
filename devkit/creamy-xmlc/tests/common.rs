@@ -33,17 +33,14 @@ pub const fn zero_span() -> SourceSpan {
 pub fn zeroize_span(err: &mut ProtocolError) {
     match err {
         ProtocolError::SyntaxError(syntax) => match syntax {
-            SyntaxError::Xml { span, error: _ }
+            SyntaxError::Xml { span, .. }
             | SyntaxError::UnknownTag { span }
-            | SyntaxError::MissingAttribute {
-                tag: _,
-                attr: _,
-                span,
-            }
+            | SyntaxError::MissingAttribute { span, .. }
             | SyntaxError::InvalidVersionFormat { span }
             | SyntaxError::InvalidAccess { span }
+            | SyntaxError::InvalidDirection { span }
             | SyntaxError::InvalidArraySyntax { span }
-            | SyntaxError::IntParse { span, error: _ }
+            | SyntaxError::IntParse { span, .. }
             | SyntaxError::EmptyIdentifier { span }
             | SyntaxError::InvalidIdentifier { span }
             | SyntaxError::NotANumber { span } => *span = zero_span(),

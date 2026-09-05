@@ -9,7 +9,10 @@ use creamy_manifest::Manifest;
 use creamy_xmlc::{
     ProtocolDefinition, StringPoolResolver, compile,
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
-    model::symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
+    model::{
+        definition::Direction,
+        symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
+    },
     utils::strpool::{StringId, StringPool},
 };
 pub use utils::Path;
@@ -149,21 +152,18 @@ impl Codegen {
             manifest,
             inner,
         } = &mut self.library;
+
         #[allow(clippy::explicit_counter_loop)]
         for (protocol, groups) in manifest.requested_groups() {
             let definition = inner.get(protocol.as_str()).unwrap();
 
-            let global_group = definition.global();
-            let global_group_name = global_group.ident().resolve(pool);
-            generator.start_group(global_group_name);
+            generator.start_group(definition.name().resolve(pool));
 
-            Self::generate_group(
+            Self::generate_types(
                 pool,
                 definition,
-                &HashMap::new(),
-                &AbsolutePath::from_iter([protocol.as_str(), global_group_name]),
-                definition.types_for_group(global_group),
-                definition.messages_slice(global_group.messages()),
+                &AbsolutePath::from_iter([protocol.as_str(), "global"]),
+                definition.global_types_range(),
                 generator,
             );
 
@@ -178,17 +178,29 @@ impl Codegen {
                     .unwrap();
 
                 let mut dispatch_values: HashMap<StringId, (u8, u32)> = HashMap::new();
-                for message_symbol in definition.messages_slice(group_symbol.messages()) {
+                for message_symbol in definition.message_range(group_symbol.messages()) {
                     // Valid form of the dispatch value: [0x_00_FF_00_FF]
                     let dispatch_value =
                         u32::from(group_id) << 16 | u32::from(message_symbol.kind());
                     dispatch_values.insert(message_symbol.ident(), (group_id, dispatch_value));
 
-                    paths.push(Path::from_absolute(AbsolutePath::from_iter([
-                        protocol.as_str(),
-                        group_name.as_str(),
-                        message_symbol.ident().resolve(pool),
-                    ])));
+                    let dir = message_symbol.direction();
+
+                    // Условие включения:
+                    // 1. Это Duplex (нужен всегда)
+                    // 2. Или группа поставляется И направление Outgoing
+                    // 3. Или группа НЕ поставляется И направление Incoming
+                    let should_add = dir == Direction::Duplex
+                        || (groups.provide() && dir == Direction::Outgoing)
+                        || (!groups.provide() && dir == Direction::Incoming);
+
+                    if should_add {
+                        paths.push(Path::from_absolute(AbsolutePath::from_iter([
+                            protocol.as_str(),
+                            group_name.as_str(),
+                            message_symbol.ident().resolve(pool),
+                        ])));
+                    }
                 }
 
                 Self::generate_group(
@@ -197,7 +209,7 @@ impl Codegen {
                     &dispatch_values,
                     &AbsolutePath::from_iter([protocol.as_str(), group_name.as_str()]),
                     definition.types_for_group(group_symbol),
-                    definition.messages_slice(group_symbol.messages()),
+                    definition.message_range(group_symbol.messages()),
                     generator,
                 );
                 generator.end_group();
@@ -215,21 +227,18 @@ impl Codegen {
         Ok(())
     }
 
-    #[allow(clippy::too_many_lines)]
-    fn generate_group<'s, G: CodeGenerator<'s>>(
+    fn generate_types<'s, G: CodeGenerator<'s>>(
         pool: &'s StringPool,
         definition: &'s ProtocolDefinition,
-        dispatch_value_table: &HashMap<StringId, (u8, u32)>, //group, value
         module_path: &AbsolutePath,
         types: &[Type],
-        messages: &[MessageSymbolType],
         generator: &mut G,
     ) {
         for ty in types {
             match ty {
                 Type::Numeric(_) | Type::Array(_) => {}
                 Type::Struct(symbol) => {
-                    let fields = definition.fields_slice(symbol.fields());
+                    let fields = definition.fields_range(symbol.fields());
                     let symbol = EnrichedStructSymbol {
                         name: symbol.ident().resolve(pool),
                         fields: FieldList::new(
@@ -284,6 +293,19 @@ impl Codegen {
                 }
             }
         }
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn generate_group<'s, G: CodeGenerator<'s>>(
+        pool: &'s StringPool,
+        definition: &'s ProtocolDefinition,
+        dispatch_value_table: &HashMap<StringId, (u8, u32)>, //group, value
+        module_path: &AbsolutePath,
+        types: &[Type],
+        messages: &[MessageSymbolType],
+        generator: &mut G,
+    ) {
+        Self::generate_types(pool, definition, module_path, types, generator);
 
         for message in messages {
             let (group, dispatch_value) =
@@ -302,7 +324,7 @@ impl Codegen {
                                 module_path.clone(),
                                 pool,
                                 definition.table(),
-                                definition.fields_slice(symbol.fields()).iter().copied(),
+                                definition.fields_range(symbol.fields()).iter().copied(),
                                 HEADER_BYTES,
                             ),
                         ),
@@ -334,7 +356,7 @@ impl Codegen {
                                 module_path.clone(),
                                 pool,
                                 definition.table(),
-                                definition.fields_slice(fields).iter().copied(),
+                                definition.fields_range(fields).iter().copied(),
                                 HEADER_BYTES,
                             )
                         }),
@@ -351,7 +373,7 @@ impl Codegen {
                                 module_path.clone(),
                                 pool,
                                 definition.table(),
-                                definition.fields_slice(fields).iter().copied(),
+                                definition.fields_range(fields).iter().copied(),
                                 HEADER_BYTES,
                             )
                         }),

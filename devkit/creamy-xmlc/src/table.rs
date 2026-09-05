@@ -302,7 +302,7 @@ impl TypeTable {
     }
 
     pub fn finish(mut self) -> FinishedTypeTable {
-        //assert_eq!(self.meta.total_used(), self.types.len());
+        assert_eq!(self.meta.total_used(), self.types.len());
         let types = unsafe { self.types.assume_init() };
         self.meta.inner.trim(self.meta.count as usize + 1);
         FinishedTypeTable {

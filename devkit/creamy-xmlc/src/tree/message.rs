@@ -1,13 +1,13 @@
+use super::nodes::{
+    FieldNode, FieldTypeNode, MessageNode, MessageNodeType, StreamNode, StreamPayloadFieldNode,
+};
 use crate::{
     StringPoolIntern,
     error::AstError,
-    model::symbols::U8_ID,
-    nodes::{
-        FieldNode, FieldTypeNode, MessageNode, MessageNodeType, StreamNode, StreamPayloadFieldNode,
-    },
+    model::{definition::Direction, symbols::U8_ID},
     tokenizer::{Identifier, Token},
     tree::RangeBuilder,
-    utils::{BoundedVec, FieldsRange},
+    utils::FieldsRange,
 };
 
 #[inline]
@@ -17,7 +17,7 @@ const fn token_stream_payload_field(t: &Token) -> bool {
 
 #[derive(Default)]
 pub(crate) struct StreamPayloadFieldParser {
-    vec: crate::utils::BoundedVec<StreamPayloadFieldNode>,
+    //vec: crate::utils::BoundedVec<StreamPayloadFieldNode>,
     has_error: bool,
     builder: crate::tree::RangeBuilder,
 }
@@ -28,6 +28,7 @@ impl StreamPayloadFieldParser {
         &mut self,
         diag: &mut crate::Diagnostics,
         pool: &mut crate::utils::strpool::StringPool,
+        storage: &mut crate::tree::storage::NodeStorage,
         iter: &mut core::iter::Peekable<std::vec::Drain<crate::tokenizer::Token>>,
     ) -> FieldsRange {
         //TODO: ебаный костыль, читаем ниже.
@@ -36,7 +37,7 @@ impl StreamPayloadFieldParser {
             FieldTypeNode::Type(U8_ID),
         ));
         crate::push_node! {
-            to: self.vec, node: node, flag: self.has_error, diag, AstError::TooManyFields
+            to: storage, node: node, flag: self.has_error, diag, AstError::TooManyFields
         };
         self.builder.next();
         while let Some(token) = iter.next_if(token_stream_payload_field) {
@@ -53,21 +54,16 @@ impl StreamPayloadFieldParser {
             };
 
             crate::push_node! {
-                to: self.vec,node: node,flag: self.has_error, diag, AstError::TooManyFields
+                to: storage,node: node,flag: self.has_error, diag, AstError::TooManyFields
             }
             self.builder.next();
         }
         self.builder.build_fields()
     }
-
-    pub fn take(self) -> crate::utils::BoundedVec<StreamPayloadFieldNode> {
-        self.vec
-    }
 }
 
 #[derive(Default)]
 pub(crate) struct MessageParser {
-    vec: BoundedVec<MessageNodeType>,
     has_error: bool,
     builder: RangeBuilder,
 }
@@ -77,66 +73,71 @@ impl MessageParser {
         &mut self,
         kind: u8,
         name: Identifier,
+        direction: Direction,
+        storage: &mut crate::tree::storage::NodeStorage,
         iter: &mut core::iter::Peekable<std::vec::Drain<crate::tokenizer::Token>>,
         ctx: &mut crate::tree::ParserContext,
     ) {
-        let range = ctx.field.parse_fields(ctx.diag, ctx.pool, iter);
-        let node = MessageNodeType::Single(MessageNode::new(name.intern(ctx.pool), range, kind));
+        let range = ctx.field.parse_fields(ctx.diag, ctx.pool, storage, iter);
+        let node = MessageNodeType::Single(MessageNode::new(
+            name.intern(ctx.pool),
+            range,
+            direction,
+            kind,
+        ));
         self.builder.next();
-        crate::push_node!(to: self.vec,node: node,flag: self.has_error,ctx.diag,AstError::TooManyMessages);
+        crate::push_node!(to: storage, node: node,flag: self.has_error,ctx.diag,AstError::TooManyMessages);
     }
 
     pub const fn builder(&mut self) -> &mut crate::tree::RangeBuilder {
         &mut self.builder
     }
 
-    pub fn take(self) -> BoundedVec<MessageNodeType> {
-        self.vec
-    }
-
     pub fn parse_stream(
         &mut self,
         kind: u8,
         name: Identifier,
+        direction: Direction,
         timeout: u8,
+        storage: &mut crate::tree::storage::NodeStorage,
         iter: &mut core::iter::Peekable<std::vec::Drain<crate::tokenizer::Token>>,
         ctx: &mut crate::tree::ParserContext,
     ) {
-        let mut start = None;
+        let mut head = None;
         let mut payload = None;
-        let mut end = None;
+        let mut tail = None;
         //let mut result = None;
 
         //Fix: ебаный костыль. надо сделать внедрение полей или на уровне семантической модели или хз
         for i in 0..3 {
             match iter.peek() {
-                Some(Token::StreamStart { .. }) if start.is_none() => {
+                Some(Token::StreamHead { .. }) if head.is_none() => {
                     let _ = iter.next();
                     assert!(
-                        ctx.field.vec.push(FieldNode::new(
+                        storage.add_node(FieldNode::new(
                             ctx.pool.get_id_or_add("__unused"),
                             FieldTypeNode::Type(U8_ID),
                         )),
                         "исправить ебучий костыль"
                     );
                     ctx.field.builder.next();
-                    start = Some(ctx.field.parse_fields(ctx.diag, ctx.pool, iter));
+                    head = Some(ctx.field.parse_fields(ctx.diag, ctx.pool, storage, iter));
                 }
                 Some(Token::StreamPayload { .. }) if payload.is_none() => {
                     let _ = iter.next();
-                    payload = Some(ctx.payload.parse_fields(ctx.diag, ctx.pool, iter));
+                    payload = Some(ctx.payload.parse_fields(ctx.diag, ctx.pool, storage, iter));
                 }
-                Some(Token::StreamEnd { .. }) if end.is_none() => {
+                Some(Token::StreamTail { .. }) if tail.is_none() => {
                     let _ = iter.next();
                     assert!(
-                        ctx.field.vec.push(FieldNode::new(
+                        storage.add_node(FieldNode::new(
                             ctx.pool.get_id_or_add("__unused"),
                             FieldTypeNode::Type(U8_ID),
                         )),
                         "исправить ебучий костыль"
                     );
                     ctx.field.builder.next();
-                    end = Some(ctx.field.parse_fields(ctx.diag, ctx.pool, iter));
+                    tail = Some(ctx.field.parse_fields(ctx.diag, ctx.pool, storage, iter));
                 }
                 //Some(Token::StreamResult { .. }) if result.is_none() => {
                 //    let _ = iter.next();
@@ -157,14 +158,15 @@ impl MessageParser {
 
         let node = MessageNodeType::Stream(StreamNode::new(
             name.intern(ctx.pool),
+            direction,
             timeout,
             kind,
-            start,
+            head,
             payload,
-            end,
+            tail,
         ));
 
         self.builder.next();
-        crate::push_node!(to: self.vec,node: node,flag: self.has_error,ctx.diag,AstError::TooManyMessages);
+        crate::push_node!(to: storage,node: node,flag: self.has_error,ctx.diag,AstError::TooManyMessages);
     }
 }

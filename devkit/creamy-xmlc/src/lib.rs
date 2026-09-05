@@ -12,7 +12,6 @@ mod compiler;
 mod diagnostics;
 pub mod error;
 pub mod model;
-mod nodes;
 mod table;
 pub mod tokenizer;
 mod tree;
@@ -22,8 +21,8 @@ mod version;
 pub use compiler::compile;
 pub use diagnostics::Diagnostics;
 pub use model::definition::{Access, ProtocolDefinition};
-pub use nodes::VariantValue;
 pub use table::{FinishedTypeTable, TypeId};
+pub use tree::nodes::VariantValue;
 pub use utils::{StringPoolIntern, StringPoolResolver};
 
 pub mod constraints {

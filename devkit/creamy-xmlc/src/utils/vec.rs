@@ -49,6 +49,7 @@ impl<T: VectorElement> BoundedVec<T> {
     }
 
     #[must_use]
+    #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> u32 {
         self.inner.len() as u32
     }
@@ -61,25 +62,7 @@ impl<T: VectorElement> BoundedVec<T> {
     pub fn drain<R: RangeBounds<usize>>(&mut self, range: R) -> std::vec::Drain<'_, T> {
         self.inner.drain(range)
     }
-
-    //pub fn slice(&self, range: T::RangeType) -> &[T] {
-    //    self[range]
-    //}
 }
-
-//impl<T: VectorElement> DerefMut for BoundedVec<T> {
-//    fn deref_mut(&mut self) -> &mut Self::Target {
-//        &mut self.inner
-//    }
-//}
-//
-//impl<T: VectorElement> Deref for BoundedVec<T> {
-//    type Target = Vec<T>;
-//
-//    fn deref(&self) -> &Self::Target {
-//        &self.inner
-//    }
-//}
 
 impl<T: BinRead + VectorElement> BinRead for BoundedVec<T>
 where

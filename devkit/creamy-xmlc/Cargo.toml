@@ -16,6 +16,8 @@ roxmltree.workspace = true
 strum.workspace = true
 miette = { version = "7.6.0", features = ["fancy", "syntect-highlighter"] }
 semver.workspace = true
+downcast-rs.workspace = true
+smol_str = "0.3.6"
 
 termtree = "1.0.0"
 owo-colors = "4.4.0"

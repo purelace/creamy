@@ -3,7 +3,7 @@ use std::num::ParseIntError;
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
 
-use crate::{diagnostics::Diagnostics, nodes::VariantValue};
+use crate::{VariantValue, diagnostics::Diagnostics};
 
 #[derive(Debug, Error, Diagnostic, Clone, PartialEq, Eq)]
 #[diagnostic(severity(Error))]
@@ -49,7 +49,15 @@ pub enum SyntaxError {
         span: SourceSpan,
     },
 
-    #[error("[P007] Invalid syntax")]
+    #[error("[P007] Invalid direction value")]
+    #[diagnostic(code(syntax::invalid_direction))]
+    #[diagnostic(help("allowed values: Incoming, Outgoing, Duplex"))]
+    InvalidDirection {
+        #[label("Here")]
+        span: SourceSpan,
+    },
+
+    #[error("[P008] Invalid syntax")]
     #[diagnostic(code(syntax::invalid_array_syntax))]
     #[diagnostic(help("should be [TYPE; SIZE]"))]
     InvalidArraySyntax {
@@ -57,7 +65,7 @@ pub enum SyntaxError {
         span: SourceSpan,
     },
 
-    #[error("[P008] Int parse error: {error}")]
+    #[error("[P009] Int parse error: {error}")]
     #[diagnostic(code(syntax::int_error))]
     IntParse {
         #[label("Here")]
@@ -65,7 +73,7 @@ pub enum SyntaxError {
         error: ParseIntError,
     },
 
-    #[error("[P009] Empty identifier")]
+    #[error("[P010] Empty identifier")]
     #[diagnostic(code(syntax::empty_identifier))]
     #[diagnostic(help("Identifier cannot be empty"))]
     EmptyIdentifier {
@@ -73,14 +81,14 @@ pub enum SyntaxError {
         span: SourceSpan,
     },
 
-    #[error("[P010] Invalid identifier")]
+    #[error("[P011] Invalid identifier")]
     #[diagnostic(code(syntax::invalid_identifier))]
     InvalidIdentifier {
         #[label("Here")]
         span: SourceSpan,
     },
 
-    #[error("[P011] Not a number")]
+    #[error("[P012] Not a number")]
     #[diagnostic(code(syntax::nan))]
     NotANumber {
         #[label("Here")]
@@ -211,17 +219,13 @@ pub enum SemanticError {
         max: u64,
     },
 
-    #[error("[P208] Zero sized types is not allowed")]
-    #[diagnostic(code(semantic::zero_sized_type))]
-    ZeroSizedType,
-
-    #[error("[P209] Cannot resolve type {from}: required type '{kind}' not found.")]
+    #[error("[P208] Cannot resolve type {from}: required type '{kind}' not found.")]
     CannotResolveTypeFieldNotFound { from: String, kind: String },
 
-    #[error("[P210] {0}: Self reference is not allowed.")]
+    #[error("[P209] {0}: Self reference is not allowed.")]
     SelfReference(String),
 
-    #[error("[P211] {0}: Message reference is not allowed.")]
+    #[error("[P210] {0}: Message reference is not allowed.")]
     MessageReference(String),
 }
 

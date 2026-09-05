@@ -1,7 +1,7 @@
+use super::nodes::{EnumNode, VariantNode};
 use crate::{
     StringPoolIntern, define_misc_parser, define_toplevel_parser,
     error::AstError,
-    nodes::{EnumNode, VariantNode},
     tokenizer::{Identifier, Token},
     utils::VariantsRange,
 };

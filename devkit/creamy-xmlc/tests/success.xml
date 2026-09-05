@@ -1,72 +1,63 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <protocol name="test" version="0.0.1">
 
-    <!-- Max options: 128 -->
-    <flags name="TypeOptions">
-        <option name="Serialize" />
-        <option name="Notify" />
-        <option name="Destroy" />
-        <option name="Setup" />
-    </flags>
+    <global>
+        <!-- Max options: 128 -->
+        <flags name="TypeOptions">
+            <option name="Serialize" />
+            <option name="Notify" />
+            <option name="Destroy" />
+            <option name="Setup" />
+        </flags>
 
-    <!-- Max bits: 224 [28 * 8] -->
-    <bitset name="TypeMeta">
-        <value name="len" bits="5" repr="u8" />
-        <value name="size" bits="10" repr="i32" />
-        <value name="data" bits="3" repr="i64" />
-    </bitset>
+        <!-- Max bits: 224 [28 * 8] -->
+        <bitset name="TypeMeta">
+            <value name="len" bits="5" repr="u8" />
+            <value name="size" bits="10" repr="i32" />
+            <value name="data" bits="3" repr="i64" />
+        </bitset>
 
-    <stream kind="0" name="PlayerList" timeout="8">
-        <start>
-            <field name="count" type="u32" />
-        </start>
-        <payload>
-
-            <!--
-            <array name="player_name" type="u8" len_type="u32" />
-            -->
-        </payload>
-        <end>
-            <field name="checksum" type="u32" />
-        </end>
-    </stream>
-
-    <enum name="LogType" repr="u8">
-        <variant name="Debug" value="0" />
-        <variant name="Info" value="1" />
-        <variant name="Warning" value="2" />
-        <variant name="Error" value="3" />
-    </enum>
-
-    <stream kind="1" name="Log" timeout="4">
-        <start>
-            <field name="kind" type="LogType" />
-            <field name="length" type="u32"/>
-        </start>
-        <payload>
-            <field name="data" type="[u8; 27]"/>
-        </payload>
-        <!--
-        <result>
-            <field name="result" type="LogType" source="kind"/>
-            <field name="bytes" type="u8" is_dynamic="true" capacity="length"/>
-        </result>
-        -->
-    </stream>
+        <enum name="LogType" repr="u8">
+            <variant name="Debug" value="0" />
+            <variant name="Info" value="1" />
+            <variant name="Warning" value="2" />
+            <variant name="Error" value="3" />
+        </enum>
+    </global>
 
     <group name="first" access="Public">
-        <message kind="0" name="FullHouse27">
+        <stream kind="0" name="PlayerList" timeout="8" direction="Incoming">
+            <head>
+                <field name="count" type="u32" />
+            </head>
+            <payload></payload>
+            <tail>
+                <field name="checksum" type="u32" />
+            </tail>
+        </stream>
+
+        <stream kind="1" name="Log" timeout="3" direction="Duplex">
+            <head>
+                <field name="kind" type="LogType" />
+                <field name="length" type="u32"/>
+            </head>
+            <payload>
+                <field name="data" type="[u8; 27]"/>
+            </payload>
+        </stream>
+
+        <message kind="0" name="Snapshot" direction="Outgoing">
             <field name="flag" type="u8" />
             <field name="small_val" type="u16" />
             <field name="timestamp" type="u64" />
             <field name="guid" type="u128" />
         </message>
 
-        <message kind="1" name="VectorArray">
+        <message kind="1" name="VectorArray" direction="Incoming">
             <field name="coordinates" type="[f32; 6]" />
         </message>
 
-        <message kind="2" name="SignedLimits">
+        <message kind="2" name="SendSignedLimits" direction="Duplex">
             <field name="small_int" type="i16" />
             <field name="mid_int" type="i64" />
             <field name="big_int" type="i128" />
@@ -83,7 +74,7 @@
             <field name="a" type="u8" />
         </struct>
 
-        <message kind="0" name="NestedValid">
+        <message kind="0" name="NestedValid" direction="Duplex">
             <field name="data" type="BucketSmall" />
             <field name="extra" type="[u8; 8]" />
         </message>
@@ -92,12 +83,12 @@
 
     <group name="third" access="Private">
 
-        <message kind="0" name="StatusWithData">
+        <message kind="0" name="StatusWithData" direction="Incoming">
             <field name="status" type="Status" />
             <field name="buffer" type="[u8; 26]" />
         </message>
 
-        <message kind="1" name="StatusWithRemainder">
+        <message kind="1" name="StatusWithRemainder" direction="Incoming">
             <field name="status" type="Status" />
         </message>
 

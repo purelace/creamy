@@ -1,9 +1,9 @@
+use super::nodes::{BitsetNode, BitsetValueNode};
 use crate::{
     StringPoolIntern, define_misc_parser, define_toplevel_parser,
     error::AstError,
-    nodes::{BValueNode, BitsetNode},
     tokenizer::{Identifier, Token},
-    utils::BValuesRange,
+    utils::BitsetValuesRange,
 };
 
 #[inline]
@@ -14,7 +14,7 @@ const fn token_bvalue(t: &Token) -> bool {
 define_misc_parser! {
     name:      BValueParser,
     type:      BValueNode,
-    return:    BValuesRange,
+    return:    BitsetValuesRange,
     error:     AstError::TooManyBitsetValues,
     fn:        parse_bvalues,
     builder:   build_bvalues,
@@ -22,7 +22,7 @@ define_misc_parser! {
     fields:    [ name, bits, repr, span ],
     predicate: token_bvalue,
     ctor:      |pool, name, bits, repr, span| {
-        BValueNode::new(name.intern(pool), repr.intern(pool), bits)
+        BitsetValueNode::new(name.intern(pool), repr.intern(pool), bits)
     }
 }
 

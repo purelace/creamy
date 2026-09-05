@@ -12,6 +12,10 @@ pub use numeric::*;
 pub use remainder::Remainder;
 pub use repr::PrimitiveRepr;
 
+use super::{
+    definition::Direction,
+    storage::{Symbol, SymbolKey},
+};
 use crate::{
     Access,
     constraints::{
@@ -21,7 +25,7 @@ use crate::{
     define_readonly_struct, impl_with_ident,
     table::TypeId,
     utils::{
-        BValuesRange, BitsetsRange, FieldsRange, FlagsRange, GroupsRange, MessagesRange,
+        BitsetValuesRange, BitsetsRange, FieldsRange, FlagsRange, GroupsRange, MessagesRange,
         OptionsRange, Size, StructsRange, TypesRange, VectorElement,
     },
 };
@@ -86,6 +90,12 @@ define_readonly_struct! {
 impl_with_ident!(StructSymbol);
 
 define_readonly_struct! {
+    struct GlobalTypesSymbol {
+        types: TypesRange,
+    }
+}
+
+define_readonly_struct! {
     [element(MAX_GROUPS, GroupsRange)]
     struct GroupSymbol {
         ident: StringId,
@@ -96,37 +106,88 @@ define_readonly_struct! {
 }
 impl_with_ident!(GroupSymbol);
 
+impl Symbol for GroupSymbol {
+    const KEY: SymbolKey = SymbolKey::Group;
+}
+
 define_readonly_struct! {
     [element(MAX_MESSAGES, MessagesRange)]
     struct MessageSymbol {
         ident: StringId,
         fields: FieldsRange,
+        direction: Direction,
         kind: u8,
     }
 }
 impl_with_ident!(MessageSymbol);
 
-define_readonly_struct! {
-    [element(MAX_MESSAGES, MessagesRange)]
-    struct StreamSymbol {
-        [Documentation("Name of message.")]
-        ident: StringId,
-        [Documentation("Timeout in frames.")]
-        timeout: u8,
-        [Documentation("
-            Type of the message stream.
-            Allowed types: `[
-                Head, Payload, Tail
-            ]`"
-        )]
-        kind: u8,
-        [Documentation("Head of the message stream.")]
-        head: Option<FieldsRange>,
-        [Documentation("Payload of the message stream.")]
-        payload: FieldsRange,
-        [Documentation("Tail of the message stream.")]
-        tail: Option<FieldsRange>,
+#[derive(binrw::BinWrite, binrw::BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StreamSymbol {
+    /// Name of message.
+    ident: StringId,
+
+    /// Direction of the message
+    direction: Direction,
+
+    /// Timeout in frames
+    timeout: u8,
+
+    /// Type of the message stream.
+    /// Allowed types: `[ Head, Payload, Tail ]`
+    kind: u8,
+
+    /// Head of the message stream.
+    #[br(parse_with = read_opt)]
+    #[bw(write_with = write_opt)]
+    head: Option<FieldsRange>,
+
+    /// Payload of the message stream.
+    payload: FieldsRange,
+
+    /// Tail of the message stream
+    #[br(parse_with = read_opt)]
+    #[bw(write_with = write_opt)]
+    tail: Option<FieldsRange>,
+}
+crate::define_readonly_struct!(@impl_vector_element StreamSymbol MAX_MESSAGES MessagesRange);
+crate::define_readonly_struct!(@impl_methods StreamSymbol {
+    ident: StringId,
+    direction: Direction,
+    timeout: u8,
+    kind: u8,
+    head: Option<FieldsRange>,
+    payload: FieldsRange,
+    tail: Option<FieldsRange>,
+});
+
+fn read_opt<T: BinRead<Args<'static> = ()>, R: std::io::Read + std::io::Seek>(
+    reader: &mut R,
+    endian: binrw::Endian,
+    _: (),
+) -> binrw::BinResult<Option<T>> {
+    let has_pos: u8 = <u8>::read_options(reader, endian, ())?;
+    if has_pos != 0 {
+        let data = <T>::read_options(reader, endian, ())?;
+        Ok(Some(data))
+    } else {
+        Ok(None)
     }
+}
+
+#[allow(clippy::ref_option)]
+fn write_opt<T: BinWrite<Args<'static> = ()>, W: std::io::Write + std::io::Seek>(
+    opt: &Option<T>,
+    writer: &mut W,
+    endian: binrw::Endian,
+    _: (),
+) -> binrw::BinResult<()> {
+    if let Some(data) = opt {
+        <u8>::write_options(&1u8, writer, endian, ())?;
+        <T>::write_options(data, writer, endian, ())?;
+    } else {
+        <u8>::write_options(&0u8, writer, endian, ())?;
+    }
+    Ok(())
 }
 
 impl_with_ident!(StreamSymbol);
@@ -137,6 +198,10 @@ pub enum MessageSymbolType {
     Single(MessageSymbol),
     #[brw(magic = 1u8)]
     Stream(StreamSymbol),
+}
+
+impl Symbol for MessageSymbolType {
+    const KEY: SymbolKey = SymbolKey::Message;
 }
 
 impl VectorElement for MessageSymbolType {
@@ -156,16 +221,23 @@ impl MessageSymbolType {
     #[must_use]
     pub const fn kind(&self) -> u8 {
         match self {
-            MessageSymbolType::Single(s) => s.kind,
-            MessageSymbolType::Stream(s) => s.kind,
+            MessageSymbolType::Single(m) => m.kind,
+            MessageSymbolType::Stream(m) => m.kind,
+        }
+    }
+
+    pub const fn direction(&self) -> Direction {
+        match self {
+            MessageSymbolType::Single(m) => m.direction,
+            MessageSymbolType::Stream(m) => m.direction,
         }
     }
 
     #[must_use]
     pub const fn with_ident(&self, id: StringId) -> Self {
         match self {
-            MessageSymbolType::Single(s) => MessageSymbolType::Single(s.with_ident(id)),
-            MessageSymbolType::Stream(s) => MessageSymbolType::Stream(s.with_ident(id)),
+            MessageSymbolType::Single(m) => MessageSymbolType::Single(m.with_ident(id)),
+            MessageSymbolType::Stream(m) => MessageSymbolType::Stream(m.with_ident(id)),
         }
     }
 }
@@ -183,7 +255,7 @@ define_readonly_struct! {
     [element(MAX_BITSETS, BitsetsRange)]
     struct BitsetSymbol {
         ident: StringId,
-        values: BValuesRange,
+        values: BitsetValuesRange,
     }
 }
 impl_with_ident!(BitsetSymbol);
@@ -196,8 +268,12 @@ define_readonly_struct! {
 }
 impl_with_ident!(OptionSymbol);
 
+impl Symbol for OptionSymbol {
+    const KEY: SymbolKey = SymbolKey::Option;
+}
+
 define_readonly_struct! {
-    [element(MAX_BITSET_VALUES, BValuesRange)]
+    [element(MAX_BITSET_VALUES, BitsetValuesRange)]
     struct BitsetValueSymbol {
         ident: StringId,
         repr: TypeId,
@@ -205,12 +281,24 @@ define_readonly_struct! {
     }
 }
 
+impl Symbol for BitsetValueSymbol {
+    const KEY: SymbolKey = SymbolKey::BitsetValue;
+}
+
 impl_with_ident!(BitsetValueSymbol);
 
+// TODO:
+// Тут надо пересчитать максимальное количество типов.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, BinRead, BinWrite)]
 pub enum StreamPayloadFieldSymbol {
+    #[brw(magic = 0u8)]
     Field(FieldSymbol),
+    #[brw(magic = 1u8)]
     Array(ArrayFieldSymbol),
+}
+
+impl Symbol for StreamPayloadFieldSymbol {
+    const KEY: SymbolKey = SymbolKey::StreamPayloadField;
 }
 
 impl VectorElement for StreamPayloadFieldSymbol {

@@ -6,9 +6,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     generate_code(
-        "../definitions",
+        ".creamy/definitions",
         outdir,
-        &std::fs::read_to_string("../manifest.toml")?,
+        &std::fs::read_to_string(".creamy/manifest.toml")?,
         Args::default(),
     )
 }

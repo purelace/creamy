@@ -1,12 +1,15 @@
 use creamy_utils::strpool::StringId;
 
 use crate::{
+    VariantValue,
     constraints::{MAX_ENUMS, MAX_VARIANTS},
     define_readonly_struct,
     error::SemanticError,
     impl_with_ident,
-    model::symbols::PrimitiveRepr,
-    nodes::VariantValue,
+    model::{
+        storage::{Symbol, SymbolKey},
+        symbols::PrimitiveRepr,
+    },
     table::TypeMeta,
     utils::{EnumsRange, VariantsRange},
 };
@@ -19,6 +22,10 @@ define_readonly_struct! {
     }
 }
 impl_with_ident!(VariantSymbol);
+
+impl Symbol for VariantSymbol {
+    const KEY: SymbolKey = SymbolKey::Variant;
+}
 
 define_readonly_struct! {
     [element(MAX_ENUMS, EnumsRange)]

@@ -2,27 +2,30 @@ mod bitset;
 mod enums;
 mod flags;
 mod message;
+pub mod nodes;
+pub mod storage;
 mod structs;
 
+use nodes::{
+    BitsetNode, BitsetValueNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, GlobalTypesNode,
+    GroupNode, MessageNodeType, OptionNode, StreamPayloadFieldNode, StructNode, VariantNode,
+};
 use semver::Version;
 
 use crate::{
     Access, Diagnostics, StringPoolIntern,
     error::{AstError, Fallback},
-    nodes::{
-        BValueNode, BitsetNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, GroupNode,
-        MessageNodeType, OptionNode, StreamPayloadFieldNode, StructNode, VariantNode,
-    },
     tokenizer::{Identifier, Token},
     tree::{
         bitset::{BValueParser, BitsetParser},
         enums::{EnumParser, VariantParser},
         flags::{FlagsParser, OptionParser},
         message::{MessageParser, StreamPayloadFieldParser},
+        storage::NodeStorage,
         structs::StructParser,
     },
     utils::{
-        BValuesRange, BitsetsRange, BoundedVec, EnumsRange, FieldsRange, FlagsRange, MessagesRange,
+        BitsetValuesRange, BitsetsRange, EnumsRange, FieldsRange, FlagsRange, MessagesRange,
         OptionsRange, StructsRange, VariantsRange,
         strpool::{StringId, StringPool},
     },
@@ -92,33 +95,36 @@ impl RangeBuilder {
         range
     }
 
-    const fn build_bvalues(&mut self) -> BValuesRange {
-        let range = BValuesRange::new(self.start as u16, self.len as u16);
+    const fn build_bvalues(&mut self) -> BitsetValuesRange {
+        let range = BitsetValuesRange::new(self.start as u16, self.len as u16);
         self.build();
         range
     }
+}
+
+//TODO: rework
+fn get_node_storage() -> NodeStorage {
+    let mut storage = NodeStorage::default();
+    storage.register_node::<GroupNode>();
+    storage.register_node::<OptionNode>();
+    storage.register_node::<BitsetValueNode>();
+    storage.register_node::<FieldNode>();
+    storage.register_node::<VariantNode>();
+    storage.register_node::<StreamPayloadFieldNode>();
+    storage.register_node::<MessageNodeType>();
+    storage.register_node::<StructNode>();
+    storage.register_node::<EnumNode>();
+    storage.register_node::<FlagsNode>();
+    storage.register_node::<BitsetNode>();
+    storage
 }
 
 #[derive(Debug)]
 pub struct ProtocolTree {
     pub name: StringId,
     pub version: Version,
-
-    pub global: GroupNode,
-
-    pub groups: BoundedVec<GroupNode>,
-
-    pub options: BoundedVec<OptionNode>,
-    pub bvalues: BoundedVec<BValueNode>,
-    pub fields: BoundedVec<FieldNode>,
-    pub variants: BoundedVec<VariantNode>,
-    pub payload: BoundedVec<StreamPayloadFieldNode>,
-
-    pub messages: BoundedVec<MessageNodeType>,
-    pub structs: BoundedVec<StructNode>,
-    pub enums: BoundedVec<EnumNode>,
-    pub flags: BoundedVec<FlagsNode>,
-    pub bitsets: BoundedVec<BitsetNode>,
+    pub global: GlobalTypesNode,
+    pub storage: NodeStorage,
 }
 
 #[inline]
@@ -126,8 +132,15 @@ const fn token_field(t: &Token) -> bool {
     matches!(t, Token::Field { .. })
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum AnalysisState {
+    //Extension,
+    Protocol,
+    Global,
+    Group { name: StringId, access: Access },
+}
+
 impl ProtocolTree {
-    #[allow(clippy::too_many_lines)]
     pub fn new(
         mut tokens: Vec<Token>,
         pool: &mut StringPool,
@@ -145,14 +158,9 @@ impl ProtocolTree {
             (Identifier::fallback(), Version::fallback())
         };
 
-        let mut global_message_builder = RangeBuilder::default();
-        let mut global_struct_builder = RangeBuilder::default();
-        let mut global_enum_builder = RangeBuilder::default();
-        let mut global_flag_builder = RangeBuilder::default();
-        let mut global_bitset_builder = RangeBuilder::default();
+        let mut storage = get_node_storage();
+        let mut global_types = GlobalTypesNode::default();
 
-        let mut groups = BoundedVec::new();
-        let mut group: Option<(StringId, Access)> = None;
         let mut group_err = false;
 
         let mut ctx = ParserContext::new(pool, diagnostics);
@@ -163,131 +171,168 @@ impl ProtocolTree {
         let mut bitsets = BitsetParser::default();
 
         let mut iter = tokens.drain(..).peekable();
-        while let Some(token) = iter.next() {
-            match token {
-                Token::Group {
-                    name,
-                    access,
-                    span: _,
-                } => {
-                    if let Some((name, access)) = group.take() {
-                        let messages = messages.builder().build_messages();
-                        let structs = structs.builder().build_structs();
-                        let enums = enums.builder().build_enums();
-                        let flags = flags.builder().build_flags();
-                        let bitsets = bitsets.builder().build_bitsets();
-                        if !groups.push(GroupNode::new(
-                            name, access, messages, structs, enums, flags, bitsets,
-                        )) && !group_err
-                        {
-                            group_err = true;
-                            ctx.diag.report_err(AstError::TooManyGroups);
-                        }
-                    } else {
-                        //reset if group_name == None because we have global group
+        let mut state = AnalysisState::Protocol;
+        loop {
+            match state {
+                AnalysisState::Protocol => match iter.peek() {
+                    Some(&Token::Group {
+                        name,
+                        access,
+                        span: _,
+                    }) => {
+                        let _ = iter.next().unwrap();
+                        // применить сдвиги к счетчикам
                         messages.builder().build();
                         structs.builder().build();
                         enums.builder().build();
                         flags.builder().build();
                         bitsets.builder().build();
+                        state = AnalysisState::Group {
+                            name: name.intern(ctx.pool),
+                            access,
+                        };
+                    }
+                    Some(&Token::Global { .. }) => {
+                        let _ = iter.next().unwrap();
+                        // применить сдвиги к счетчикам
+                        structs.builder().build();
+                        enums.builder().build();
+                        flags.builder().build();
+                        bitsets.builder().build();
+                        state = AnalysisState::Global;
+                    }
+                    Some(other) => {
+                        let span = other.span();
+                        let _ = iter.next().unwrap();
+                        ctx.diag.report_err(AstError::UnexpectedToken { span });
+                    }
+                    None => {
+                        break;
+                    }
+                },
+                AnalysisState::Global => match iter.peek() {
+                    Some(&Token::Struct { name, .. }) => {
+                        let _ = iter.next().unwrap();
+                        structs.parse_struct(name, &mut storage, &mut iter, &mut ctx);
+                    }
+                    Some(&Token::Enum { name, repr, .. }) => {
+                        let _ = iter.next().unwrap();
+                        enums.parse_enum(name, repr, &mut storage, &mut iter, &mut ctx);
+                    }
+                    Some(&Token::Flags { name, .. }) => {
+                        let _ = iter.next().unwrap();
+                        flags.parse_flags(name, &mut storage, &mut iter, &mut ctx);
+                    }
+                    Some(&Token::Bitset { name, .. }) => {
+                        let _ = iter.next().unwrap();
+                        bitsets.parse_bitset(name, &mut storage, &mut iter, &mut ctx);
+                    }
+                    _ => {
+                        global_types = GlobalTypesNode::new(
+                            structs.builder().build_structs(),
+                            enums.builder().build_enums(),
+                            flags.builder().build_flags(),
+                            bitsets.builder().build_bitsets(),
+                        );
+                        state = AnalysisState::Protocol;
+                    }
+                },
+                AnalysisState::Group { name, access } => match iter.peek() {
+                    Some(&Token::Message {
+                        kind,
+                        name,
+                        direction,
+                        ..
+                    }) => {
+                        let _ = iter.next().unwrap();
+                        messages.parse_single(
+                            kind,
+                            name,
+                            direction,
+                            &mut storage,
+                            &mut iter,
+                            &mut ctx,
+                        );
+                    }
+                    Some(&Token::Stream {
+                        kind,
+                        name,
+                        timeout,
+                        direction,
+                        ..
+                    }) => {
+                        let _ = iter.next().unwrap();
+                        messages.parse_stream(
+                            kind,
+                            name,
+                            direction,
+                            timeout,
+                            &mut storage,
+                            &mut iter,
+                            &mut ctx,
+                        );
                     }
 
-                    group = Some((name.intern(ctx.pool), access));
-                }
-                Token::Message {
-                    kind,
-                    name,
-                    span: _,
-                } => {
-                    messages.parse_single(kind, name, &mut iter, &mut ctx);
-                }
-                Token::Struct { name, span: _ } => {
-                    structs.parse_struct(name, &mut iter, &mut ctx);
-                }
-                Token::Enum {
-                    name,
-                    repr,
-                    span: _,
-                } => {
-                    enums.parse_enum(name, repr, &mut iter, &mut ctx);
-                }
-                Token::Flags { name, span: _ } => {
-                    flags.parse_flags(name, &mut iter, &mut ctx);
-                }
-                Token::Bitset { name, span: _ } => {
-                    bitsets.parse_bitset(name, &mut iter, &mut ctx);
-                }
-                Token::Stream {
-                    kind,
-                    name,
-                    timeout,
-                    span: _,
-                } => {
-                    messages.parse_stream(kind, name, timeout, &mut iter, &mut ctx);
-                }
-                other => {
-                    ctx.diag
-                        .report_err(AstError::UnexpectedToken { span: other.span() });
-                }
+                    Some(&Token::Struct { name, .. }) => {
+                        let _ = iter.next().unwrap();
+                        structs.parse_struct(name, &mut storage, &mut iter, &mut ctx);
+                    }
+                    Some(&Token::Enum { name, repr, .. }) => {
+                        let _ = iter.next().unwrap();
+                        enums.parse_enum(name, repr, &mut storage, &mut iter, &mut ctx);
+                    }
+                    Some(&Token::Flags { name, .. }) => {
+                        let _ = iter.next().unwrap();
+                        flags.parse_flags(name, &mut storage, &mut iter, &mut ctx);
+                    }
+                    Some(&Token::Bitset { name, .. }) => {
+                        let _ = iter.next().unwrap();
+                        bitsets.parse_bitset(name, &mut storage, &mut iter, &mut ctx);
+                    }
+                    _ => {
+                        let node = GroupNode::new(
+                            name,
+                            access,
+                            messages.builder().build_messages(),
+                            structs.builder().build_structs(),
+                            enums.builder().build_enums(),
+                            flags.builder().build_flags(),
+                            bitsets.builder().build_bitsets(),
+                        );
+
+                        if !storage.add_node(node) && !group_err {
+                            group_err = true;
+                            ctx.diag.report_err(AstError::TooManyGroups);
+                        }
+
+                        state = AnalysisState::Protocol;
+                    }
+                },
             }
         }
 
-        if let Some((name, access)) = group.take() {
-            let messages = messages.builder().build_messages();
-            let structs = structs.builder().build_structs();
-            let enums = enums.builder().build_enums();
-            let flags = flags.builder().build_flags();
-            let bitsets = bitsets.builder().build_bitsets();
-            if !groups.push(GroupNode::new(
-                name, access, messages, structs, enums, flags, bitsets,
-            )) && !group_err
-            {
-                ctx.diag.report_err(AstError::TooManyGroups);
-            }
-        }
+        assert_eq!(state, AnalysisState::Protocol);
 
         ProtocolTree {
             name: ctx.pool.get_id_or_add(&name),
             version,
-
-            global: GroupNode::new(
-                ctx.pool.get_id_or_add(&name),
-                Access::Public, //TODO fix
-                global_message_builder.build_messages(),
-                global_struct_builder.build_structs(),
-                global_enum_builder.build_enums(),
-                global_flag_builder.build_flags(),
-                global_bitset_builder.build_bitsets(),
-            ),
-            groups,
-
-            options: ctx.option.take(),
-            bvalues: ctx.bvalue.take(),
-            fields: ctx.field.take(),
-            variants: ctx.variant.take(),
-
-            messages: messages.take(),
-
-            structs: structs.take(),
-            enums: enums.take(),
-            flags: flags.take(),
-            bitsets: bitsets.take(),
-            payload: ctx.payload.take(),
+            global: global_types,
+            storage,
         }
     }
 
     /// Значение не может превышать [``crate::constraints::MAX_TYPE_COUNT``]
     #[allow(clippy::cast_possible_truncation)]
-    pub const fn type_count(&self) -> u16 {
-        (self.enums.len() + self.structs.len() + self.flags.len() + self.bitsets.len()) as u16
+    pub fn type_count(&self) -> u16 {
+        self.storage.type_count() as u16
     }
 }
 
 #[macro_export]
 macro_rules! push_node {
     (
-        to: $vec:expr, node: $node:expr, flag: $err_flag:expr, $diag:expr, $err_type:expr) => {
-        if !$vec.push($node) && !$err_flag {
+        to: $storage:expr, node: $node:expr, flag: $err_flag:expr, $diag:expr, $err_type:expr) => {
+        if !$storage.add_node($node) && !$err_flag {
             $err_flag = true;
             $diag.report_err($err_type);
         }
@@ -310,7 +355,6 @@ macro_rules! define_misc_parser {
     ) => {
         #[derive(Default)]
         pub(crate) struct $name {
-            vec: $crate::utils::BoundedVec<$type>,
             has_error: bool,
             builder: $crate::tree::RangeBuilder,
         }
@@ -321,6 +365,7 @@ macro_rules! define_misc_parser {
                 &mut self,
                 diag: &mut $crate::Diagnostics,
                 pool: &mut $crate::utils::strpool::StringPool,
+                storage: &mut $crate::tree::storage::NodeStorage,
                 iter: &mut core::iter::Peekable<std::vec::Drain<$crate::tokenizer::Token>>,
             ) -> $ret {
                 while let Some($token_path { $($f_name,)* .. }) = iter.next_if($predicate) {
@@ -331,7 +376,7 @@ macro_rules! define_misc_parser {
                     };
 
                     $crate::push_node! {
-                        to: self.vec,
+                        to: storage,
                         node: node,
                         flag: self.has_error,
                         diag,
@@ -341,10 +386,6 @@ macro_rules! define_misc_parser {
                 }
 
                 self.builder.$builder()
-            }
-
-            pub fn take(self) -> $crate::utils::BoundedVec<$type> {
-                self.vec
             }
         }
     };
@@ -363,7 +404,6 @@ macro_rules! define_toplevel_parser {
     ) => {
         #[derive(Default)]
         pub(crate) struct $name {
-            vec: $crate::utils::BoundedVec<$type>,
             has_error: bool,
             builder: $crate::tree::RangeBuilder,
         }
@@ -372,11 +412,12 @@ macro_rules! define_toplevel_parser {
             pub fn $t_parse_method(
                 &mut self,
                 $($arg : $arg_type,)* // Объявление аргументов в методе
+                storage: &mut $crate::tree::storage::NodeStorage,
                 iter: &mut core::iter::Peekable<std::vec::Drain<$crate::tokenizer::Token>>,
                 ctx: &mut $crate::tree::ParserContext,
             ) {
                 // Вызов вложенного парсера
-                let range = ctx.$misc.$m_parse(ctx.diag, ctx.pool, iter);
+                let range = ctx.$misc.$m_parse(ctx.diag, ctx.pool, storage, iter);
 
                 // Переменные для конструктора (ctx и range доступны внутри выражения)
                 let node = {
@@ -389,7 +430,7 @@ macro_rules! define_toplevel_parser {
                 self.builder.next();
 
                 $crate::push_node!(
-                    to: self.vec,
+                    to: storage,
                     node: node,
                     flag: self.has_error,
                     ctx.diag,
@@ -399,10 +440,6 @@ macro_rules! define_toplevel_parser {
 
             pub const fn builder(&mut self) -> &mut $crate::tree::RangeBuilder {
                 &mut self.builder
-            }
-
-            pub fn take(self) -> $crate::utils::BoundedVec<$type> {
-                self.vec
             }
         }
     };
