@@ -25,7 +25,7 @@ impl ValidU8 {
     }
 }
 
-pub trait BusConfig {
+pub trait BusConfig: 'static {
     const MAX_GROUPS: ValidU8;
     const MAX_MESSAGES: NonZeroU32;
     const MAX_SUBSCRIBERS: ValidU8;
