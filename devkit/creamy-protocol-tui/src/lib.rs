@@ -6,11 +6,11 @@ mod memory;
 use std::num::NonZeroU8;
 
 use console::style;
-use creamy_utils::strpool::StringPool;
 use creamy_xmlc::{
     ProtocolDefinition, StringPoolResolver,
     constraints::HEADER_BYTES,
     model::symbols::{FieldSymbol, FieldType, MessageSymbolType, Type},
+    utils::strpool::StringPool,
 };
 
 use crate::memory::{ArrayField, MemoryReport, SimpleField};

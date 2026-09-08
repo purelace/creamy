@@ -1,0 +1,10 @@
+[package]
+id = "org.creamy.math"
+name = "Math"
+version = "0.1.0"
+description = ""
+repository = "https://github.com/purelace/creamy"
+authors = [""]
+
+[protocols]
+shell = { version = "1.0.0", groups = [ "setup" ] }

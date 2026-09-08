@@ -2,7 +2,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::missing_errors_doc)]
 
-pub mod creamy_libgen {
+pub mod libgen {
     pub use creamy_libgen::*;
 }
 
@@ -15,20 +15,21 @@ mod utils;
 
 use std::{borrow::Cow, fmt::Write as FmtWrite, io::Write as IoWrite};
 
-use creamy_libgen::{
+use creamy_libgen::devkit::compiler::model::symbols::PrimitiveRepr;
+use heck::ToSnakeCase;
+pub use libgen::Target;
+use libgen::{
     CodeGenerator, EnrichedSingleMessageSymbol, EnrichedStreamMessageSymbol, EnrichedStructSymbol,
-    GenResult, Path, SymbolIterator,
+    GenResult, Path, PerfectHashTable, SymbolIterator,
     proxy::{
         EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol, EnrichedFieldSymbol,
         EnrichedFieldType, EnrichedFlagsSymbol, EnrichedVariantSymbol, FlagUnderlyingType,
     },
 };
-use creamy_xmlc::model::symbols::PrimitiveRepr;
-use heck::ToSnakeCase;
 
 use self::{
     builder::generate_builder_pattern,
-    generator::{FunctionDefinition, Trait},
+    generator::{FunctionDefinition, Static, Trait, UnsafeNoMangleAttribute},
     utils::{generate_const_size_assert, generate_message_consts},
 };
 use crate::{
@@ -46,7 +47,8 @@ pub struct Args {
     pub ord: bool,
     pub hash: bool,
     pub debug_asserts: bool,
-    pub creamy_sdk_path: String,
+    pub target: Target,
+    pub creamy_sdk_path: &'static str,
 }
 
 impl Default for Args {
@@ -56,16 +58,38 @@ impl Default for Args {
             ord: true,
             hash: true,
             debug_asserts: true,
-            creamy_sdk_path: "creamy_sdk".into(),
+            creamy_sdk_path: "creamy_sdk",
+            target: Target::Plugin,
         }
     }
 }
 
 impl Args {
     #[must_use]
-    pub fn with_creamy_sdk_path(mut self, path: impl Into<String>) -> Self {
-        self.creamy_sdk_path = path.into();
-        self
+    pub fn sdk() -> Self {
+        Self {
+            creamy_sdk_path: "crate",
+            target: Target::Sdk,
+            ..Default::default()
+        }
+    }
+
+    #[must_use]
+    pub fn host() -> Self {
+        Self {
+            creamy_sdk_path: "creamy::sdk",
+            target: Target::Host,
+            ..Default::default()
+        }
+    }
+
+    #[must_use]
+    pub fn plugin() -> Self {
+        Self {
+            creamy_sdk_path: "creamy_sdk",
+            target: Target::Plugin,
+            ..Default::default()
+        }
     }
 
     pub(crate) fn typed_message_trait_path(&self) -> String {
@@ -376,6 +400,7 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
             Function {
                 access: Access::None,
                 is_const: false,
+                is_extern: false,
                 name: Cow::Borrowed("with_dst"),
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument {
@@ -421,6 +446,7 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
             Function {
                 access: Access::None,
                 is_const: false,
+                is_extern: false,
                 name: Cow::Borrowed("with_group"),
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument {
@@ -446,6 +472,7 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
             Function {
                 access: Access::None,
                 is_const: false,
+                is_extern: false,
                 name: Cow::Borrowed("kind"),
                 self_pass: Some(Pass::Ref),
                 args: vec![],
@@ -461,6 +488,7 @@ fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'
             Function {
                 access: Access::None,
                 is_const: false,
+                is_extern: false,
                 name: Cow::Borrowed("with_kind"),
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument {
@@ -628,6 +656,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             impl_block.functions.push(Function {
                 access: Access::Pub,
                 is_const: true,
+                is_extern: false,
                 name: Cow::Borrowed(symbol.name),
                 self_pass: Some(Pass::Ref),
                 args: vec![],
@@ -639,6 +668,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             impl_block.functions.push(Function {
                 access: Access::Pub,
                 is_const: true,
+                is_extern: false,
                 name: Cow::Owned(format!("set_{}", symbol.name)),
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument {
@@ -654,6 +684,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             impl_block.functions.push(Function {
                 access: Access::Pub,
                 is_const: true,
+                is_extern: false,
                 name: Cow::Owned(format!("with_{}", symbol.name)),
                 self_pass: Some(Pass::MutMove),
                 args: vec![Argument {
@@ -800,15 +831,10 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
     where
         I: Iterator<Item = ::creamy_libgen::Path>,
     {
-        //let mut branches = vec![];
         let mut match_string = "match dispatch_value {".to_string();
 
         let mut t = Trait::new("MessageHandler");
         t.bound = Some(self.args.custom_message_handler_trait_path().into());
-        //t.types = vec![TraitAssociatedType {
-        //    name: "Next".into(),
-        //    bound: self.args.custom_message_handler_trait_path().into(),
-        //}];
 
         for path in messages {
             let postfix = match &path {
@@ -856,6 +882,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         let function = Function {
             access: Access::Pub,
             is_const: false,
+            is_extern: false,
             name: "dispatch_message".into(),
             self_pass: None,
             args: vec![
@@ -873,12 +900,104 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             inline: true,
         };
 
-        let mut module = Module::new("dispatcher");
-        module.access = Access::Pub;
-        module.other.push(Box::new(function));
-        module.other.push(Box::new(t));
+        self.push_other(Box::new(function));
+        self.push_other(Box::new(t));
+    }
 
-        self.push_module(module);
+    fn generate_plugin_group_table(&mut self, pht: PerfectHashTable) {
+        let mut t = String::with_capacity(2048);
+        t.push('[');
+        for id in &pht.table {
+            let _ = write!(&mut t, "{id}u8, ");
+        }
+        t.push(']');
+
+        self.push_other(Box::new(UnsafeNoMangleAttribute));
+        self.push_other(Box::new(Static {
+            access: Access::None,
+            name: "__INTERNAL__TABLE".into(),
+            kind: format!("[u8; {}]", pht.table.len()).into(),
+            value: t.into(),
+        }));
+        self.push_other(Box::new(UnsafeNoMangleAttribute));
+        self.push_other(Box::new(Static {
+            access: Access::None,
+            name: "__INTERNAL__TABLE_SIZE".into(),
+            kind: "u8".into(),
+            value: pht.table.len().to_string().into(),
+        }));
+
+        let mut s = String::with_capacity(1024);
+        s.push('[');
+
+        for id in &pht.special_table {
+            let _ = write!(&mut s, "{id}u64, ");
+        }
+
+        s.push(']');
+
+        self.push_other(Box::new(UnsafeNoMangleAttribute));
+        self.push_other(Box::new(Static {
+            access: Access::None,
+            name: "__INTERNAL__SPECIAL".into(),
+            kind: format!("[u64; {}]", pht.special_table.len()).into(),
+            value: s.into(),
+        }));
+        self.push_other(Box::new(UnsafeNoMangleAttribute));
+        self.push_other(Box::new(Static {
+            access: Access::None,
+            name: "__INTERNAL__SPECIAL_TABLE_SIZE".into(),
+            kind: "u8".into(),
+            value: pht.special_table.len().to_string().into(),
+        }));
+    }
+
+    fn generate_host_group_table(&mut self, pht: PerfectHashTable) {
+        let mut t = String::with_capacity(2048);
+        t.push('[');
+        for id in &pht.table {
+            let _ = write!(&mut t, "{id}u8, ");
+        }
+        t.push(']');
+
+        self.push_other(Box::new(Static {
+            access: Access::Pub,
+            name: "TABLE".into(),
+            kind: format!("[u8; {}]", pht.table.len()).into(),
+            value: t.into(),
+        }));
+
+        let mut s = String::with_capacity(1024);
+        s.push('[');
+
+        for id in &pht.special_table {
+            let _ = write!(&mut s, "{id}u64, ");
+        }
+
+        s.push(']');
+
+        self.push_other(Box::new(Static {
+            access: Access::Pub,
+            name: "SPECIAL".into(),
+            kind: format!("[u64; {}]", pht.special_table.len()).into(),
+            value: s.into(),
+        }));
+    }
+
+    fn generate_host_package(&mut self, binary: Vec<u8>) {
+        use std::fmt::Write;
+        let len = binary.len();
+        let mut content = String::new();
+        for byte in binary {
+            let _ = write!(&mut content, "{byte}u8, ");
+        }
+
+        self.push_other(Box::new(Static {
+            access: Access::Pub,
+            name: "PACKAGE".into(),
+            kind: format!("&[u8; {len}]").into(),
+            value: format!("&[{content}]").into(),
+        }));
     }
 
     fn flush(&mut self) -> GenResult {
@@ -897,54 +1016,7 @@ fn path_to_string(path: &Path) -> String {
     match path {
         Path::Global { name } => name.clone(),
         Path::Absolute { components } => {
-            format!("crate::{}", components.join("::"))
+            format!("crate::generated::{}", components.join("::"))
         }
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-    use creamy_libgen::{Codegen, ProtocolLibrary};
-
-    use crate::{Args, RustGen};
-
-    #[test]
-    fn test() {
-        let manifest = r#"
-[package]
-id = "org.creamy.sdk"
-name = "system"
-version = "1.0.0"
-description = "Builtin package"
-repository = "https://github.com/purelace/creamy"
-authors = [ "selrisu <myirisuchan@gmail.com>" ]
-
-[core]
-path = "core.wasm"
-runtime = "wasm"
-
-[protocols]
-system = { version = "1.0", groups=["builtin"]}
-"#;
-
-        let mut library = ProtocolLibrary::new(manifest);
-        library
-            .load_all("/mnt/ssd/fusionwm/creamy/devkit/creamy-sdk/")
-            .unwrap();
-
-        let mut generator = Codegen::new(library);
-        let mut rs = RustGen {
-            args: Args::default(),
-            modules: vec![],
-            writer: Vec::with_capacity(8192 * 2),
-        };
-
-        generator.run(&mut rs).unwrap();
-
-        let string = String::from_utf8(rs.writer).unwrap();
-
-        println!("{string}");
-    }
-}
-*/

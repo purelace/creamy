@@ -1,0 +1,14 @@
+[package]
+name = "math"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+creamy-sdk.workspace = true
+smol_str = { version = "0.3.6", default-features = false}
+
+[build-dependencies]
+creamy-libgen-rs.workspace = true

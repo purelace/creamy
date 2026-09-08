@@ -1,4 +1,4 @@
-use creamy_xmlc::{VariantValue, model::symbols::PrimitiveRepr};
+use creamy_libgen::devkit::compiler::{VariantValue, model::symbols::PrimitiveRepr};
 
 use crate::generator::{Access, DeriveList, add_depth};
 

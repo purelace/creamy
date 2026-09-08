@@ -1,3 +1,5 @@
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::missing_errors_doc)]
 #![no_std]
 
 extern crate alloc;
@@ -8,4 +10,8 @@ mod registry;
 
 pub mod core {
     pub use creamy_engine_core::*;
+}
+
+pub mod sdk {
+    pub use creamy_sdk::*;
 }

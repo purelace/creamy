@@ -16,17 +16,13 @@ bit-set = "0.11.1"
 rustc-hash.workspace = true
 downcast-rs.workspace = true
 
-[dev-dependencies]
-creamy-testbench.workspace = true
-
 [build-dependencies]
-creamy-libgen-rs = { workspace = true, features = ["sdk_internal_use"] }
-creamy-xmlc.workspace = true
+creamy-libgen-rs.workspace = true
 
-
-[features]
-internal-testing = []
-
-[[test]]
-name = "stream"
-required-features = ["internal-testing"]
+#[features]
+#internal-testing = []
+#
+#[[test]]
+#name = "stream"
+#required-features = ["internal-testing"]
+#

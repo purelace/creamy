@@ -29,6 +29,47 @@ fn generate_stream_trait_impl<'s>(
             Function {
                 access: Access::None,
                 is_const: false,
+                is_extern: false,
+                name: Cow::Borrowed("with_data"),
+                self_pass: Some(Pass::Mut),
+                args: vec![Argument {
+                    name: Cow::Borrowed("value"),
+                    kind: "[u8; 27]".into(),
+                    pass: Pass::Move,
+                }],
+                ret: Some("&mut Self".into()),
+                body: Body {
+                    lines: vec![BodyLine {
+                        content: Cow::Borrowed("self.data = value; self"),
+                        depth: 0,
+                    }],
+                },
+                inline: false,
+            },
+            Function {
+                access: Access::None,
+                is_const: false,
+                is_extern: false,
+                name: Cow::Borrowed("with_discriminant"),
+                self_pass: Some(Pass::Mut),
+                args: vec![Argument {
+                    name: Cow::Borrowed("value"),
+                    kind: args.stream_chunk_type_path().into(),
+                    pass: Pass::Move,
+                }],
+                ret: Some("&mut Self".into()),
+                body: Body {
+                    lines: vec![BodyLine {
+                        content: Cow::Borrowed("self.with_discriminant(value)"),
+                        depth: 0,
+                    }],
+                },
+                inline: false,
+            },
+            Function {
+                access: Access::None,
+                is_const: false,
+                is_extern: false,
                 name: Cow::Borrowed("discriminant"),
                 self_pass: Some(Pass::Ref),
                 args: vec![],
@@ -61,6 +102,27 @@ fn generate_stream_trait_impl<'s>(
             Function {
                 access: Access::None,
                 is_const: false,
+                is_extern: false,
+                name: Cow::Borrowed("with_stream_id"),
+                self_pass: Some(Pass::Mut),
+                args: vec![Argument {
+                    name: Cow::Borrowed("value"),
+                    kind: args.stream_id_path().into(),
+                    pass: Pass::Move,
+                }],
+                ret: Some("&mut Self".into()),
+                body: Body {
+                    lines: vec![BodyLine {
+                        content: Cow::Borrowed("self.with_stream_id(value)"),
+                        depth: 0,
+                    }],
+                },
+                inline: false,
+            },
+            Function {
+                access: Access::None,
+                is_const: false,
+                is_extern: false,
                 name: Cow::Borrowed("stream_id"),
                 self_pass: Some(Pass::Ref),
                 args: vec![],
@@ -77,12 +139,20 @@ fn generate_stream_trait_impl<'s>(
                 inline: false,
             },
         ],
-        constants: vec![Const {
-            access: Access::None,
-            ident: "TIMEOUT".into(),
-            kind: "u8".into(),
-            value: timeout.to_string().into(),
-        }],
+        constants: vec![
+            Const {
+                access: Access::None,
+                ident: "PREPARED".into(),
+                kind: "Self".into(),
+                value: "Self::PREPARED".into(),
+            },
+            Const {
+                access: Access::None,
+                ident: "TIMEOUT".into(),
+                kind: "u8".into(),
+                value: timeout.to_string().into(),
+            },
+        ],
     }
 }
 
@@ -98,6 +168,7 @@ fn generate_stream_data_trait_impl<'s>(
         functions: vec![Function {
             access: Access::None,
             is_const: false,
+            is_extern: false,
             name: "cast_to_array".into(),
             self_pass: Some(Pass::Move),
             args: vec![],
@@ -270,6 +341,7 @@ where
             Function {
                 access: Access::Pub,
                 is_const: true,
+                is_extern: false,
                 name: Cow::Borrowed("with_discriminant"),
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument::new(
@@ -314,6 +386,7 @@ where
             Function {
                 access: Access::Pub,
                 is_const: true,
+                is_extern: false,
                 name: Cow::Borrowed("with_stream_id"),
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument::new("value", args.stream_id_path(), Pass::Move)],

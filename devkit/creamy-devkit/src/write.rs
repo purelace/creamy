@@ -27,4 +27,12 @@ impl BinaryPlugin {
         self.write(&mut writer)?;
         Ok(())
     }
+
+    pub fn write_to<W: std::io::Write + std::io::Seek>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.write(writer)?;
+        Ok(())
+    }
 }

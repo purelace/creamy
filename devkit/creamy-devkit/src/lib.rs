@@ -4,12 +4,8 @@ mod error;
 mod load;
 mod write;
 
-pub mod xmlc {
+pub mod compiler {
     pub use creamy_xmlc::*;
-}
-
-pub mod utils {
-    pub use creamy_utils::*;
 }
 
 pub mod manifest {
@@ -24,8 +20,8 @@ use std::{fs::ReadDir, path::Path, str::FromStr};
 
 use ::semver::Version;
 use binrw::binrw;
+use compiler::utils::{BString, collections::List, strpool::StringPool};
 use creamy_manifest::Manifest;
-use creamy_utils::{BString, collections::List, strpool::StringPool};
 use creamy_xmlc::{ProtocolDefinition, compile};
 use fs_err as fs;
 

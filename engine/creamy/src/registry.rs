@@ -1,8 +1,9 @@
 use alloc::boxed::Box;
+use core::num::NonZeroU8;
 
-use creamy_engine_core::devkit::{
-    utils::strpool::StringPool,
-    xmlc::{ProtocolDefinition, StringPoolResolver},
+use creamy_engine_core::devkit::compiler::{
+    ProtocolDefinition, StringPoolResolver,
+    utils::strpool::{StringId, StringPool},
 };
 use creamy_sdk::bus::SubscriberId;
 use rustc_hash::FxHashMap;
@@ -23,6 +24,7 @@ pub struct ProtocolRuntimeData {
     definition: ProtocolDefinition,
     storage: Box<[AccessPolicy]>,
     owner: SubscriberId,
+    table: FxHashMap<StringId, NonZeroU8>,
 }
 
 impl ProtocolRuntimeData {
@@ -33,7 +35,20 @@ impl ProtocolRuntimeData {
             definition,
             storage,
             owner,
+            table: FxHashMap::default(),
         }
+    }
+
+    pub const fn definition(&self) -> &ProtocolDefinition {
+        &self.definition
+    }
+
+    pub const fn owner(&self) -> SubscriberId {
+        self.owner
+    }
+
+    pub fn get_provider_group_id(&self, group: StringId) -> Option<NonZeroU8> {
+        self.table.get(&group).copied()
     }
 }
 
@@ -71,9 +86,27 @@ impl ProtocolRegistry {
         assert!(self.map.insert(path, data).is_none());
     }
 
-    pub fn get_model(&self, name: &str) -> Option<&ProtocolDefinition> {
-        self.map.get(name).map(|data| &data.definition)
+    pub fn get_protocol_context(&self, name: &str) -> Option<&ProtocolRuntimeData> {
+        self.map.get(name).map(|data| data)
     }
+
+    pub fn get_group(&self, protocol: &str, group: &str) -> Option<NonZeroU8> {
+        let group_name = self.pool.get_id(group);
+        self.map
+            .get(protocol)
+            .and_then(|data| data.table.get(&group_name))
+            .copied()
+    }
+
+    pub(crate) fn set_group_id(&mut self, protocol: &str, group: &str, id: NonZeroU8) {
+        let group_name = self.pool.get_id(group);
+
+        if let Some(data) = self.map.get_mut(protocol) {
+            data.table.insert(group_name, id);
+        }
+    }
+
+    //pub(crate) fn remove_group(&mut self, protocol: &str, group)
 
     pub const fn pool(&self) -> &StringPool {
         &self.pool

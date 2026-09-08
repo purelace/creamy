@@ -1,0 +1,3 @@
+command = "cargo build --target wasm32-unknown-unknown --release -p math"
+input = "../../../../target/wasm32-unknown-unknown/release/math.wasm"
+output="../../plugins"

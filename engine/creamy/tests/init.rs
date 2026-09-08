@@ -3,13 +3,15 @@ use std::num::NonZeroU8;
 use creamy::{
     core::{
         Constants,
-        devkit::{semver::Version, xmlc::StringPoolResolver},
+        devkit::{compiler::StringPoolResolver, semver::Version},
     },
     engine::PluginEngine,
 };
+use creamy_engine_core::bus::define_bus_config;
 use creamy_loader::Loader;
 use creamy_wasmtime::WasmtimeRuntime;
 use pathenv::to_absolute_path;
+use tracing::level_filters::LevelFilter;
 
 const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 
@@ -31,7 +33,15 @@ fn compile_plugin() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader, ()>> {
+pub const M: usize = 1024;
+define_bus_config! {
+    Legacy,
+    max_subscribers: 32,
+    max_messages: 1024,
+    max_groups: 32,
+}
+
+fn init_engine() -> anyhow::Result<PluginEngine<Legacy, WasmtimeRuntime, Loader, (), M>> {
     const HEAP_SIZE: u32 = 67_108_864;
     let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
     let loader = Loader::new(to_absolute_path("$CREAMY_TEST_PLUGIN_DIR").unwrap())?;
@@ -42,7 +52,6 @@ fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader, ()>> {
         },
         runtime,
         loader,
-        (),
     );
 
     Ok(engine)
@@ -51,6 +60,7 @@ fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader, ()>> {
 #[test]
 fn init() -> anyhow::Result<()> {
     let _ = tracing_subscriber::fmt()
+        .with_max_level(LevelFilter::DEBUG)
         .with_target(true)
         .with_thread_names(false)
         .with_thread_ids(false)
@@ -64,20 +74,16 @@ fn init() -> anyhow::Result<()> {
 
     let plugin_path = tempdir.path().join("ping.cmy");
     std::fs::copy("../../target/creamy/ping.cmy", plugin_path.clone())?;
-    //std::fs::copy(
-    //    "/mnt/ssd/fusionwm/creamy/target/creamy/ping.cmy",
-    //    plugin_path.clone(),
-    //)?;
 
     engine.tick(ROUNDTRIP);
 
     assert_eq!(engine.loaded_plugins(), 2);
 
     let registry = engine.protocol_registry();
-    let result = registry.get_model("ping");
+    let result = registry.get_protocol_context("ping");
     if let Some(model) = result {
-        assert_eq!(model.name().resolve(registry.pool()), "ping");
-        assert_eq!(model.version(), &Version::new(1, 0, 0));
+        assert_eq!(model.definition().name().resolve(registry.pool()), "ping");
+        assert_eq!(model.definition().version(), &Version::new(1, 0, 0));
     } else {
         panic!("result is_none() == true");
     }

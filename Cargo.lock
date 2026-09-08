@@ -477,7 +477,7 @@ dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 3.0.2",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -768,7 +768,6 @@ name = "creamy"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "creamy-async-loader",
  "creamy-engine-core",
  "creamy-loader",
  "creamy-sdk",
@@ -822,7 +821,6 @@ dependencies = [
  "binrw",
  "creamy-manifest",
  "creamy-template",
- "creamy-utils",
  "creamy-xmlc",
  "fs-err",
  "semver",
@@ -841,8 +839,6 @@ dependencies = [
  "creamy-devkit",
  "creamy-protocol-tui",
  "creamy-template",
- "creamy-utils",
- "creamy-xmlc",
  "fs-err",
  "predicates",
  "rustyline",
@@ -857,7 +853,9 @@ version = "0.1.0"
 dependencies = [
  "cbus",
  "creamy-devkit",
+ "creamy-phf",
  "serde",
+ "tracing",
 ]
 
 [[package]]
@@ -865,16 +863,8 @@ name = "creamy-libgen"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "creamy-manifest",
- "creamy-xmlc",
-]
-
-[[package]]
-name = "creamy-libgen-c"
-version = "0.1.0"
-dependencies = [
- "creamy-utils",
- "creamy-xmlc",
+ "creamy-devkit",
+ "creamy-phf",
 ]
 
 [[package]]
@@ -882,8 +872,6 @@ name = "creamy-libgen-rs"
 version = "0.1.0"
 dependencies = [
  "creamy-libgen",
- "creamy-utils",
- "creamy-xmlc",
  "heck",
 ]
 
@@ -910,11 +898,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "creamy-phf"
+version = "0.1.0"
+dependencies = [
+ "seedable_hash",
+]
+
+[[package]]
 name = "creamy-protocol-tui"
 version = "0.1.0"
 dependencies = [
  "console",
- "creamy-utils",
  "creamy-xmlc",
  "ptree",
 ]
@@ -926,8 +920,6 @@ dependencies = [
  "bit-set",
  "cbus-core",
  "creamy-libgen-rs",
- "creamy-testbench",
- "creamy-xmlc",
  "downcast-rs",
  "rlsf",
  "rustc-hash",
@@ -952,14 +944,6 @@ dependencies = [
  "lazy-regex",
  "tempfile",
  "thiserror 2.0.20",
-]
-
-[[package]]
-name = "creamy-testbench"
-version = "0.1.0"
-dependencies = [
- "cbus",
- "creamy-sdk",
 ]
 
 [[package]]
@@ -1318,7 +1302,7 @@ checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.2",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -1680,6 +1664,15 @@ name = "mach2"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dae608c151f68243f2b000364e1f7b186d9c29845f7d2d85bd31b9ad77ad552b"
+
+[[package]]
+name = "math"
+version = "0.1.0"
+dependencies = [
+ "creamy-libgen-rs",
+ "creamy-sdk",
+ "smol_str",
+]
 
 [[package]]
 name = "memchr"
@@ -2175,9 +2168,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.46"
+version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfbc457d0c7a0759a614551b11a6409e5951f6c7537be1f1b7682b9ae9230368"
+checksum = "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001"
 dependencies = [
  "proc-macro2",
 ]
@@ -2197,6 +2190,12 @@ dependencies = [
  "endian-type",
  "nibble_vec",
 ]
+
+[[package]]
+name = "rand_core"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 
 [[package]]
 name = "rayon"
@@ -2390,6 +2389,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "seedable_hash"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba2a159211665e29bbf5a2fbb42da50dd6eadff23eef7a6a7ae4a9b0a7cd0152"
+dependencies = [
+ "wyhash",
+]
+
+[[package]]
 name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2436,7 +2444,7 @@ checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.2",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -2488,6 +2496,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static 1.5.0",
+]
+
+[[package]]
+name = "shell"
+version = "0.1.0"
+dependencies = [
+ "creamy",
+ "creamy-async-loader",
+ "creamy-devkit",
+ "creamy-libgen-rs",
+ "creamy-wasmtime",
+ "tokio",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2619,9 +2640,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "3.0.2"
+version = "3.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a207d6d6a2b7fc470b80443726053f18a2481b7e1eee970597051596567987a3"
+checksum = "12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2746,7 +2767,7 @@ checksum = "bc04cd3e1236dd4a98afca4569f2deb3f120e5422a4023be2cb683f8486292af"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.2",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -3457,6 +3478,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ee1708bef14716a11bae175f579062d4554d95be2c6829f518df847b7b3fdd0"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "wyhash"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baf6e163c25e3fac820b4b453185ea2dea3b6a3e0a721d4d23d75bd33734c295"
+dependencies = [
+ "rand_core",
 ]
 
 [[package]]

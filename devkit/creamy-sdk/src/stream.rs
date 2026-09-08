@@ -6,7 +6,7 @@ use downcast_rs::Downcast;
 use rustc_hash::FxHashMap;
 use thiserror::Error;
 
-use crate::{get_outgoing, system::builtin::Log, utils::extract_payload};
+use crate::{generated::system::builtin::Log, get_outgoing, utils::extract_payload};
 
 pub const MAX_STREAM_PAYLOAD: usize = 28;
 
@@ -28,13 +28,22 @@ impl StreamHead for () {}
 impl StreamTail for () {}
 
 pub trait StreamMessage: TypedMessage {
+    const PREPARED: Self;
     const TIMEOUT: u8;
     type Head: StreamHead;
     type Payload: StreamPayload;
     type Tail: StreamTail;
 
+    /// !!! эта функция перезаписывает stream id и discriminant.
+    fn with_data(&mut self, data: [u8; 27]) -> &mut Self;
+
+    fn with_stream_id(&mut self, value: StreamId) -> &mut Self;
     fn stream_id(&self) -> StreamId;
+
+    fn with_discriminant(&mut self, value: StreamChunkType) -> &mut Self;
     fn discriminant(&self) -> StreamChunkType;
+
+    //fn with_data(&mut self, data: [u8; MAX_STREAM_PAYLOAD])
 }
 
 #[repr(u8)]
@@ -249,16 +258,16 @@ impl<W: StreamWriterFunctions> StreamWriter<W> {
         }
     }
 
-    pub fn write<'a>(&mut self, object: &'a W::Object<'a>) {
+    pub fn write<'a>(&mut self, object: &'a W::Object<'a>, dst: u8) {
         let mut outgoing = get_outgoing();
 
-        let mut message = Log::PREPARED;
-        message.dst = 1;
+        let mut message = W::Stream::PREPARED;
+        message.with_dst(dst);
         message.with_stream_id(self.id);
 
         let mut write_and_send = |data: [u8; 28], state: StreamChunkType| {
             let data = data[1..].try_into().unwrap();
-            message.data = data;
+            message.with_data(data);
             message.with_discriminant(state);
             assert!(outgoing.send(&message));
         };

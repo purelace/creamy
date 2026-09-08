@@ -14,17 +14,19 @@ resolver = "2"
 members = [
     "bus/cbus",
     "bus/cbus-core",
+
     "devkit/creamy-devkit",
     "devkit/creamy-devkit-cli",
     "devkit/creamy-libgen",
-    "devkit/creamy-libgen-c",
     "devkit/creamy-libgen-rs",
     "devkit/creamy-manifest",
     "devkit/creamy-protocol-tui",
+    "devkit/creamy-phf",
     "devkit/creamy-sdk",
-    "devkit/creamy-testbench",
+    "devkit/creamy-template",
     "devkit/creamy-utils",
     "devkit/creamy-xmlc",
+
     "engine/creamy",
     "engine/creamy-cbus-driver",
     "engine/creamy-engine-core",
@@ -33,8 +35,10 @@ members = [
     "engine/creamy-wasmtime",
     "engine/creamy-system-plugin",
     "engine/pathenv",
+
     "examples/ping",
-    "devkit/creamy-template",
+    "examples/shell",
+    "examples/shell/commands/*", "devkit/creamy-phf",
 ]
 
 [workspace.dependencies]
@@ -43,15 +47,15 @@ cbus-core = { path = "bus/cbus-core" }
 
 creamy-devkit = { path = "devkit/creamy-devkit" }
 creamy-libgen = { path = "devkit/creamy-libgen" }
-creamy-libgen-c = { path = "devkit/creamy-libgen-c" }
 creamy-libgen-rs = { path = "devkit/creamy-libgen-rs" }
+creamy-libgen-sdk = { path = "devkit/creamy-libgen-sdk" }
 creamy-manifest = { path = "devkit/creamy-manifest" }
 creamy-protocol-tui = { path = "devkit/creamy-protocol-tui" }
 creamy-utils = { path = "devkit/creamy-utils" }
 creamy-xmlc = { path = "devkit/creamy-xmlc" }
+creamy-phf = { path = "devkit/creamy-phf" }
 creamy-sdk = { path = "devkit/creamy-sdk" }
 creamy-template = { path = "devkit/creamy-template" }
-creamy-testbench = { path = "devkit/creamy-testbench"}
 
 # Engine
 creamy = { path = "engine/creamy" }
@@ -68,7 +72,7 @@ as-guard = "0.1.0"
 idmint = { version = "0.2.2", features = ["stack"] }
 static_assertions = "1.1.0"
 cfg-if = "1.0.4"
-syn = "3.0.4"
+syn = "3.0.5"
 quote = "1.0.47"
 proc-macro2 = "1.0.107"
 proc-macro-crate = "3.5.0"

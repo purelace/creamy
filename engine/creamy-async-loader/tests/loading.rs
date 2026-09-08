@@ -2,7 +2,7 @@ use std::{num::NonZeroU8, time::Duration};
 
 use creamy::engine::PluginEngine;
 use creamy_async_loader::{AsyncLoader, config::LoaderConfig};
-use creamy_engine_core::Constants;
+use creamy_engine_core::{Constants, bus::define_bus_config};
 use creamy_wasmtime::WasmtimeRuntime;
 
 fn compile_plugin() -> anyhow::Result<()> {
@@ -22,7 +22,16 @@ fn compile_plugin() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, AsyncLoader, ()>> {
+pub const M: usize = 1024;
+define_bus_config! {
+    Legacy,
+    max_subscribers: 32,
+    max_messages: 1024,
+    max_groups: 32,
+}
+
+async fn init_engine() -> anyhow::Result<PluginEngine<Legacy, WasmtimeRuntime, AsyncLoader, (), M>>
+{
     const HEAP_SIZE: u32 = 67_108_864;
     let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
     let loader = AsyncLoader::new(
@@ -41,7 +50,6 @@ async fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, AsyncLoad
         },
         runtime,
         loader,
-        (),
     );
 
     Ok(engine)

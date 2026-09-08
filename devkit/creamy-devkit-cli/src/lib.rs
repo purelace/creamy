@@ -9,8 +9,7 @@ mod show;
 mod utils;
 
 use clap::Parser;
-use creamy_utils::strpool::StringPool;
-use creamy_xmlc::{ProtocolDefinition, compile};
+use creamy_devkit::compiler::{ProtocolDefinition, compile, utils::strpool::StringPool};
 
 use self::utils::get_workdir;
 use crate::{

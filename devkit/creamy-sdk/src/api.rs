@@ -3,8 +3,6 @@ use cbus_core::{
     buffer::runtime::{DynIncBuf, DynOutBuf},
 };
 
-use crate::dispatcher::MessageHandler;
-
 pub trait Plugin: Sized + CustomHandler {
     fn init(outgoing: DynOutBuf) -> Option<Self>;
     fn notify(&mut self) {}
@@ -21,7 +19,7 @@ impl CustomHandler for () {
 }
 
 const HEADER_MASK: u32 = 0x00_FF_00_FF;
-pub fn handle_incoming<H: MessageHandler>(handler: &mut H, mut incoming: DynIncBuf) {
+pub fn handle_incoming<H: CustomHandler>(handler: &mut H, mut incoming: DynIncBuf) {
     while let Some(message) = incoming.pop() {
         let dispatch_value = {
             let message: &UntypedMessage = &message;

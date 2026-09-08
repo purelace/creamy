@@ -1,6 +1,8 @@
 #![allow(clippy::inline_always)]
 #![no_std]
 
+include!(concat!(env!("OUT_DIR"), "/system.rs"));
+
 use cbus_core::buffer::runtime::{DynIncBuf, DynOutBuf};
 
 extern crate alloc;
@@ -68,5 +70,3 @@ pub fn initialize_buffers(
 
     Ok(())
 }
-
-include!(concat!(env!("OUT_DIR"), "/system.rs"));

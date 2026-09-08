@@ -1,4 +1,4 @@
-use creamy_xmlc::{VariantValue, model::symbols::PrimitiveRepr};
+use creamy_devkit::compiler::{VariantValue, model::symbols::PrimitiveRepr};
 
 #[derive(Clone)]
 pub struct EnrichedVariantSymbol<'s> {

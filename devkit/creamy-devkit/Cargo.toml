@@ -9,7 +9,6 @@ read = []
 write = []
 
 [dependencies]
-creamy-utils.workspace = true
 creamy-xmlc.workspace = true
 creamy-manifest.workspace = true
 thiserror.workspace = true

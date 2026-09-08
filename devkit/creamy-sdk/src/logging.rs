@@ -2,11 +2,11 @@ use alloc::{string::String, vec::Vec};
 use core::fmt::Arguments;
 
 use crate::{
-    stream::{StreamMessage, StreamReaderFunctions, StreamWriterFunctions},
-    system::builtin::{
+    generated::system::builtin::{
         Log, LogType,
         log::{LogHead, LogPayload, LogTail},
     },
+    stream::{StreamMessage, StreamReaderFunctions, StreamWriterFunctions},
 };
 
 pub struct LogReader {
@@ -148,7 +148,7 @@ pub fn send_log(string: Arguments, log_type: LogType) {
     let writer = LogWriter::new(log_type);
     let mut stream = crate::stream::StreamWriter::new(writer, crate::stream::StreamId::new(0));
     if let Some(string) = string.as_str() {
-        stream.write(string);
+        stream.write(string, 1);
     }
 }
 
@@ -157,7 +157,7 @@ macro_rules! debug {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::system::builtin::LogType::Debug
+            $crate::generated::system::builtin::LogType::Debug
         );
     };
 }
@@ -167,7 +167,7 @@ macro_rules! info {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::system::builtin::LogType::Info
+            $crate::generated::system::builtin::LogType::Info
         );
     };
 }
@@ -177,7 +177,7 @@ macro_rules! warn {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::system::builtin::LogType::Warning
+            $crate::generated::system::builtin::LogType::Warning
         );
     };
 }
@@ -187,7 +187,7 @@ macro_rules! error {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::system::builtin::LogType::Error
+            $crate::generated::system::builtin::LogType::Error
         );
     };
 }

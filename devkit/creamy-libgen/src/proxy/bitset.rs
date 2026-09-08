@@ -1,4 +1,4 @@
-use creamy_xmlc::{
+use creamy_devkit::compiler::{
     StringPoolResolver, TypeId,
     model::symbols::{
         BitsetValueSymbol, PrimitiveRepr, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID, T_I128_ID,

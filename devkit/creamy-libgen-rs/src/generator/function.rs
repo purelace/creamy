@@ -2,11 +2,20 @@ use std::{borrow::Cow, io::Write};
 
 use super::{Access, CodeBlock, Pass, add_depth};
 
+pub struct UnsafeNoMangleAttribute;
+impl<W: Write> CodeBlock<W> for UnsafeNoMangleAttribute {
+    fn write_to(&self, writer: &mut W, depth: usize) -> Result<(), std::io::Error> {
+        add_depth(writer, depth)?;
+        writeln!(writer, "#[unsafe(no_mangle)]")
+    }
+}
+
 //TODO: remove Default
 #[derive(Default)]
 pub struct Function<'a> {
     pub access: Access,
     pub is_const: bool,
+    pub is_extern: bool,
     pub name: Cow<'a, str>,
     pub self_pass: Option<Pass>,
     pub args: Vec<Argument<'a>>,
@@ -26,6 +35,9 @@ impl<'a, W: Write + 'a> CodeBlock<W> for Function<'a> {
         write!(writer, "{}", self.access)?;
         if self.is_const {
             write!(writer, " const ")?;
+        }
+        if self.is_extern {
+            write!(writer, r#" extern "C" "#)?;
         }
         write!(writer, " fn {}(", self.name)?;
 

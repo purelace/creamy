@@ -31,6 +31,7 @@ where
                 Function {
                     access: Access::Pub,
                     is_const: true,
+                    is_extern: false,
                     name: Cow::Owned(format!("set_{field_name}")),
                     self_pass: Some(Pass::Mut),
                     args: vec![Argument::new("value", kind.clone(), Pass::Move)],
@@ -52,6 +53,7 @@ where
                 Function {
                     access: Access::Pub,
                     is_const: true,
+                    is_extern: false,
                     name: Cow::Owned(format!("with_{field_name}")),
                     self_pass: Some(Pass::MutMove),
                     args: vec![Argument::new("value", kind, Pass::Move)],

@@ -49,11 +49,11 @@ impl SubscriberId {
     }
 }
 
-//impl Display for SubscriberId {
-//    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//        write!(f, "{}", self.0)
-//    }
-//}
+impl core::fmt::Display for SubscriberId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl core::ops::Deref for SubscriberId {
     type Target = NonZeroU8;

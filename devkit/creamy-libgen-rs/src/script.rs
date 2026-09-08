@@ -5,23 +5,27 @@ use creamy_libgen::{Codegen, ProtocolLibrary};
 use crate::{Args, RustGen};
 
 pub fn generate_code(
-    protocols: impl AsRef<std::path::Path>,
+    project_root: impl AsRef<std::path::Path>,
     outdir: impl AsRef<std::path::Path>,
-    manifest: &str,
     args: Args,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let protocols = protocols.as_ref();
+    let directory = project_root.as_ref().join(".creamy");
+    let protocols = directory.join("definitions");
+
     let working_dir = std::env::current_dir()?;
     let protocols: PathBuf = working_dir.join(protocols);
 
-    let mut library = ProtocolLibrary::new(manifest);
+    let mut library = ProtocolLibrary::new(
+        &std::fs::read_to_string(directory.join("manifest.toml"))?,
+        project_root.as_ref().into(),
+    );
     library.load_all(&protocols)?;
 
     let mut outdir = outdir.as_ref().to_owned();
     outdir.push(library.manifest().name());
     outdir.set_extension("rs");
 
-    let mut codegen = Codegen::new(library);
+    let mut codegen = Codegen::new(library, args.target);
     let mut rs_gen = RustGen::new(args, std::fs::File::create(&outdir)?);
     codegen.run(&mut rs_gen)?;
 

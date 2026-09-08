@@ -7,8 +7,6 @@ license.workspace = true
 [dependencies]
 creamy-devkit.workspace = true
 creamy-protocol-tui.workspace = true
-creamy-xmlc.workspace = true
-creamy-utils.workspace = true
 creamy-template.workspace = true
 clap.workspace = true
 serde.workspace = true

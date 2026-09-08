@@ -10,17 +10,19 @@ use creamy_sdk::{
         Subscriber, SubscriberId, UntypedMessage,
         buffer::{IncBuf, OutBuf, runtime::DynIncBuf},
     },
-    dispatcher::MessageHandler,
+    generated::{
+        dispatcher::MessageHandler,
+        system::builtin::{
+            Log, LogType, PluginAppeared, PluginDisappeared, ProtocolDeclared, ProtocolRedeclared,
+            ProtocolUndeclared, StreamCancel, StreamKeepAlive,
+        },
+    },
     logging::LogReader,
     stream::{StreamId, StreamMessage, StreamReader},
-    system::builtin::{
-        Log, LogType, PluginAppeared, PluginDisappeared, ProtocolDeclared, ProtocolRedeclared,
-        ProtocolUndeclared, StreamCancel, StreamKeepAlive,
-    },
 };
 use rustc_hash::FxHashMap;
 
-pub struct SystemPlugin<const M: usize, S: CustomHandler> {
+pub struct SystemPlugin<const M: usize, S: CustomHandler = ()> {
     inc: IncBuf<M>,
     _out: OutBuf<M>,
     logs: FxHashMap<StreamId, StreamReader<LogReader>>,
@@ -63,7 +65,7 @@ impl<const M: usize, H: CustomHandler> Subscriber for SystemPlugin<M, H> {
 
 impl<const M: usize, H: CustomHandler> CustomHandler for SystemPlugin<M, H> {
     fn handle_message(&mut self, dispatch_value: u32, message: UntypedMessage) {
-        creamy_sdk::dispatcher::dispatch_message(dispatch_value, message, self);
+        creamy_sdk::generated::dispatcher::dispatch_message(dispatch_value, message, self);
     }
 }
 

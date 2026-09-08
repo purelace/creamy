@@ -1,9 +1,8 @@
 [package]
-name = "creamy-libgen-c"
+name = "creamy-phf"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-creamy-xmlc.workspace = true
-creamy-utils.workspace = true
+seedable_hash = { version = "0.2.3" }

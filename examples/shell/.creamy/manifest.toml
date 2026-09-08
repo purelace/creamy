@@ -1,0 +1,11 @@
+[package]
+id = "org.creamy.shell"
+name = "shell"
+version = "1.0.0"
+description = "Builtin package"
+repository = "https://github.com/purelace/creamy"
+authors = [ "selrisu <myirisuchan@gmail.com>" ]
+
+[protocols]
+shell = {version = "1.0.0", groups=["setup"], provide = true}
+#system = { version = "1.0.0", groups=["builtin"] }

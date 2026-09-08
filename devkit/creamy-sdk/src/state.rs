@@ -2,10 +2,12 @@ use cbus_core::UntypedMessage;
 
 use crate::{
     api::{CustomHandler, Plugin},
-    dispatcher::{self, MessageHandler},
-    system::builtin::{
-        Log, PluginAppeared, PluginDisappeared, ProtocolDeclared, ProtocolRedeclared,
-        ProtocolUndeclared, StreamCancel, StreamKeepAlive,
+    generated::{
+        dispatcher::{self, MessageHandler},
+        system::builtin::{
+            Log, PluginAppeared, PluginDisappeared, ProtocolDeclared, ProtocolRedeclared,
+            ProtocolUndeclared, StreamCancel, StreamKeepAlive,
+        },
     },
 };
 

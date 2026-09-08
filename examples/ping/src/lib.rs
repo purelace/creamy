@@ -9,10 +9,10 @@ use creamy_sdk::{
     declare_plugin, error, info, warn,
 };
 
-use self::dispatcher::MessageHandler;
-use crate::ping::messages::{Ping, Pong};
+use self::generated::dispatcher::MessageHandler;
+use crate::generated::ping::messages::{Ping, Pong};
 
-declare_plugin!(PingPlugin, dispatcher);
+declare_plugin!(PingPlugin, generated::dispatcher);
 
 struct PingPlugin {
     outgoing: DynOutBuf,

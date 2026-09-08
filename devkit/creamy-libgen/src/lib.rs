@@ -1,12 +1,21 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
+#![allow(clippy::cast_possible_truncation)]
+
+pub mod devkit {
+    pub use creamy_devkit::*;
+}
 
 pub mod proxy;
 mod utils;
-use std::{borrow::Cow, collections::HashMap, ffi::OsString, str::FromStr};
+use std::{
+    borrow::Cow, collections::HashMap, ffi::OsString, io::Cursor, path::PathBuf, str::FromStr,
+};
 
-use creamy_manifest::Manifest;
-use creamy_xmlc::{
+use creamy_devkit::manifest::Manifest;
+pub use creamy_phf::PerfectHashTable;
+use creamy_phf::generate_perfect_hash_table;
+use devkit::compiler::{
     ProtocolDefinition, StringPoolResolver, compile,
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     model::{
@@ -25,6 +34,13 @@ use self::{
     },
     utils::AbsolutePath,
 };
+
+#[derive(Clone, Copy)]
+pub enum Target {
+    Plugin,
+    Host,
+    Sdk,
+}
 
 pub type GenResult = anyhow::Result<()>;
 
@@ -74,6 +90,12 @@ pub trait CodeGenerator<'s> {
     where
         I: Iterator<Item = Path>;
 
+    fn generate_plugin_group_table(&mut self, pht: PerfectHashTable);
+
+    fn generate_host_group_table(&mut self, pht: PerfectHashTable);
+
+    fn generate_host_package(&mut self, binary: Vec<u8>);
+
     fn flush(&mut self) -> anyhow::Result<()>;
 }
 
@@ -81,15 +103,17 @@ pub struct ProtocolLibrary {
     pool: StringPool,
     manifest: Manifest,
     inner: HashMap<String, ProtocolDefinition>,
+    creamy_dir: PathBuf,
 }
 
 impl ProtocolLibrary {
     #[must_use]
-    pub fn new(manifest: &str) -> Self {
+    pub fn new(manifest: &str, creamy_dir: PathBuf) -> Self {
         Self {
             pool: StringPool::default(),
             manifest: Manifest::read_manifest(manifest).unwrap(),
             inner: HashMap::new(),
+            creamy_dir,
         }
     }
 
@@ -125,12 +149,13 @@ impl ProtocolLibrary {
 
 pub struct Codegen {
     library: ProtocolLibrary,
+    target: Target,
 }
 
 impl Codegen {
     #[must_use]
-    pub const fn new(library: ProtocolLibrary) -> Self {
-        Self { library }
+    pub const fn new(library: ProtocolLibrary, target: Target) -> Self {
+        Self { library, target }
     }
 
     #[must_use]
@@ -139,23 +164,58 @@ impl Codegen {
     }
 
     pub fn run<'s, G: CodeGenerator<'s>>(&'s mut self, generator: &mut G) -> anyhow::Result<()> {
-        #[cfg(feature = "sdk_internal_use")]
-        let mut group_id: u8 = 1;
-
-        #[cfg(not(feature = "sdk_internal_use"))]
-        let mut group_id: u8 = 2;
-
         let mut paths = vec![];
 
         let ProtocolLibrary {
             pool,
             manifest,
             inner,
+            creamy_dir,
         } = &mut self.library;
 
-        #[allow(clippy::explicit_counter_loop)]
+        generator.start_group("generated");
+
+        Self::generate_groups(pool, manifest, inner, self.target, &mut paths, generator);
+
+        generator.start_group("dispatcher");
+
+        generator.generate_dispatcher(paths.into_iter());
+        generator.end_group();
+
+        generator.start_group("metadata");
+
+        match self.target {
+            Target::Plugin => {
+                Self::generate_plugin_group_table(manifest, generator);
+            }
+            Target::Host => {
+                Self::generate_host_group_table(manifest, generator);
+                Self::generate_host_package(creamy_dir.clone(), generator);
+            }
+            Target::Sdk => {}
+        }
+
+        generator.end_group();
+
+        generator.end_group();
+        generator.flush()?;
+
+        Ok(())
+    }
+
+    #[allow(clippy::explicit_counter_loop)]
+    fn generate_groups<'s, G: CodeGenerator<'s>>(
+        pool: &'s StringPool,
+        manifest: &'s Manifest,
+        library: &'s mut HashMap<String, ProtocolDefinition>,
+        target: Target,
+        paths: &mut Vec<Path>,
+        generator: &mut G,
+    ) {
+        let mut group_id = u8::from(!matches!(target, Target::Sdk)) + 1;
+
         for (protocol, groups) in manifest.requested_groups() {
-            let definition = inner.get(protocol.as_str()).unwrap();
+            let definition = library.get(protocol.as_str()).unwrap();
 
             generator.start_group(definition.name().resolve(pool));
 
@@ -216,15 +276,57 @@ impl Codegen {
             }
 
             generator.end_group();
-            generator.flush()?;
 
             group_id += 1;
         }
+    }
 
-        generator.generate_dispatcher(paths.into_iter());
-        generator.flush()?;
+    fn generate_host_package<'s, G: CodeGenerator<'s>>(creamy_dir: PathBuf, generator: &mut G) {
+        let binary = creamy_devkit::compile_to_binary(creamy_dir, vec![]).unwrap();
+        let mut vec = vec![];
+        let mut cursor = Cursor::new(&mut vec);
+        binary.write_to(&mut cursor).unwrap();
 
-        Ok(())
+        generator.generate_host_package(vec);
+    }
+
+    fn generate_host_group_table<'s, G: CodeGenerator<'s>>(manifest: &Manifest, generator: &mut G) {
+        generator.generate_host_group_table(Self::generate_hash_table(manifest));
+    }
+
+    fn generate_plugin_group_table<'s, G: CodeGenerator<'s>>(
+        manifest: &Manifest,
+        generator: &mut G,
+    ) {
+        generator.generate_plugin_group_table(Self::generate_hash_table(manifest));
+    }
+
+    fn generate_hash_table(manifest: &Manifest) -> PerfectHashTable {
+        let samples: Vec<String> = manifest
+            .requested_groups()
+            .iter()
+            .flat_map(|(protocol, v)| {
+                v.groups()
+                    .iter()
+                    .map(|group| format!("{}.{}", protocol.as_str(), group.as_str()))
+            })
+            .collect();
+
+        let samples = samples
+            .into_iter()
+            .enumerate()
+            .map(|(index, path)| (path, index as u8 + 2))
+            .collect::<Vec<_>>();
+
+        let size_of_table: usize = samples.len();
+        assert!(u8::try_from(size_of_table).is_ok());
+        let size_of_table = size_of_table as u8;
+
+        generate_perfect_hash_table(
+            size_of_table.div_ceil(4),
+            size_of_table,
+            samples.iter().map(|(a, b)| (a.as_str(), *b)),
+        )
     }
 
     fn generate_types<'s, G: CodeGenerator<'s>>(
