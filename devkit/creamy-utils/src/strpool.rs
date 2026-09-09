@@ -66,15 +66,6 @@ impl Default for StringPool {
 }
 
 impl StringPool {
-    //pub fn remove(&mut self, id: StringId) -> String {
-    //    let mut removed_iterator = self.map.extract_if(|_key, value| *value == id);
-
-    //    if let Some((k, _)) = removed_iterator.next() {
-    //        return k;
-    //    }
-    //    todo!();
-    //}
-
     #[must_use]
     pub fn get_id(&self, string: &str) -> StringId {
         *self.map.get(string).unwrap()
@@ -92,10 +83,6 @@ impl StringPool {
     pub fn get_string(&self, id: StringId) -> &str {
         self.map.iter().find(|(_, v)| **v == id).unwrap().0
     }
-
-    //pub fn remove_by_string(&mut self, string: &str) -> Option<StringId> {
-    //    self.map.remove(string)
-    //}
 }
 
 #[binrw::parser(reader: r, endian)]
