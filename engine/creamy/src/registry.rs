@@ -87,7 +87,7 @@ impl ProtocolRegistry {
     }
 
     pub fn get_protocol_context(&self, name: &str) -> Option<&ProtocolRuntimeData> {
-        self.map.get(name).map(|data| data)
+        self.map.get(name)
     }
 
     pub fn get_group(&self, protocol: &str, group: &str) -> Option<NonZeroU8> {
