@@ -1,8 +1,8 @@
 use std::io::Cursor;
 
 use binrw::{BinRead, BinWrite};
-use creamy_utils::strpool::StringPool;
-use creamy_xmlc::{ProtocolDefinition, StringPoolResolver, compile};
+use creamy_utils::strpool::{StringPool, StringPoolResolver};
+use creamy_xmlc::{ProtocolDefinition, compile};
 use semver::Version;
 
 const SUCCESS_TEST: &str = include_str!("success.xml");

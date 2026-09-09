@@ -1,6 +1,9 @@
 use std::num::NonZeroU8;
 
-use creamy_devkit::compiler::{ProtocolDefinition, StringPoolIntern, utils::strpool::StringPool};
+use creamy_devkit::compiler::{
+    ProtocolDefinition,
+    utils::strpool::{StringPool, StringPoolIntern},
+};
 use creamy_protocol_tui::{
     show_all_groups, show_all_messages, show_memory_layout, show_one_group_by_idx,
     show_one_group_by_name,

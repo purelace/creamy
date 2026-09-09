@@ -7,10 +7,10 @@ use std::num::NonZeroU8;
 
 use console::style;
 use creamy_xmlc::{
-    ProtocolDefinition, StringPoolResolver,
+    ProtocolDefinition,
     constraints::HEADER_BYTES,
     model::symbols::{FieldSymbol, FieldType, MessageSymbolType, Type},
-    utils::strpool::StringPool,
+    utils::strpool::{StringPool, StringPoolResolver},
 };
 
 use crate::memory::{ArrayField, MemoryReport, SimpleField};

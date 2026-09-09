@@ -9,7 +9,6 @@ mod vec;
 pub use align::Align;
 pub use array::Array;
 pub use creamy_utils::*;
-pub use pool::{StringPoolIntern, StringPoolResolver};
 pub use ranges::*;
 pub use size::Size;
 pub use vec::{BoundedVec, VectorElement};

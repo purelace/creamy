@@ -1,11 +1,11 @@
 use std::{cell::RefCell, num::NonZeroU8};
 
 use as_guard::AsGuard;
-use creamy_utils::strpool::StringPool;
+use creamy_utils::strpool::{StringPool, StringPoolResolver};
 use strum::EnumCount;
 
 use crate::{
-    ProtocolDefinition, StringPoolResolver,
+    ProtocolDefinition,
     constraints::MAX_PAYLOAD,
     diagnostics::Diagnostics,
     error::{ProtocolErrorExt, SemanticError},

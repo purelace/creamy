@@ -2,8 +2,8 @@ use alloc::boxed::Box;
 use core::num::NonZeroU8;
 
 use creamy_engine_core::devkit::compiler::{
-    ProtocolDefinition, StringPoolResolver,
-    utils::strpool::{StringId, StringPool},
+    ProtocolDefinition,
+    utils::strpool::{StringId, StringPool, StringPoolResolver},
 };
 use creamy_sdk::bus::SubscriberId;
 use rustc_hash::FxHashMap;

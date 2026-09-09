@@ -1,13 +1,12 @@
 use std::num::NonZeroU8;
 
 use creamy::{
-    core::{
-        Constants,
-        devkit::{compiler::StringPoolResolver, semver::Version},
-    },
+    core::{Constants, devkit::semver::Version},
     engine::PluginEngine,
 };
-use creamy_engine_core::bus::define_bus_config;
+use creamy_engine_core::{
+    bus::define_bus_config, devkit::compiler::utils::strpool::StringPoolResolver,
+};
 use creamy_loader::Loader;
 use creamy_wasmtime::WasmtimeRuntime;
 use pathenv::to_absolute_path;

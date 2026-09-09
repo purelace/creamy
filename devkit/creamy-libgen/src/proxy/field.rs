@@ -1,14 +1,17 @@
 use std::borrow::Cow;
 
 use creamy_devkit::compiler::{
-    FinishedTypeTable, StringPoolResolver,
+    FinishedTypeTable,
     model::{
         definition::LayoutCalculator,
         symbols::{
             ArraySymbol, FieldSymbol, FieldType, T_U8_ID, get_builtin_type_name, is_builtin_type,
         },
     },
-    utils::{Size, strpool::StringPool},
+    utils::{
+        Size,
+        strpool::{StringPool, StringPoolResolver},
+    },
 };
 
 use crate::{Path, SymbolIterator, utils::AbsolutePath};

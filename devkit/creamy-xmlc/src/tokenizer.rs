@@ -1,12 +1,12 @@
 use std::{cell::RefCell, ops::Deref, str::FromStr};
 
-use creamy_utils::strpool::{StringId, StringPool};
+use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern};
 use miette::SourceSpan;
 use roxmltree::{Document, Node, NodeType, TextPos};
 use semver::Version;
 
 use crate::{
-    Access, StringPoolIntern, VariantValue,
+    Access, VariantValue,
     diagnostics::Diagnostics,
     error::{Fallback, ProtocolError, ProtocolErrorExt, SyntaxError},
     model::definition::Direction,

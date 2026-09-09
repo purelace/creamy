@@ -1,6 +1,8 @@
+use creamy_utils::strpool::StringPoolIntern;
+
 use super::nodes::{BitsetNode, BitsetValueNode};
 use crate::{
-    StringPoolIntern, define_misc_parser, define_toplevel_parser,
+    define_misc_parser, define_toplevel_parser,
     error::AstError,
     tokenizer::{Identifier, Token},
     utils::BitsetValuesRange,

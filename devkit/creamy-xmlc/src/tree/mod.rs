@@ -6,6 +6,7 @@ pub mod nodes;
 pub mod storage;
 mod structs;
 
+use creamy_utils::strpool::StringPoolIntern;
 use nodes::{
     BitsetNode, BitsetValueNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, GlobalTypesNode,
     GroupNode, MessageNodeType, OptionNode, StreamPayloadFieldNode, StructNode, VariantNode,
@@ -13,7 +14,7 @@ use nodes::{
 use semver::Version;
 
 use crate::{
-    Access, Diagnostics, StringPoolIntern,
+    Access, Diagnostics,
     error::{AstError, Fallback},
     tokenizer::{Identifier, Token},
     tree::{

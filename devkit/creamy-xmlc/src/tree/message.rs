@@ -1,8 +1,9 @@
+use creamy_utils::strpool::StringPoolIntern;
+
 use super::nodes::{
     FieldNode, FieldTypeNode, MessageNode, MessageNodeType, StreamNode, StreamPayloadFieldNode,
 };
 use crate::{
-    StringPoolIntern,
     error::AstError,
     model::{definition::Direction, symbols::U8_ID},
     tokenizer::{Identifier, Token},

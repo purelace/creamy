@@ -1,5 +1,7 @@
+use creamy_utils::strpool::StringPoolIntern;
+
 use super::nodes::StructNode;
-use crate::{StringPoolIntern, define_toplevel_parser, error::AstError, tokenizer::Identifier};
+use crate::{define_toplevel_parser, error::AstError, tokenizer::Identifier};
 
 define_toplevel_parser!(
     name:       StructParser,

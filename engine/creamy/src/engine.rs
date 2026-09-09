@@ -6,7 +6,10 @@ use creamy_engine_core::{
     bus::{MessageBus, SubscriberLookupData, config::BusConfig},
     devkit::{
         BinaryPlugin,
-        compiler::{ProtocolDefinition, StringPoolResolver, utils::strpool::StringPool},
+        compiler::{
+            ProtocolDefinition,
+            utils::strpool::{StringPool, StringPoolResolver},
+        },
         manifest::{Manifest, RequestedProtocol},
         semver::Version,
     },

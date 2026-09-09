@@ -23,7 +23,6 @@ pub use diagnostics::Diagnostics;
 pub use model::definition::{Access, ProtocolDefinition};
 pub use table::{FinishedTypeTable, TypeId};
 pub use tree::nodes::VariantValue;
-pub use utils::{StringPoolIntern, StringPoolResolver};
 
 pub mod constraints {
     // Глобальные ограничения:

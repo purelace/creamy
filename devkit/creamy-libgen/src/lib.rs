@@ -12,11 +12,11 @@ use std::{
     borrow::Cow, collections::HashMap, ffi::OsString, io::Cursor, path::PathBuf, str::FromStr,
 };
 
-use creamy_devkit::manifest::Manifest;
+use creamy_devkit::{compiler::utils::strpool::StringPoolResolver, manifest::Manifest};
 pub use creamy_phf::PerfectHashTable;
 use creamy_phf::generate_perfect_hash_table;
 use devkit::compiler::{
-    ProtocolDefinition, StringPoolResolver, compile,
+    ProtocolDefinition, compile,
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     model::{
         definition::Direction,
