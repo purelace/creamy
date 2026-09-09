@@ -224,6 +224,7 @@ impl MessageSymbolType {
         }
     }
 
+    #[must_use]
     pub const fn direction(&self) -> Direction {
         match self {
             MessageSymbolType::Single(m) => m.direction,
