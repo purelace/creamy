@@ -85,7 +85,7 @@ impl WasmModule for WasmPlugin {
         let table = &memory_data[table_range];
         let special_table = unsafe { memory_data[special_range].align_to::<u64>().1 };
 
-        GroupTable::new(table, table_size as u8, special_table, special_size as u8)
+        GroupTable::new(table, table_size, special_table, special_size)
     }
 }
 

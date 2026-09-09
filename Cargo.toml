@@ -9,6 +9,14 @@ opt-level = 3
 codegen-units = 1
 incremental = false
 
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+cast_possible_truncation = "allow"
+#missing_errors_doc = "deny"
+
 [workspace]
 resolver = "2"
 members = [

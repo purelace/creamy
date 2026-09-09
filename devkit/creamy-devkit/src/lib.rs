@@ -1,5 +1,3 @@
-#![allow(clippy::cast_possible_truncation)]
-
 mod error;
 mod load;
 mod write;

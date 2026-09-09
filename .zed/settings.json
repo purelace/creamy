@@ -7,7 +7,7 @@
         },
         "check": {
           "command": "clippy",
-          "extraArgs": ["--", "-W", "clippy::pedantic"],
+          //"extraArgs": ["--", "-W", "clippy::pedantic"],
         },
         "rustfmt": {
           "extraArgs": ["+nightly"],
