@@ -1,4 +1,5 @@
 mod align;
+mod array;
 mod macros;
 mod pool;
 mod ranges;
@@ -6,6 +7,7 @@ mod size;
 mod vec;
 
 pub use align::Align;
+pub use array::Array;
 pub use creamy_utils::*;
 pub use pool::{StringPoolIntern, StringPoolResolver};
 pub use ranges::*;

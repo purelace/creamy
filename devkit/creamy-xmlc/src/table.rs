@@ -1,10 +1,7 @@
 use std::{collections::HashMap, fmt::Debug, mem::MaybeUninit, num::NonZeroU8, ops::Index};
 
 use binrw::{BinRead, BinWrite, binrw};
-use creamy_utils::{
-    collections::Array,
-    strpool::{StringId, StringPool},
-};
+use creamy_utils::strpool::{StringId, StringPool};
 use strum::EnumCount;
 
 use crate::{
@@ -12,7 +9,7 @@ use crate::{
     model::symbols::{
         BUILTIN_GROUP, NumericSymbol, Type, U8_META, U16_META, U32_META, U64_META, U128_META,
     },
-    utils::{Align, Range, Size, TypesRange},
+    utils::{Align, Array, Range, Size, TypesRange},
 };
 
 #[derive(BinRead, BinWrite, Clone, Copy, PartialEq, Eq, Hash)]
