@@ -5,7 +5,7 @@ mod repr;
 
 use binrw::{BinRead, BinWrite};
 use creamy_utils::strpool::StringId;
-pub use enumeration::{EnumSymbol, VariantSymbol};
+pub use enumeration::{EnumSymbol, VariantSymbol, VariantValue};
 pub use field::{FieldSymbol, FieldType};
 pub use numeric::*;
 pub use repr::PrimitiveRepr;

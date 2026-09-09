@@ -8,21 +8,25 @@
 #![deny(clippy::todo)]
 //#![deny(clippy::as_conversions)]
 
+#[cfg(feature = "compile")]
 mod compiler;
+#[cfg(feature = "compile")]
+pub use compiler::compile;
+#[cfg(feature = "compile")]
+pub mod tokenizer;
+#[cfg(feature = "compile")]
+mod tree;
+
 mod diagnostics;
 pub mod error;
 pub mod model;
 mod table;
-pub mod tokenizer;
-mod tree;
 pub mod utils;
 mod version;
 
-pub use compiler::compile;
 pub use diagnostics::Diagnostics;
 pub use model::definition::{Access, ProtocolDefinition};
 pub use table::{FinishedTypeTable, TypeId};
-pub use tree::nodes::VariantValue;
 
 pub mod constraints {
     // Глобальные ограничения:

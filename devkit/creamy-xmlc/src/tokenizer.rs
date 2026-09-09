@@ -6,10 +6,10 @@ use roxmltree::{Document, Node, NodeType, TextPos};
 use semver::Version;
 
 use crate::{
-    Access, VariantValue,
+    Access,
     diagnostics::Diagnostics,
     error::{Fallback, ProtocolError, ProtocolErrorExt, SyntaxError},
-    model::definition::Direction,
+    model::{definition::Direction, symbols::VariantValue},
     version::parse_version,
 };
 

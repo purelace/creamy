@@ -24,3 +24,6 @@ miette = { version = "7.6.0", features = [ "fancy", "syntect-highlighter" ] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
+
+[features]
+compile = []

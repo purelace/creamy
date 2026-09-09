@@ -3,7 +3,8 @@ use std::fmt::Display;
 
 use binrw::{BinRead, BinWrite};
 
-use crate::{VariantValue, error::SemanticError, model::symbols::NumericSymbol};
+use super::enumeration::VariantValue;
+use crate::{error::SemanticError, model::symbols::NumericSymbol};
 
 #[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PrimitiveRepr {

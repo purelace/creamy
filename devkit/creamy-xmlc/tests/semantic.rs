@@ -1,6 +1,6 @@
 mod common;
 
-use creamy_xmlc::{VariantValue, error::SemanticError};
+use creamy_xmlc::{error::SemanticError, model::symbols::VariantValue};
 
 use crate::common::{compile, get_xml};
 

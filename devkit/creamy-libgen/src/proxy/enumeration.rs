@@ -1,4 +1,4 @@
-use creamy_devkit::compiler::{VariantValue, model::symbols::PrimitiveRepr};
+use creamy_devkit::compiler::model::symbols::{PrimitiveRepr, VariantValue};
 
 #[derive(Clone)]
 pub struct EnrichedVariantSymbol<'s> {

@@ -1,6 +1,3 @@
-use std::fmt::Display;
-
-use binrw::{BinRead, BinWrite};
 use creamy_utils::strpool::{StringId, StringPool};
 
 use crate::{
@@ -10,8 +7,7 @@ use crate::{
         MAX_OPTIONS, MAX_STRUCTS, MAX_VARIANTS,
     },
     define_readonly_struct,
-    error::Fallback,
-    model::definition::Direction,
+    model::{definition::Direction, symbols::VariantValue},
     tokenizer::IdentifierOrArray,
     utils::{
         BitsetValuesRange, BitsetsRange, EnumsRange, FieldsRange, FlagsRange, GroupsRange,
@@ -47,30 +43,6 @@ define_readonly_struct! {
     struct VariantNode {
         name: StringId,
         value: VariantValue,
-    }
-}
-
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum VariantValue {
-    #[brw(magic = 0u8)]
-    Singed(i64),
-    #[brw(magic = 1u8)]
-    Unsigned(u64),
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl Display for VariantValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VariantValue::Singed(s) => write!(f, "{s}"),
-            VariantValue::Unsigned(u) => write!(f, "{u}"),
-        }
-    }
-}
-
-impl Fallback for VariantValue {
-    fn fallback() -> Self {
-        Self::Unsigned(1)
     }
 }
 

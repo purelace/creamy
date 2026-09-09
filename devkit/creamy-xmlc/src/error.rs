@@ -3,7 +3,7 @@ use std::num::ParseIntError;
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
 
-use crate::{VariantValue, diagnostics::Diagnostics};
+use crate::{Diagnostics, model::symbols::VariantValue};
 
 #[derive(Debug, Error, Diagnostic, Clone, PartialEq, Eq)]
 #[diagnostic(severity(Error))]
@@ -279,76 +279,6 @@ impl<T: Fallback, E: Into<ProtocolError>> ProtocolErrorExt<T> for Result<T, E> {
     }
 }
 
-/*
-impl<T: Fallback> ProtocolErrorExt<T> for Result<T, SyntaxError> {
-    fn or_recover(self, diagnostics: &mut Diagnostics) -> T {
-        match self {
-            Ok(value) => value,
-            Err(error) => {
-                diagnostics.error(error);
-                T::fallback()
-            }
-        }
-    }
-
-    fn or_recover_with(self, diagnostics: &mut Diagnostics, value: T) -> T {
-        match self {
-            Ok(value) => value,
-            Err(error) => {
-                diagnostics.error(error);
-                value
-            }
-        }
-    }
-
-    fn or_recover_else(self, diagnostics: &mut Diagnostics, function: impl Fn() -> T) -> T {
-        match self {
-            Ok(value) => value,
-            Err(error) => {
-                diagnostics.error(error);
-                function()
-            }
-        }
-    }
-}
-*/
 pub trait Fallback {
     fn fallback() -> Self;
 }
-
-/*
-impl ProtocolErrorExt<usize> for Result<usize, ParseIntError> {
-    #[cold]
-    fn or_recover(self, diagnostics: &mut Diagnostics) -> usize {
-        match self {
-            Ok(value) => value,
-            Err(error) => {
-                diagnostics.report_err(ProtocolError::SyntaxError(SyntaxError::IntParse { error }));
-                usize::fallback()
-            }
-        }
-    }
-
-    #[cold]
-    fn or_recover_with(self, diagnostics: &mut Diagnostics, value: usize) -> usize {
-        match self {
-            Ok(value) => value,
-            Err(error) => {
-                diagnostics.report_err(ProtocolError::SyntaxError(SyntaxError::IntParse { error }));
-                value
-            }
-        }
-    }
-
-    #[cold]
-    fn or_recover_else(self, diagnostics: &mut Diagnostics, function: impl Fn() -> usize) -> usize {
-        match self {
-            Ok(value) => value,
-            Err(error) => {
-                diagnostics.report_err(ProtocolError::SyntaxError(SyntaxError::IntParse { error }));
-                function()
-            }
-        }
-    }
-}
- */
