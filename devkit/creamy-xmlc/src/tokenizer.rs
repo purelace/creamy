@@ -1,6 +1,6 @@
 use std::{cell::RefCell, ops::Deref, str::FromStr};
 
-use creamy_utils::strpool::{NonZeroStringId, StringId, StringPool};
+use creamy_utils::strpool::{StringId, StringPool};
 use miette::SourceSpan;
 use roxmltree::{Document, Node, NodeType, TextPos};
 use semver::Version;
@@ -44,10 +44,6 @@ impl Deref for Identifier<'_> {
 impl StringPoolIntern for Identifier<'_> {
     fn intern(&self, pool: &mut StringPool) -> StringId {
         self.0.intern(pool)
-    }
-
-    fn intern_non_zero(&self, pool: &mut StringPool) -> NonZeroStringId {
-        self.0.intern_non_zero(pool)
     }
 }
 

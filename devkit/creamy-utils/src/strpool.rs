@@ -1,4 +1,4 @@
-use std::{collections::HashMap, mem::MaybeUninit, num::NonZeroU16};
+use std::{collections::HashMap, mem::MaybeUninit};
 
 use binrw::{BinRead, BinResult, BinWrite};
 use serde::{Deserialize, Serialize};
@@ -28,34 +28,6 @@ impl StringId {
     #[must_use]
     pub const fn value(&self) -> u16 {
         self.0
-    }
-}
-
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-    BinRead,
-    BinWrite,
-)]
-pub struct NonZeroStringId(NonZeroU16);
-
-impl NonZeroStringId {
-    #[must_use]
-    pub const fn new(id: NonZeroU16) -> Self {
-        Self(id)
-    }
-
-    #[must_use]
-    pub const fn as_string_id(self) -> StringId {
-        StringId(self.0.get())
     }
 }
 
@@ -94,14 +66,14 @@ impl Default for StringPool {
 }
 
 impl StringPool {
-    pub fn remove(&mut self, id: StringId) -> String {
-        let mut removed_iterator = self.map.extract_if(|_key, value| *value == id);
+    //pub fn remove(&mut self, id: StringId) -> String {
+    //    let mut removed_iterator = self.map.extract_if(|_key, value| *value == id);
 
-        if let Some((k, _)) = removed_iterator.next() {
-            return k;
-        }
-        todo!();
-    }
+    //    if let Some((k, _)) = removed_iterator.next() {
+    //        return k;
+    //    }
+    //    todo!();
+    //}
 
     #[must_use]
     pub fn get_id(&self, string: &str) -> StringId {
@@ -116,26 +88,14 @@ impl StringPool {
         })
     }
 
-    pub fn get_non_zero_id(&mut self, string: &str) -> NonZeroStringId {
-        self.map.get(string).copied().map_or_else(
-            || {
-                let raw_id = NonZeroU16::new(self.map.len() as u16).unwrap();
-                self.map
-                    .insert(string.to_string(), StringId(self.map.len() as u16));
-                NonZeroStringId(raw_id)
-            },
-            |id| NonZeroStringId(NonZeroU16::new(id.0).unwrap()),
-        )
-    }
-
     #[must_use]
     pub fn get_string(&self, id: StringId) -> &str {
         self.map.iter().find(|(_, v)| **v == id).unwrap().0
     }
 
-    pub fn remove_by_string(&mut self, string: &str) -> Option<StringId> {
-        self.map.remove(string)
-    }
+    //pub fn remove_by_string(&mut self, string: &str) -> Option<StringId> {
+    //    self.map.remove(string)
+    //}
 }
 
 #[binrw::parser(reader: r, endian)]
