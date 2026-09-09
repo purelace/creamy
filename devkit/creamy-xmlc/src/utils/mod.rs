@@ -1,7 +1,6 @@
 mod align;
 mod array;
 mod macros;
-mod pool;
 mod ranges;
 mod size;
 mod vec;
