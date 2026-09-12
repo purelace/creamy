@@ -1,29 +1,24 @@
-#![allow(clippy::inline_always)]
 #![no_std]
 
 include!(concat!(env!("OUT_DIR"), "/ping.rs"));
 
-use creamy_sdk::{
-    api::Plugin,
-    bus::{UntypedMessage, buffer::runtime::DynOutBuf},
-    declare_plugin, error, info, warn,
-};
+use creamy_sdk::{Sender, api::Plugin, declare_plugin, error, info, warn};
 
-use self::generated::dispatcher::MessageHandler;
+use self::generated::dispatcher::{GroupLifecycleHook, MessageHandler};
 use crate::generated::ping::messages::{Ping, Pong};
 
-declare_plugin!(PingPlugin, generated::dispatcher);
+declare_plugin!(PingPlugin, generated);
 
 struct PingPlugin {
-    outgoing: DynOutBuf,
+    sender: Sender,
 }
 
 impl Plugin for PingPlugin {
-    fn init(outgoing: DynOutBuf) -> Option<Self> {
+    fn init(sender: Sender) -> Option<Self> {
         info!("Hello, World!");
         warn!("Дарова, заебал!");
         error!("Как дела?");
-        Some(Self { outgoing })
+        Some(Self { sender })
     }
 
     fn notify(&mut self) {
@@ -31,11 +26,16 @@ impl Plugin for PingPlugin {
     }
 }
 
+impl GroupLifecycleHook for PingPlugin {
+    fn on_messages_group_enabled(&mut self) {}
+
+    fn on_messages_group_disabled(&mut self) {}
+}
+
 impl MessageHandler for PingPlugin {
-    #[inline(always)]
     fn handle_ping(&mut self, message: Ping) {
         assert!(
-            self.outgoing.send(
+            self.sender.send_to(
                 &Pong::PREPARED
                     .with_dst(message.src)
                     .with_serial(message.serial),
@@ -43,23 +43,20 @@ impl MessageHandler for PingPlugin {
         );
     }
 
-    #[inline(always)]
     fn handle_pong(&mut self, message: Pong) {
         assert!(
-            self.outgoing.send(
+            self.sender.send_to(
                 &Ping::PREPARED
                     .with_dst(message.src)
-                    .with_group(1)
                     .with_serial(message.serial),
             )
         );
     }
 
-    #[inline(always)]
     fn handle_unknown_message(
         &mut self,
         _dispatch_value: u32,
-        _message: creamy_sdk::bus::UntypedMessage,
+        _message: creamy_sdk::message::UntypedMessage,
     ) {
     }
 }

@@ -9,8 +9,8 @@ mod writer;
 use alloc::vec::Vec;
 
 use creamy_sdk::{
+    Sender,
     api::Plugin,
-    bus::{UntypedMessage, buffer::runtime::DynOutBuf},
     declare_plugin, error, info,
     stream::{StreamId, StreamMessage, StreamReader, StreamWriter},
 };
@@ -18,17 +18,17 @@ use smol_str::SmolStr;
 
 use self::{
     generated::{
-        dispatcher::MessageHandler,
+        dispatcher::{GroupLifecycleHook, MessageHandler},
         shell::setup::{AddCommandArgument, ExecuteCommand, SetCommandName},
     },
     reader::{ArgumentReader, NameReader},
     writer::StringWriter,
 };
 
-declare_plugin!(MathPlugin, generated::dispatcher);
+declare_plugin!(MathPlugin, generated);
 
 struct MathPlugin {
-    outgoing: DynOutBuf,
+    sender: Sender,
     name: SmolStr,
     arguments: Vec<SmolStr>,
 
@@ -37,18 +37,26 @@ struct MathPlugin {
 }
 
 impl Plugin for MathPlugin {
-    fn init(outgoing: DynOutBuf) -> Option<Self> {
-        let mut writer = StreamWriter::new(StringWriter::default(), StreamId::new(10));
-        writer.write("print", 2);
-
+    fn init(sender: Sender) -> Option<Self> {
         Some(Self {
-            outgoing,
+            sender,
             name: SmolStr::default(),
             arguments: Vec::with_capacity(16),
             name_stream: None,
             arg_stream: None,
         })
     }
+}
+
+impl GroupLifecycleHook for MathPlugin {
+    fn on_setup_group_enabled(&mut self) {
+        self.sender.send_stream(
+            StreamWriter::new(StringWriter::default(), StreamId::new(10)),
+            "print",
+        );
+    }
+
+    fn on_setup_group_disabled(&mut self) {}
 }
 
 impl MathPlugin {
@@ -130,7 +138,7 @@ impl MessageHandler for MathPlugin {
     fn handle_unknown_message(
         &mut self,
         _dispatch_value: u32,
-        _message: creamy_sdk::bus::UntypedMessage,
+        _message: creamy_sdk::message::UntypedMessage,
     ) {
     }
 }

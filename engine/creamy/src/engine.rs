@@ -1,60 +1,48 @@
-use alloc::{boxed::Box, format};
+use alloc::{boxed::Box, format, vec::Vec};
 use core::{marker::PhantomData, num::NonZeroU8};
 
 use creamy_engine_core::{
     Constants, GroupTable, PluginLoader, WasmModule, WasmRuntime,
-    bus::{MessageBus, SubscriberLookupData, config::BusConfig},
+    bus::{
+        MessageBus, SubscriberLookupData,
+        config::BusConfig,
+        core::{
+            Subscriber, SubscriberId,
+            buffer::{IncBuf, OutBuf, SharedBuf},
+        },
+    },
     devkit::{
         BinaryPlugin,
         compiler::{
             ProtocolDefinition,
             utils::strpool::{StringPool, StringPoolResolver},
         },
-        manifest::{Manifest, RequestedProtocol},
-        semver::Version,
+        manifest::{Package, RequestedProtocol},
     },
 };
-use creamy_sdk::bus::{
-    Subscriber, SubscriberId,
-    buffer::{IncBuf, OutBuf, SharedBuf},
+use hashbrown::HashMap;
+use rustc_hash::FxBuildHasher;
+use smol_str::{SmolStr, ToSmolStr};
+
+use crate::{
+    driver::EngineBusDriver,
+    error::{Error, PluginError},
+    registry::{Owner, ProtocolRegistry},
+    system::SystemPlugin,
 };
-use creamy_system_plugin::SystemPlugin;
-use rustc_hash::FxHashMap;
 
-use crate::{driver::EngineBusDriver, registry::ProtocolRegistry};
+const SYSTEM_PLUGIN: SubscriberId = SubscriberId::new(NonZeroU8::new(1).unwrap());
+const SYSTEM_GROUP: NonZeroU8 = NonZeroU8::new(1).unwrap();
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("Protocol model `{target_model}@{version}` not found")]
-    ProtocolModelNotFound {
-        target_model: Box<str>,
-        version: Version,
-    },
-    #[error("Protocol `{target_model}@{version}` has already been declared")]
-    ProtocolDeclaredAlready {
-        target_model: Box<str>,
-        version: Version,
-    },
-    #[error(
-        "Protocols `{target_model}@{version_a}` and `{target_model}@{version_b}` have different models"
-    )]
-    DifferentProtocolModels {
-        target_model: Box<str>,
-        version_a: Version,
-        version_b: Version,
-    },
+type Models = HashMap<Box<str>, (ProtocolDefinition, RequestedProtocol), FxBuildHasher>;
 
-    #[error("{0}")]
-    Bus(#[from] creamy_engine_core::bus::BusError),
-}
-
-struct TempPluginPackage {
-    manifest: Manifest,
+struct PluginPackage {
+    manifest: Package,
     pool: StringPool,
-    definitions: FxHashMap<Box<str>, (ProtocolDefinition, RequestedProtocol)>,
+    models: Models,
 }
 
-impl TempPluginPackage {
+impl PluginPackage {
     fn from_package(
         BinaryPlugin {
             manifest,
@@ -62,8 +50,8 @@ impl TempPluginPackage {
             mut definitions,
             ..
         }: BinaryPlugin,
-    ) -> Result<Self, Error> {
-        let mut map = FxHashMap::default();
+    ) -> Result<Self, PluginError> {
+        let mut map = HashMap::default();
         for (name, request) in manifest.requested_groups() {
             if let Some(index) = definitions.iter().enumerate().find_map(|(idx, def)| {
                 if def.name().resolve(&pool) == name.as_str() {
@@ -75,7 +63,7 @@ impl TempPluginPackage {
                 let definition = definitions.swap_remove(index);
                 map.insert(name.as_str().into(), (definition, request.clone()));
             } else {
-                return Err(Error::ProtocolModelNotFound {
+                return Err(PluginError::ProtocolModelNotFound {
                     target_model: manifest.name().into(),
                     version: request.version().clone(),
                 });
@@ -83,9 +71,9 @@ impl TempPluginPackage {
         }
 
         Ok(Self {
-            manifest,
+            manifest: manifest.into_package_manifest(),
             pool,
-            definitions: map,
+            models: map,
         })
     }
 }
@@ -100,270 +88,459 @@ impl HostSubscriber for () {
     }
 }
 
-pub enum SubscriberType<C: BusConfig, R: WasmRuntime<C>, S: HostSubscriber, const M: usize> {
-    System(SystemPlugin<M>),
-    Custom(S),
+struct Plugin<C, R, H, const S: usize, const M: usize>
+where
+    C: BusConfig,
+    R: WasmRuntime<C>,
+    H: HostSubscriber,
+{
+    manifest: Package,
+    kind: SubscriberType<C, R, H, S, M>,
+}
+
+pub enum SubscriberType<C, R, H, const S: usize, const M: usize>
+where
+    C: BusConfig,
+    R: WasmRuntime<C>,
+    H: HostSubscriber,
+{
+    System(SystemPlugin<S, M>),
+    Custom(H),
     Wasm(R::Module),
 }
 
-impl<C: BusConfig, R: WasmRuntime<C>, S: HostSubscriber, const M: usize> Subscriber
-    for SubscriberType<C, R, S, M>
+impl<C, R, H, const S: usize, const M: usize> Subscriber for Plugin<C, R, H, S, M>
+where
+    C: BusConfig,
+    R: WasmRuntime<C>,
+    H: HostSubscriber,
 {
     fn notify(&mut self) {
-        match self {
-            Self::System(s) => s.notify(),
-            Self::Custom(s) => s.notify(),
-            Self::Wasm(s) => s.notify(),
+        match &mut self.kind {
+            SubscriberType::System(s) => s.notify(),
+            SubscriberType::Custom(s) => s.notify(),
+            SubscriberType::Wasm(s) => s.notify(),
         }
     }
 }
+/*
+ * Load a package
+ * Init a plugin
+ * Add to the bus
+ * Resolve dependencies
+ * Send system messages
+ * Finish the plugin initialization
+ */
 
-impl<C: BusConfig, R: WasmRuntime<C>, S: HostSubscriber, const M: usize>
-    SubscriberType<C, R, S, M>
-{
-    fn as_system_mut(&mut self) -> &mut SystemPlugin<M> {
-        match self {
-            Self::System(p) => p,
-            Self::Custom(_) | Self::Wasm(_) => unreachable!(),
-        }
-    }
+struct ValidationContext {
+    id: SubscriberId,
+    name: SmolStr,
+    pool: StringPool,
+    models: Models,
 }
 
 pub struct PluginEngine<
     C: BusConfig,
     R: WasmRuntime<C>,
     L: PluginLoader,
-    S: HostSubscriber,
+    H: HostSubscriber,
+    const S: usize,
     const M: usize,
 > {
-    bus: MessageBus<C, EngineBusDriver, M, SubscriberType<C, R, S, M>>,
-    constants: Constants,
+    bus: MessageBus<C, EngineBusDriver<S>, M, Plugin<C, R, H, S, M>>,
+    constants: Constants, //WTF?
     runtime: R,
     loader: L,
     registry: ProtocolRegistry,
+    errors: Vec<PluginError>,
     _phantom: PhantomData<C>,
 }
 
-impl<C: BusConfig, R: WasmRuntime<C>, L: PluginLoader, S: HostSubscriber, const M: usize>
-    PluginEngine<C, R, L, S, M>
+impl<
+    C: BusConfig,
+    R: WasmRuntime<C>,
+    L: PluginLoader,
+    H: HostSubscriber,
+    const S: usize,
+    const M: usize,
+> PluginEngine<C, R, L, H, S, M>
 {
     pub fn new(constants: Constants, runtime: R, loader: L) -> Self {
-        let mut bus = MessageBus::new(EngineBusDriver::new(
-            C::MAX_SUBSCRIBERS.get(),
-            C::MAX_GROUPS.get(),
-        ));
+        let bus = MessageBus::new(EngineBusDriver::new());
 
-        let incoming = IncBuf::default();
-        let outgoing = OutBuf::default();
-
-        bus.add_subscriber_with(
-            incoming.clone(),
-            outgoing.clone(),
-            SubscriberType::System(SystemPlugin::new(incoming, outgoing, ())),
-        )
-        .unwrap();
-
-        Self {
+        let mut instance = Self {
             bus,
             constants,
             runtime,
             loader,
             registry: ProtocolRegistry::default(),
+            errors: Vec::with_capacity(32),
             _phantom: PhantomData,
+        };
+
+        instance.setup_system_plugin();
+        instance
+    }
+
+    fn setup_system_plugin(&mut self) {
+        let incoming = IncBuf::default();
+        let outgoing = OutBuf::default();
+
+        self.bus
+            .add_subscriber_with(
+                incoming.clone(),
+                outgoing.clone(),
+                Plugin {
+                    manifest: Package::default(),
+                    kind: SubscriberType::System(SystemPlugin::new(incoming, outgoing)),
+                },
+            )
+            .unwrap_or_else(|_| unreachable!("Maximum subscribers cannot be zero."));
+
+        self.bus.get_driver_mut().provide_api(
+            SYSTEM_PLUGIN,
+            SubscriberLookupData {
+                consumer_group_id: SYSTEM_GROUP.get(),
+                provider_group_id: SYSTEM_GROUP.get(),
+                provider_id: SYSTEM_PLUGIN,
+            },
+        );
+    }
+
+    fn get_system(&self) -> &SystemPlugin<S, M> {
+        const UNREACHABLE: &str =
+            "System plugin is registered when the engine instance is created.";
+
+        let plugin = self
+            .bus
+            .get_subscriber(SYSTEM_PLUGIN)
+            .unwrap_or_else(|| unreachable!("{UNREACHABLE}"));
+
+        match &plugin.kind {
+            SubscriberType::System(s) => s,
+            SubscriberType::Custom(_) | SubscriberType::Wasm(_) => unreachable!("{UNREACHABLE}"),
         }
     }
 
-    pub fn add_custom_subscriber(
-        &mut self,
-        package: &[u8],
-        custom: impl Fn(IncBuf<M>, OutBuf<M>) -> S,
-    ) {
-        let package = BinaryPlugin::load_from_bytes(package).unwrap();
-        let package = TempPluginPackage::from_package(package).unwrap();
-        let id = self
-            .bus
-            .add_subscriber(|inc, out| SubscriberType::Custom(custom(inc, out)))
-            .unwrap();
+    fn get_system_mut(&mut self) -> &mut SystemPlugin<S, M> {
+        const UNREACHABLE: &str =
+            "System plugin is registered when the engine instance is created.";
 
-        self.resolve_dependencies(package, id);
+        let plugin = self
+            .bus
+            .get_subscriber_mut(SYSTEM_PLUGIN)
+            .unwrap_or_else(|| unreachable!("{UNREACHABLE}"));
+
+        match &mut plugin.kind {
+            SubscriberType::System(s) => s,
+            SubscriberType::Custom(_) | SubscriberType::Wasm(_) => unreachable!("{UNREACHABLE}"),
+        }
+    }
+
+    fn provide_system_group(&mut self, id: SubscriberId) {
+        self.bus.get_driver_mut().provide_api(
+            id,
+            SubscriberLookupData {
+                consumer_group_id: SYSTEM_GROUP.get(),
+                provider_group_id: SYSTEM_GROUP.get(),
+                provider_id: SYSTEM_PLUGIN,
+            },
+        );
+    }
+
+    fn is_possible_to_resolve(
+        &self,
+        model: &ProtocolDefinition,
+        request: &RequestedProtocol,
+    ) -> Result<(), PluginError> {
+        let pool = self.registry.pool();
+        if let Some(context) = self.registry.get_protocol_context(model.name()) {
+            if context.model() != model {
+                return Err(PluginError::DifferentProtocolModels {
+                    target_model: model.name().resolve(pool).into(),
+                    version_a: model.version().clone(),
+                    version_b: context.model().version().clone(),
+                });
+            }
+
+            for group_name in request.groups() {
+                if let Some(owner) = context.get_owner_of_group(pool.get_id(group_name.as_str())) {
+                    return Err(PluginError::GroupAlreadyProvided {
+                        group: group_name.as_str().into(),
+                        protocol: model.name().resolve(pool).into(),
+                        provider: self
+                            .get_system()
+                            .get_plugin_name(owner.provider_id())
+                            .unwrap_or("Unreachable!")
+                            .into(),
+                    });
+                }
+            }
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
+    fn create_custom_validation_context(
+        &mut self,
+        package: BinaryPlugin,
+        custom: impl Fn(IncBuf<M>, OutBuf<M>) -> H,
+    ) -> Result<Option<ValidationContext>, Error> {
+        let package = match PluginPackage::from_package(package) {
+            Ok(v) => v,
+            Err(e) => {
+                self.errors.push(e);
+                return Ok(None);
+            }
+        };
+
+        let name = package.manifest.name().to_smolstr();
+
+        let id = self.bus.add_subscriber(|inc, out| Plugin {
+            manifest: package.manifest,
+            kind: SubscriberType::Custom(custom(inc, out)),
+        })?;
+
+        Ok(Some(ValidationContext {
+            id,
+            name,
+            pool: package.pool,
+            models: package.models,
+        }))
+    }
+
+    fn create_wasm_validation_context(
+        &mut self,
+        package: BinaryPlugin,
+    ) -> Result<Option<ValidationContext>, Error> {
+        let module = self
+            .runtime
+            .init_module(&self.constants, package.core())
+            .map_err(|e| Error::Other(Box::new(e)))?;
+
+        let package = match PluginPackage::from_package(package) {
+            Ok(v) => v,
+            Err(e) => {
+                self.errors.push(e);
+                return Ok(None);
+            }
+        };
+
+        let inc_ptr = module.incoming_ptr();
+        let out_ptr = module.outgoing_ptr();
+
+        let inc = IncBuf::<M>::from_buf(unsafe { SharedBuf::from_ptr(inc_ptr, false) });
+        let out = OutBuf::<M>::from_buf(unsafe { SharedBuf::from_ptr(out_ptr, false) });
+
+        let name = package.manifest.name().to_smolstr();
+        let id = self.bus.add_subscriber_with(
+            inc,
+            out,
+            Plugin {
+                manifest: package.manifest,
+                kind: SubscriberType::Wasm(module),
+            },
+        )?;
+
+        Ok(Some(ValidationContext {
+            id,
+            name,
+            pool: package.pool,
+            models: package.models,
+        }))
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn remove_validation_context(&mut self, context: ValidationContext) {
+        let _ = self.bus.remove_subscriber(context.id);
+    }
+
+    fn validate_plugin(&mut self, context: &mut ValidationContext) -> Result<(), PluginError> {
+        for (model, request) in &mut context.models.values_mut() {
+            self.registry.replace_strings(&context.pool, model);
+
+            if !request.provide() {
+                continue;
+            }
+
+            self.is_possible_to_resolve(model, request)?;
+        }
+
+        Ok(())
     }
 
     fn provide_model(
         &mut self,
-        id: SubscriberId,
-        model: Box<str>,
-        def: ProtocolDefinition,
-        request: RequestedProtocol,
-    ) -> Result<(), Error> {
-        if let Some(ctx) = self.registry.get_protocol_context(&model) {
-            return Err(Error::ProtocolDeclaredAlready {
-                target_model: model,
-                version: ctx.definition().version().clone(),
-            });
-        }
+        provider: SubscriberId,
+        model: ProtocolDefinition,
+        request: &RequestedProtocol,
+    ) {
+        let model_name_id = model.name();
+        let model_name = model_name_id.resolve(self.registry.pool()).to_smolstr();
+        let (pool, context) = self.registry.get_or_declare_protocol(model);
 
-        self.registry.declare_protocol(model.clone(), def, id);
-
-        let group_table = match self.bus.get_subscriber_mut(id).unwrap() {
+        let group_table = match &mut self.bus.get_subscriber_mut(provider).unwrap().kind {
             SubscriberType::System(_) => unreachable!(),
             SubscriberType::Custom(s) => s.get_group_table(),
             SubscriberType::Wasm(s) => s.get_group_table(),
         };
 
-        for group_name in request.groups() {
-            let path = format!("{model}.{}", group_name.as_str());
-            let group_id = group_table.get_group_id(&path);
+        let mut to_send = alloc::vec![];
 
-            self.registry
-                .set_group_id(&model, group_name.as_str(), group_id);
+        for group_name in request.groups() {
+            let path = format!("{model_name}.{}", group_name.as_str());
+            let group_id = group_table.get_group_id(&path);
+            let group_name_id = pool.get_id(group_name.as_str());
+
+            context.set_group_owner(group_name_id, Owner::new(provider, group_id));
+
+            for (consumer, group_id) in context.get_consumers_of(group_name_id) {
+                to_send.push((provider, group_id, consumer));
+            }
+            to_send.push((provider, group_id, provider));
 
             tracing::debug!(
-                "Set id ({group_id}) for `{model}.{}` group",
+                "Set id {group_id} for `{model_name}.{}` group",
                 group_name.as_str()
             );
         }
 
-        Ok(())
+        for (provider, group_id, consumer) in to_send {
+            self.get_system_mut()
+                .send_group_declared(provider, group_id, consumer);
+        }
     }
 
     fn consume_model(
         &mut self,
-        id: SubscriberId,
-        model: Box<str>,
-        def: ProtocolDefinition,
-        request: RequestedProtocol,
-    ) -> Result<(), Error> {
-        let Some(ctx) = self.registry.get_protocol_context(&model) else {
-            return Err(Error::ProtocolModelNotFound {
-                target_model: model,
-                version: def.version().clone(),
-            });
-        };
+        plugin_id: SubscriberId,
+        model: ProtocolDefinition,
+        request: &RequestedProtocol,
+    ) {
+        let (pool, context) = self.registry.get_or_declare_protocol(model);
 
-        if ctx.definition() != &def {
-            return Err(Error::DifferentProtocolModels {
-                target_model: model,
-                version_a: def.version().clone(),
-                version_b: ctx.definition().version().clone(),
-            });
-        }
+        let model_name = context.model().name().resolve(pool);
+        let mut to_send = alloc::vec![];
 
         for group_name in request.groups() {
-            let group_table = match self.bus.get_subscriber_mut(id).unwrap() {
+            let group_table = match &mut self.bus.get_subscriber_mut(plugin_id).unwrap().kind {
                 SubscriberType::System(_) => todo!(),
-                SubscriberType::Custom(_) => todo!(),
+                SubscriberType::Custom(s) => s.get_group_table(),
                 SubscriberType::Wasm(s) => s.get_group_table(),
             };
 
-            let path = format!("{model}.{}", group_name.as_str());
+            let path = format!("{model_name}.{}", group_name.as_str());
             let group_id = group_table.get_group_id(&path);
+            let group_name_id = pool.get_id(group_name.as_str());
 
-            let penis = self.registry.pool().get_id(group_name.as_str());
+            if context.try_add_consumer(group_name_id, plugin_id, group_id)
+                && let Some(owner) = context.get_owner_of_group(group_name_id)
+            {
+                self.bus.get_driver_mut().provide_api(
+                    plugin_id,
+                    SubscriberLookupData {
+                        consumer_group_id: group_id.get(),
+                        provider_group_id: owner.group_id().get(),
+                        provider_id: owner.provider_id(),
+                    },
+                );
+                to_send.push((owner, plugin_id));
+            }
 
-            self.bus.get_driver_mut().provide_api(
-                id,
-                SubscriberLookupData {
-                    consumer_group_id: group_id.get(),
-                    provider_group_id: ctx.get_provider_group_id(penis).unwrap().get(),
-                    provider_id: ctx.owner(),
-                },
-            );
-
-            tracing::debug!("Provide group ({group_id}) for subscriber ({id})",);
+            tracing::debug!("Provide group ({group_id}) for subscriber ({plugin_id})",);
         }
 
-        Ok(())
+        for (owner, consumer) in to_send {
+            self.get_system_mut().send_group_declared(
+                owner.provider_id(),
+                owner.group_id(),
+                consumer,
+            );
+        }
     }
 
-    fn resolve_dependencies(
-        &mut self,
-        package: TempPluginPackage,
-        id: SubscriberId,
-    ) -> Result<(), Error> {
-        // Provide system capabilities
-        self.bus.get_driver_mut().provide_api(
-            id,
-            SubscriberLookupData {
-                consumer_group_id: 1,
-                provider_group_id: 1,
-                provider_id: SubscriberId::new_u8(1).unwrap(),
-            },
-        );
-
-        for (model, (mut def, request)) in package.definitions {
-            self.registry.replace_strings(&package.pool, &mut def);
-
+    fn resolve_dependencies(&mut self, models: Models, id: SubscriberId) {
+        for (_, (def, request)) in models {
             if request.provide() {
-                self.provide_model(id, model, def, request)?;
+                self.provide_model(id, def, &request);
             } else {
-                self.consume_model(id, model, def, request)?;
+                self.consume_model(id, def, &request);
             }
         }
 
+        self.provide_system_group(id);
         self.bus.update_lookup_table(id);
-        self.bus
-            .update_lookup_table(SubscriberId::new_u8(1).unwrap());
+        self.bus.update_lookup_table(SYSTEM_PLUGIN);
+    }
 
+    fn register_plugin(&mut self, context: ValidationContext) {
+        self.resolve_dependencies(context.models, context.id);
+        self.get_system_mut()
+            .add_plugin_name(context.id, context.name);
+    }
+
+    fn unregister_plugin(&mut self, id: SubscriberId) -> Result<(), Error> {
+        //TODO: resolve dependencies
+        self.get_system_mut().remove_plugin_name(id);
+        self.bus.remove_subscriber(id)?;
         Ok(())
     }
 
-    #[allow(clippy::too_many_lines)]
-    fn init_package(&mut self, package: BinaryPlugin) -> Result<(), Error> {
-        let module = self
-            .runtime
-            .init_module(&self.constants, package.core())
-            .unwrap();
+    fn handle_loaded_plugin(&mut self, context: Result<Option<ValidationContext>, Error>) {
+        match context {
+            Ok(result) => {
+                let Some(mut context) = result else {
+                    return;
+                };
 
-        let inc_ptr = module.incoming_ptr();
-        let out_ptr = module.outgoing_ptr();
-
-        let inc = IncBuf::<M>::from_buf(unsafe { SharedBuf::from_ptr_only(inc_ptr) });
-        let out = OutBuf::<M>::from_buf(unsafe { SharedBuf::from_ptr_only(out_ptr) });
-
-        let id = self
-            .bus
-            .add_subscriber_with(inc, out, SubscriberType::Wasm(module))?;
-
-        let package = TempPluginPackage::from_package(package)?;
-
-        //TODO: это надо убрать, это только для системного плагина
-        self.bus.get_driver_mut().provide_api(
-            SubscriberId::new_u8(1).unwrap(),
-            SubscriberLookupData {
-                consumer_group_id: 1,
-                provider_group_id: 1,
-                provider_id: SubscriberId::new_u8(1).unwrap(),
-            },
-        );
-
-        let sys = self
-            .bus
-            .get_subscriber_mut(SubscriberId::new_u8(1).unwrap())
-            .unwrap();
-
-        sys.as_system_mut()
-            .add_plugin_name(id, package.manifest.id());
-
-        self.resolve_dependencies(package, id)?;
-
-        Ok(())
+                if let Err(e) = self.validate_plugin(&mut context) {
+                    self.remove_validation_context(context);
+                    tracing::error!("{e}");
+                } else {
+                    self.register_plugin(context);
+                }
+            }
+            Err(e) => tracing::error!("{e}"),
+        }
     }
 
-    pub fn tick(&mut self, roundtrip: NonZeroU8) {
+    pub fn register_custom_plugin(
+        &mut self,
+        package: &[u8],
+        custom: impl Fn(IncBuf<M>, OutBuf<M>) -> H,
+    ) {
+        let package = match BinaryPlugin::load_from_bytes(package) {
+            Ok(v) => v,
+            Err(e) => {
+                self.errors.push(PluginError::Binary(e));
+                return;
+            }
+        };
+
+        let context = self.create_custom_validation_context(package, custom);
+        self.handle_loaded_plugin(context);
+    }
+
+    fn load_wasm_plugins(&mut self) {
         self.loader.load();
 
         while self.loader.loaded() != 0
             && let Some(package) = self.loader.take_loaded_package()
         {
-            if let Err(e) = self.init_package(package) {
-                tracing::error!("{e}");
-            }
+            let context = self.create_wasm_validation_context(package);
+            self.handle_loaded_plugin(context);
         }
+    }
 
+    pub fn tick(&mut self, roundtrip: NonZeroU8) {
+        self.load_wasm_plugins();
         for _ in 0..roundtrip.get() {
             self.bus.tick();
         }
     }
+
+    pub fn unload(&mut self, id: SubscriberId) {}
 
     #[must_use]
     pub const fn loaded_plugins(&self) -> u8 {
@@ -372,5 +549,9 @@ impl<C: BusConfig, R: WasmRuntime<C>, L: PluginLoader, S: HostSubscriber, const 
 
     pub const fn protocol_registry(&self) -> &ProtocolRegistry {
         &self.registry
+    }
+
+    pub const fn errors(&mut self) -> &mut Vec<PluginError> {
+        &mut self.errors
     }
 }

@@ -1,0 +1,10 @@
+[package]
+id = "org.creamy.pong"
+name = "pong"
+version = "0.1.0"
+description = "Example"
+repository = "https://github.com/purelace/creamy"
+authors = [ "selrisu <myirisuchan@gmail.com>" ]
+
+[protocols]
+ping = { version = "1.0.0", groups = [ "messages" ] }

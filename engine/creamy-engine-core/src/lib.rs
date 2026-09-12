@@ -52,8 +52,13 @@ impl<'a> GroupTable<'a> {
         }
     }
 
+    #[must_use]
+    pub fn get_hash(&self, path: &str) -> u64 {
+        get_hash(0xdead_beef, path.as_bytes())
+    }
+
     pub fn get_group_id(&self, path: &str) -> NonZeroU8 {
-        let group = get_hash(0xdead_beef, path.as_bytes()) % u64::from(self.special_size);
+        let group = self.get_hash(path) % u64::from(self.special_size);
         let perfect_seed = self.special[group as usize];
         let hash = get_hash(perfect_seed, path.as_bytes());
         let id = self.table[(hash % u64::from(self.table_size)) as usize];

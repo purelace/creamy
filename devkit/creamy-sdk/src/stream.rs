@@ -6,7 +6,9 @@ use downcast_rs::Downcast;
 use rustc_hash::FxHashMap;
 use thiserror::Error;
 
-use crate::{generated::system::builtin::Log, get_outgoing, utils::extract_payload};
+use crate::{
+    generated::system::builtin::Log, get_outgoing, message::Message, utils::extract_payload,
+};
 
 pub const MAX_STREAM_PAYLOAD: usize = 28;
 
@@ -27,7 +29,7 @@ pub trait StreamTail: StreamData {}
 impl StreamHead for () {}
 impl StreamTail for () {}
 
-pub trait StreamMessage: TypedMessage {
+pub trait StreamMessage: Message {
     const PREPARED: Self;
     const TIMEOUT: u8;
     type Head: StreamHead;
@@ -42,8 +44,6 @@ pub trait StreamMessage: TypedMessage {
 
     fn with_discriminant(&mut self, value: StreamChunkType) -> &mut Self;
     fn discriminant(&self) -> StreamChunkType;
-
-    //fn with_data(&mut self, data: [u8; MAX_STREAM_PAYLOAD])
 }
 
 #[repr(u8)]
@@ -335,10 +335,10 @@ downcast_rs::impl_downcast!(StreamWriterMarker);
 impl StreamReaderFunctions for () {
     type Stream = Log;
 
-    fn read_single(&mut self, single: <Self::Stream as StreamMessage>::Payload) {}
-    fn read_head(&mut self, head: <Self::Stream as StreamMessage>::Head) {}
-    fn read_payload(&mut self, payload: <Self::Stream as StreamMessage>::Payload) {}
-    fn read_tail(&mut self, tail: <Self::Stream as StreamMessage>::Tail) {}
+    fn read_single(&mut self, _: <Self::Stream as StreamMessage>::Payload) {}
+    fn read_head(&mut self, _: <Self::Stream as StreamMessage>::Head) {}
+    fn read_payload(&mut self, _: <Self::Stream as StreamMessage>::Payload) {}
+    fn read_tail(&mut self, _: <Self::Stream as StreamMessage>::Tail) {}
 }
 
 //static STREAMS: [StreamReader<()>; 64] = [StreamReader::new(StreamId::new(0), ()); 64];

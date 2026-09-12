@@ -1,11 +1,12 @@
-use alloc::{string::String, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::fmt::Arguments;
 
+pub use crate::generated::system::builtin::{Log, LogType};
 use crate::{
-    generated::system::builtin::{
-        Log, LogType,
-        log::{LogHead, LogPayload, LogTail},
-    },
+    generated::system::builtin::log::{LogHead, LogPayload, LogTail},
     stream::{StreamMessage, StreamReaderFunctions, StreamWriterFunctions},
 };
 
@@ -149,6 +150,8 @@ pub fn send_log(string: Arguments, log_type: LogType) {
     let mut stream = crate::stream::StreamWriter::new(writer, crate::stream::StreamId::new(0));
     if let Some(string) = string.as_str() {
         stream.write(string, 1);
+    } else {
+        stream.write(&string.to_string(), 1);
     }
 }
 
@@ -167,7 +170,7 @@ macro_rules! info {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::generated::system::builtin::LogType::Info
+            $crate::logging::LogType::Info
         );
     };
 }
@@ -177,7 +180,7 @@ macro_rules! warn {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::generated::system::builtin::LogType::Warning
+            $crate::logging::LogType::Warning
         );
     };
 }
@@ -187,7 +190,7 @@ macro_rules! error {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::generated::system::builtin::LogType::Error
+            $crate::logging::LogType::Error
         );
     };
 }

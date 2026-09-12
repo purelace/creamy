@@ -1,8 +1,6 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
-#![allow(clippy::cast_possible_truncation)]
 //#![deny(clippy::unwrap_used)]
 //#![deny(clippy::panic)]
 #![deny(clippy::todo)]

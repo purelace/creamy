@@ -1,5 +1,4 @@
 #![no_std]
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![deny(warnings)]
 #![deny(clippy::all)]
 #![deny(clippy::pedantic)]

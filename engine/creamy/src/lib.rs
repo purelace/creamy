@@ -1,12 +1,15 @@
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::missing_errors_doc)]
 #![no_std]
 
 extern crate alloc;
 
+include!(concat!(env!("OUT_DIR"), "/system.rs"));
+
 mod driver;
 pub mod engine;
+pub mod error;
 mod registry;
+mod system;
+mod utils;
 
 pub mod core {
     pub use creamy_engine_core::*;

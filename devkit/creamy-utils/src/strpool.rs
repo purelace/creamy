@@ -71,6 +71,11 @@ impl StringPool {
         *self.map.get(string).unwrap()
     }
 
+    #[must_use]
+    pub fn try_get_id(&self, string: &str) -> Option<StringId> {
+        self.map.get(string).copied()
+    }
+
     pub fn get_id_or_add(&mut self, string: &str) -> StringId {
         self.map.get(string).copied().unwrap_or_else(|| {
             let id = StringId(self.map.len() as u16);

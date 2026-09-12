@@ -34,6 +34,7 @@ members = [
     "devkit/creamy-template",
     "devkit/creamy-utils",
     "devkit/creamy-xmlc",
+    "devkit/creamy-phf",
 
     "engine/creamy",
     "engine/creamy-cbus-driver",
@@ -41,12 +42,12 @@ members = [
     "engine/creamy-async-loader",
     "engine/creamy-loader",
     "engine/creamy-wasmtime",
-    "engine/creamy-system-plugin",
     "engine/pathenv",
 
     "examples/ping",
+    "examples/pong",
     "examples/shell",
-    "examples/shell/commands/*", "devkit/creamy-phf",
+    "examples/shell/commands/*",
 ]
 
 [workspace.dependencies]
@@ -72,7 +73,6 @@ creamy-engine-core = { path = "engine/creamy-engine-core" }
 creamy-async-loader = { path = "engine/creamy-async-loader" }
 creamy-loader = { path = "engine/creamy-loader" }
 creamy-wasmtime= { path = "engine/creamy-wasmtime" }
-creamy-system-plugin = { path = "engine/creamy-system-plugin" }
 pathenv = { path = "engine/pathenv" }
 
 anyhow = "1.0.104"
@@ -85,7 +85,7 @@ quote = "1.0.47"
 proc-macro2 = "1.0.107"
 proc-macro-crate = "3.5.0"
 criterion = { version = "0.8.2", features = ["html_reports"] }
-bitflags = "2.13.1"
+bitflags = "2.13.2"
 chrono = "0.4.45"
 derive_more = { version = "2.1.1", features = ["from", "display"] }
 notify = "8.2.0"
@@ -104,7 +104,7 @@ thiserror = { version = "2.0.20", features = ["default"] }
 roxmltree = "0.21.1"
 strum = { version = "0.28.0", features = ["derive"] }
 ptree = "0.5.2"
-console = "0.16.4"
+console = "0.16.6"
 semver = { version = "1.0.28", features = ["serde"] }
 inotify = "0.11.5"
 rustc-hash = "2.1.3"
@@ -119,6 +119,6 @@ features = ["derive"]
 default-features = true
 
 [workspace.dependencies.toml]
-version = "1.1.5"
+version = "1.1.6"
 default-features = false
 features = ["serde", "parse"]

@@ -267,6 +267,7 @@ impl<const M: usize> OutBuf<M> {
     }
 
     /// # Returns
+    ///
     /// Возвращает bool которое указывает на то, хватает ли места в буфере.
     #[inline]
     pub fn send_many_iter_exact<T, I>(&mut self, iter: I) -> bool
@@ -280,6 +281,15 @@ impl<const M: usize> OutBuf<M> {
         let count = iter.len();
         self.send_many_iter_with_count(iter, count)
     }
+
+    /// Отправляет одно сообщение
+    ///
+    /// # Returns
+    ///
+    /// Возвращает bool которое указывает на то, хватает ли места в буфере.
+    pub fn send(&mut self, message: impl TypedMessage) -> bool {
+        self.send_many_iter_exact(core::iter::once(message))
+    }
 }
 
 //TODO: check for alignment
@@ -291,6 +301,7 @@ pub struct SharedBuf<const M: usize> {
     /// `[Padding: 55-bytes]`
     /// `[Data: M * MESSAGE_SIZE(32-bytes)]`
     ptr: NonNull<u8>,
+    is_should_be_dropped: bool,
     // Ties the struct to the thread by holding a non-thread-safe marker
     _marker: PhantomData<*const ()>,
 }
@@ -315,6 +326,7 @@ impl<const M: usize> SharedBuf<M> {
                 .unwrap_or_else(|| alloc::alloc::handle_alloc_error(Self::LAYOUT));
             Self {
                 ptr,
+                is_should_be_dropped: true,
                 _marker: PhantomData,
             }
         };
@@ -328,10 +340,11 @@ impl<const M: usize> SharedBuf<M> {
     pub unsafe fn from_ptr(ptr: NonNull<u8>, should_be_dropped: bool) -> Self {
         let mut instance = Self {
             ptr,
+            is_should_be_dropped: should_be_dropped,
             _marker: PhantomData,
         };
 
-        instance.reset_metadata();
+        //TODO: instance.reset_metadata();
         instance.add_reference();
         if should_be_dropped {
             *instance.get_flags_mut() |= SharedBufFlags::SHOULD_BE_DROPPED;
@@ -343,6 +356,7 @@ impl<const M: usize> SharedBuf<M> {
     pub const unsafe fn from_ptr_only(ptr: NonNull<u8>) -> Self {
         let mut instance = Self {
             ptr,
+            is_should_be_dropped: false,
             _marker: PhantomData,
         };
         instance.add_reference();
@@ -415,8 +429,9 @@ impl<const M: usize> SharedBuf<M> {
     #[must_use]
     pub const fn is_should_be_dropped(&self) -> bool {
         unsafe {
-            self.get_flags().contains(SharedBufFlags::SHOULD_BE_DROPPED)
-                && self.get_reference_ptr().read() == 0
+            self.is_should_be_dropped && self.get_reference_ptr().read() == 0
+            //self.get_flags().contains(SharedBufFlags::SHOULD_BE_DROPPED)
+            //    && self.get_reference_ptr().read() == 0
         }
     }
 
@@ -482,6 +497,7 @@ impl<const M: usize> Clone for SharedBuf<M> {
         self.add_reference();
         Self {
             ptr: self.ptr,
+            is_should_be_dropped: self.is_should_be_dropped,
             _marker: PhantomData,
         }
     }
@@ -506,6 +522,3 @@ impl<const M: usize> Debug for SharedBuf<M> {
             .finish()
     }
 }
-
-#[cfg(test)]
-mod tests {}

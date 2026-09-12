@@ -118,7 +118,7 @@ where
         unreachable!()
     }
 
-    #[tracing::instrument(skip_all)]
+    //#[tracing::instrument(skip_all)]
     #[inline(always)]
     fn prepare_and_send_direct_slice(
         data: &mut PipelineData<C, S, M>,

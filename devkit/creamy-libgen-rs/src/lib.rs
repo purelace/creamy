@@ -65,6 +65,7 @@ impl Default for Args {
 }
 
 impl Args {
+    #[doc(hidden)]
     #[must_use]
     pub fn sdk() -> Self {
         Self {
@@ -92,16 +93,30 @@ impl Args {
         }
     }
 
+    #[doc(hidden)]
+    #[must_use]
+    pub fn engine() -> Self {
+        Self {
+            creamy_sdk_path: "creamy_sdk",
+            target: Target::Engine,
+            ..Default::default()
+        }
+    }
+
     pub(crate) fn typed_message_trait_path(&self) -> String {
-        format!("{}::bus::message::TypedMessage", self.creamy_sdk_path)
+        format!("{}::message::TypedMessage", self.creamy_sdk_path)
     }
 
     pub(crate) fn untyped_message_path(&self) -> String {
-        format!("{}::bus::UntypedMessage", self.creamy_sdk_path)
+        format!("{}::message::UntypedMessage", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn message_trait_path(&self) -> String {
+        format!("{}::message::Message", self.creamy_sdk_path)
     }
 
     pub(crate) fn message_size_path(&self) -> String {
-        format!("{}::bus::defines::MESSAGE_SIZE", self.creamy_sdk_path)
+        format!("{}::defines::MESSAGE_SIZE", self.creamy_sdk_path)
     }
 
     pub(crate) fn custom_message_handler_trait_path(&self) -> String {
@@ -383,6 +398,29 @@ fn generate_set_body<'a>(symbol: EnrichedBitsetValueSymbol, add_debug_asserts: b
 
 fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'a> {
     TraitImpl {
+        trait_name: Cow::Owned(args.message_trait_path()),
+        target: Cow::Borrowed(message),
+        associated_types: vec![],
+        constants: vec![
+            Const {
+                access: Access::None,
+                ident: Cow::Borrowed("GROUP"),
+                kind: Cow::Borrowed("core::num::NonZeroU8"),
+                value: Cow::Borrowed("core::num::NonZeroU8::new(Self::GROUP).unwrap()"),
+            },
+            Const {
+                access: Access::None,
+                ident: Cow::Borrowed("KIND"),
+                kind: Cow::Borrowed("u8"),
+                value: Cow::Borrowed("Self::KIND"),
+            },
+        ],
+        functions: vec![],
+    }
+}
+
+fn generate_typed_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'a> {
+    TraitImpl {
         trait_name: Cow::Owned(args.typed_message_trait_path()),
         target: message.into(),
         associated_types: vec![],
@@ -566,9 +604,22 @@ impl<'s, W: IoWrite> RustGen<'s, W> {
 }
 
 impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
-    fn start_group(&mut self, group: &'s str) {
+    fn start_group(&mut self, group: &'s str, id: Option<u8>) {
         let mut module = Module::new(group);
-        module.access = Access::Pub;
+        if self.modules.is_empty() {
+            module.access = Access::Crate;
+        } else {
+            module.access = Access::Pub;
+        }
+
+        if let Some(id) = id {
+            module.other.push(Box::new(Const {
+                access: Access::Pub,
+                ident: Cow::Borrowed("ID"),
+                kind: Cow::Borrowed("u8"),
+                value: Cow::Owned(id.to_string()),
+            }));
+        }
         self.modules.push(module);
     }
 
@@ -598,6 +649,9 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         fields[4].comment = Some(Cow::Borrowed("-------- PAYLOAD --------"));
 
         struct_.content = StructContent::Fields(fields);
+        struct_
+            .trait_impls
+            .push(generate_typed_message_trait_impl(&self.args, symbol.name));
         struct_
             .trait_impls
             .push(generate_message_trait_impl(&self.args, symbol.name));
@@ -901,6 +955,103 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         };
 
         self.push_other(Box::new(function));
+        self.push_other(Box::new(t));
+    }
+
+    fn generate_group_lifecycle_hook<I>(&mut self, groups: I)
+    where
+        I: Iterator<Item = Path>,
+    {
+        let mut enabled_event_match_string = "match group_id {".to_string();
+        let mut disabled_event_match_string = "match group_id {".to_string();
+
+        let mut t = Trait::new("GroupLifecycleHook");
+        t.bound = Some(self.args.custom_message_handler_trait_path().into());
+
+        for path in groups {
+            let postfix = match &path {
+                Path::Global { name } => name.to_snake_case(),
+                Path::Absolute { components } => components[components.len() - 2].to_snake_case(),
+            };
+
+            let enabled_event_function_name = format!("on_{postfix}_group_enabled");
+            let mut function = FunctionDefinition::new(enabled_event_function_name.clone());
+            function.set_self(Pass::Mut);
+            t.add_function(function);
+
+            let disabled_event_function_name = format!("on_{postfix}_group_disabled");
+            let mut function = FunctionDefinition::new(disabled_event_function_name.clone());
+            function.set_self(Pass::Mut);
+            t.add_function(function);
+
+            let _ = write!(
+                enabled_event_match_string,
+                r"
+            {path} => {{
+                handler.{enabled_event_function_name}();
+            }},
+            ",
+                path = path_to_string(&path)
+            );
+
+            let _ = write!(
+                disabled_event_match_string,
+                r"
+            {path} => {{
+                handler.{disabled_event_function_name}();
+            }},
+            ",
+                path = path_to_string(&path)
+            );
+        }
+
+        enabled_event_match_string.push_str("_ => {} }");
+        disabled_event_match_string.push_str("_ => {} }");
+
+        let function = Function {
+            access: Access::Pub,
+            is_const: false,
+            is_extern: false,
+            name: "handle_on_group_enabled_event".into(),
+            self_pass: None,
+            args: vec![
+                Argument::new("group_id", "u8", Pass::Move),
+                Argument::new("handler", "impl GroupLifecycleHook", Pass::Mut),
+            ],
+            ret: None,
+            body: Body {
+                lines: vec![BodyLine {
+                    content: enabled_event_match_string.into(),
+                    depth: 0,
+                }],
+            },
+            inline: true,
+        };
+
+        self.push_other(Box::new(function));
+
+        let function = Function {
+            access: Access::Pub,
+            is_const: false,
+            is_extern: false,
+            name: "handle_on_group_disabled_event".into(),
+            self_pass: None,
+            args: vec![
+                Argument::new("group_id", "u8", Pass::Move),
+                Argument::new("handler", "impl GroupLifecycleHook", Pass::Mut),
+            ],
+            ret: None,
+            body: Body {
+                lines: vec![BodyLine {
+                    content: disabled_event_match_string.into(),
+                    depth: 0,
+                }],
+            },
+            inline: true,
+        };
+
+        self.push_other(Box::new(function));
+
         self.push_other(Box::new(t));
     }
 

@@ -156,7 +156,7 @@ where
 
     /// # Errors
     ///
-    /// This function will return an error if the subscriber ID is zero or a subscriber is not registered
+    /// This function will return an error if the subscriber is not registered
     pub fn remove_subscriber(&mut self, id: SubscriberId) -> Result<S, BusError> {
         let Some(data) = self.subscribers.get_mut(id.as_usize()) else {
             return Err(BusError::InvalidSubscriberId);

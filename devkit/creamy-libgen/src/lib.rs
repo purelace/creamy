@@ -37,8 +37,11 @@ use self::{
 
 #[derive(Clone, Copy)]
 pub enum Target {
+    #[doc(hidden)]
+    Engine,
     Plugin,
     Host,
+    #[doc(hidden)]
     Sdk,
 }
 
@@ -54,7 +57,9 @@ where
 }
 
 pub trait CodeGenerator<'s> {
-    fn start_group(&mut self, group: &'s str);
+    //TODO: start/end namespace
+
+    fn start_group(&mut self, group: &'s str, id: Option<u8>);
 
     fn generate_single_message<I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
     where
@@ -87,6 +92,10 @@ pub trait CodeGenerator<'s> {
     fn end_group(&mut self);
 
     fn generate_dispatcher<I>(&mut self, messages: I)
+    where
+        I: Iterator<Item = Path>;
+
+    fn generate_group_lifecycle_hook<I>(&mut self, groups: I)
     where
         I: Iterator<Item = Path>;
 
@@ -164,7 +173,8 @@ impl Codegen {
     }
 
     pub fn run<'s, G: CodeGenerator<'s>>(&'s mut self, generator: &mut G) -> anyhow::Result<()> {
-        let mut paths = vec![];
+        let mut message_paths = vec![];
+        let mut group_paths = vec![];
 
         let ProtocolLibrary {
             pool,
@@ -173,16 +183,26 @@ impl Codegen {
             creamy_dir,
         } = &mut self.library;
 
-        generator.start_group("generated");
+        generator.start_group("generated", None);
 
-        Self::generate_groups(pool, manifest, inner, self.target, &mut paths, generator);
+        Self::generate_groups(
+            pool,
+            manifest,
+            inner,
+            self.target,
+            &mut message_paths,
+            &mut group_paths,
+            generator,
+        );
 
-        generator.start_group("dispatcher");
+        generator.start_group("dispatcher", None);
 
-        generator.generate_dispatcher(paths.into_iter());
+        generator.generate_dispatcher(message_paths.into_iter());
+        generator.generate_group_lifecycle_hook(group_paths.into_iter());
+
         generator.end_group();
 
-        generator.start_group("metadata");
+        generator.start_group("metadata", None);
 
         match self.target {
             Target::Plugin => {
@@ -192,7 +212,7 @@ impl Codegen {
                 Self::generate_host_group_table(manifest, generator);
                 Self::generate_host_package(creamy_dir.clone(), generator);
             }
-            Target::Sdk => {}
+            Target::Engine | Target::Sdk => {}
         }
 
         generator.end_group();
@@ -209,7 +229,8 @@ impl Codegen {
         manifest: &'s Manifest,
         library: &'s mut HashMap<String, ProtocolDefinition>,
         target: Target,
-        paths: &mut Vec<Path>,
+        message_paths: &mut Vec<Path>,
+        group_paths: &mut Vec<Path>,
         generator: &mut G,
     ) {
         let mut group_id = u8::from(!matches!(target, Target::Sdk)) + 1;
@@ -217,7 +238,7 @@ impl Codegen {
         for (protocol, groups) in manifest.requested_groups() {
             let definition = library.get(protocol.as_str()).unwrap();
 
-            generator.start_group(definition.name().resolve(pool));
+            generator.start_group(definition.name().resolve(pool), None);
 
             Self::generate_types(
                 pool,
@@ -228,7 +249,12 @@ impl Codegen {
             );
 
             for group_name in groups.groups() {
-                generator.start_group(group_name);
+                generator.start_group(group_name, Some(group_id));
+                group_paths.push(Path::from_absolute(AbsolutePath::from_iter([
+                    protocol.as_str(),
+                    group_name.as_str(),
+                    "ID",
+                ])));
 
                 let group_symbol = definition
                     .groups()
@@ -255,7 +281,7 @@ impl Codegen {
                         || (!groups.provide() && dir == Direction::Incoming);
 
                     if should_add {
-                        paths.push(Path::from_absolute(AbsolutePath::from_iter([
+                        message_paths.push(Path::from_absolute(AbsolutePath::from_iter([
                             protocol.as_str(),
                             group_name.as_str(),
                             message_symbol.ident().resolve(pool),

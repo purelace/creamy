@@ -7,7 +7,7 @@ use creamy_libgen::{
 use heck::ToSnakeCase;
 
 use crate::{
-    Args, extend_derive, generate_message_trait_impl,
+    Args, extend_derive, generate_message_trait_impl, generate_typed_message_trait_impl,
     generator::{
         Access, Argument, Body, BodyLine, Const, Field, Function, Impl, Module, Pass, Repr, Struct,
         StructContent, TraitImpl, TraitImplAssociatedType,
@@ -414,6 +414,10 @@ where
 
         custom: generate_message_consts(args, symbol.group, symbol.kind, symbol.dispatch_value),
     });
+
+    struct_
+        .trait_impls
+        .push(generate_typed_message_trait_impl(args, symbol.name));
 
     struct_
         .trait_impls

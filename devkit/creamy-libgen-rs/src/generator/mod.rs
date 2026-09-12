@@ -23,6 +23,7 @@ pub enum Access {
     #[default]
     None,
     Pub,
+    Crate,
 }
 
 impl Display for Access {
@@ -30,6 +31,7 @@ impl Display for Access {
         match self {
             Access::None => Ok(()),
             Access::Pub => write!(f, "pub"),
+            Access::Crate => write!(f, "pub(crate)"),
         }
     }
 }

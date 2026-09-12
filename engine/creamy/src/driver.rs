@@ -1,40 +1,30 @@
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 
 use creamy_engine_core::bus::{BusDriver, DataIterator, SubscriberLookupData};
-use creamy_sdk::bus::SubscriberId;
+use creamy_sdk::SubscriberId;
 
-pub struct EngineBusDriver {
-    max_groups: u8,
-    provide_requests: Vec<Vec<SubscriberLookupData>>,
-    //remove_requests: Vec<Vec<SubscriberOldLookupData>>,
+pub struct EngineBusDriver<const S: usize> {
+    requests: Box<[Vec<SubscriberLookupData>; S]>,
 }
 
-impl EngineBusDriver {
-    pub fn new(max_plugins: u8, max_groups: u8) -> Self {
+impl<const S: usize> EngineBusDriver<S> {
+    pub fn new() -> Self {
         Self {
-            max_groups,
-            provide_requests: vec![vec![]; max_plugins as usize],
-            //remove_requests: vec![vec![]; max_plugins as usize],
+            requests: Box::new(core::array::from_fn(|_| vec![])),
         }
     }
 
-    pub fn provide_api(&mut self, plugin: SubscriberId, request: SubscriberLookupData) {
-        self.provide_requests[plugin.get() as usize].push(request);
+    pub fn provide_api(&mut self, id: SubscriberId, request: SubscriberLookupData) {
+        self.requests[id.get() as usize - 1].push(request);
     }
-
-    //pub fn remove_api(&mut self, plugin: u8, request: SubscriberOldLookupData) {
-    //    self.remove_requests[plugin as usize].push(request);
-    //}
 }
 
-impl BusDriver for EngineBusDriver {
+impl<const S: usize> BusDriver for EngineBusDriver<S> {
     fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
-        self.provide_requests[id.get() as usize].drain(..)
+        self.requests[id.get() as usize - 1].drain(..)
     }
 
-    fn on_unsubscribe(&mut self, id: SubscriberId) {}
-
-    //fn on_unsubscribe(&mut self, id: u8) -> impl OldDataIterator {
-    //    self.remove_requests[id as usize].drain(..)
-    //}
+    fn on_unsubscribe(&mut self, id: SubscriberId) {
+        self.requests[id.get() as usize - 1].clear();
+    }
 }

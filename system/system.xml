@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<protocol name="system" version="1.0.0">
+
+    <!-- Builtin group -->
+    <group name="builtin" access="Public">
+        <message kind="0" name="GroupDeclared" direction="Incoming">
+            <field name="version" type="u32" />
+            <field name="provider" type="u8" />
+            <field name="group_id" type="u8"/>
+        </message>
+
+        <message kind="1" name="GroupUndeclared" direction="Incoming">
+            <field name="provider" type="u8" />
+            <field name="group_id" type="u8"/>
+        </message>
+
+        <message kind="2" name="StreamKeepAlive" direction="Duplex">
+            <field name="stream_kind" type="u8" />
+            <field name="stream_id" type="u8" />
+        </message>
+
+        <message kind="3" name="StreamCancel" direction="Duplex">
+            <field name="stream_kind" type="u8" />
+            <field name="stream_id" type="u8" />
+        </message>
+
+        <enum name="LogType" repr="u8">
+            <variant name="Debug" value="0" />
+            <variant name="Info" value="1" />
+            <variant name="Warning" value="2" />
+            <variant name="Error" value="3" />
+        </enum>
+
+        <stream kind="4" name="Log" timeout="4" direction="Outgoing">
+            <head>
+                <field name="log_type" type="LogType" />
+                <field name="length" type="u32" />
+                <field name="data" type="[u8; 20]" />
+            </head>
+            <payload>
+                <field name="data" type="[u8; 27]" />
+            </payload>
+            <tail>
+                <field name="data" type="[u8; 27]" />
+            </tail>
+        </stream>
+
+        <!--
+        <obsolete until="2.0" reason="Test" replaced_by="ProtocolRedeclared">
+            <message kind="4" name="ProtocolRedeclaredOld">
+                <field name="version" type="u32" />
+                <field name="provider" type="u8" />
+                <field name="group_id" type="u8" />
+            </message>
+        </obsolete>
+        -->
+    </group>
+</protocol>

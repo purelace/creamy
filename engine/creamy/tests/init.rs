@@ -10,15 +10,14 @@ use creamy_engine_core::{
 use creamy_loader::Loader;
 use creamy_wasmtime::WasmtimeRuntime;
 use pathenv::to_absolute_path;
-use tracing::level_filters::LevelFilter;
 
 const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 
 fn compile_plugin() -> anyhow::Result<()> {
     std::process::Command::new("creamy")
         .arg("build")
-        //.current_dir("/mnt/ssd/fusionwm/creamy/examples/ping")
-        .current_dir("../../examples/ping")
+        .current_dir("/run/media/selrisu/SSD/fusionwm/creamy/examples/ping")
+        //.current_dir("../../examples/ping")
         .env_remove("RUSTC_WRAPPER")
         .env_remove("RUSTFLAGS")
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
@@ -33,6 +32,7 @@ fn compile_plugin() -> anyhow::Result<()> {
 }
 
 pub const M: usize = 1024;
+pub const S: usize = 32;
 define_bus_config! {
     Legacy,
     max_subscribers: 32,
@@ -40,7 +40,7 @@ define_bus_config! {
     max_groups: 32,
 }
 
-fn init_engine() -> anyhow::Result<PluginEngine<Legacy, WasmtimeRuntime, Loader, (), M>> {
+fn init_engine() -> anyhow::Result<PluginEngine<Legacy, WasmtimeRuntime, Loader, (), S, M>> {
     const HEAP_SIZE: u32 = 67_108_864;
     let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
     let loader = Loader::new(to_absolute_path("$CREAMY_TEST_PLUGIN_DIR").unwrap())?;
@@ -59,7 +59,7 @@ fn init_engine() -> anyhow::Result<PluginEngine<Legacy, WasmtimeRuntime, Loader,
 #[test]
 fn init() -> anyhow::Result<()> {
     let _ = tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::DEBUG)
+        //.with_max_level(LevelFilter::DEBUG)
         .with_target(true)
         .with_thread_names(false)
         .with_thread_ids(false)
@@ -72,19 +72,27 @@ fn init() -> anyhow::Result<()> {
     let mut engine = init_engine()?;
 
     let plugin_path = tempdir.path().join("ping.cmy");
+    //std::fs::copy(
+    //    "/run/media/selrisu/SSD/fusionwm/creamy/target/creamy/ping.cmy",
+    //    plugin_path.clone(),
+    //)?;
     std::fs::copy("../../target/creamy/ping.cmy", plugin_path.clone())?;
 
     engine.tick(ROUNDTRIP);
 
     assert_eq!(engine.loaded_plugins(), 2);
+    assert!(engine.errors().is_empty());
 
     let registry = engine.protocol_registry();
-    let result = registry.get_protocol_context("ping");
+    let result = registry.get_protocol_context_by_str("ping");
     if let Some(model) = result {
-        assert_eq!(model.definition().name().resolve(registry.pool()), "ping");
-        assert_eq!(model.definition().version(), &Version::new(1, 0, 0));
+        assert_eq!(model.model().name().resolve(registry.pool()), "ping");
+        assert_eq!(model.model().version(), &Version::new(1, 0, 0));
     } else {
         panic!("result is_none() == true");
     }
+
+    //engine.unload();
+
     Ok(())
 }

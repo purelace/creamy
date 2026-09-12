@@ -10,7 +10,7 @@ use creamy::{
         bus::{
             core::{
                 Subscriber,
-                buffer::{IncBuf, OutBuf},
+                buffer::{IncBuf, OutBuf, runtime::DynIncBuf},
             },
             define_bus_config,
         },
@@ -18,7 +18,7 @@ use creamy::{
     engine::{HostSubscriber, PluginEngine},
     sdk::{
         api::{CustomHandler, handle_incoming},
-        bus::{UntypedMessage, buffer::runtime::DynIncBuf, message::TypedMessage},
+        message::UntypedMessage,
         stream::{StreamId, StreamMessage, StreamReader},
     },
 };
@@ -29,7 +29,7 @@ use self::{
     generated::{
         dispatcher::MessageHandler,
         metadata::{PACKAGE, SPECIAL, TABLE},
-        shell::setup::{ExecuteCommand, RegisterCommand, SetCommandName},
+        shell::setup::{ExecuteCommand, RegisterCommand},
     },
     reader::RegisterCommandReader,
 };
@@ -54,6 +54,10 @@ impl CustomHandler for ShellPlugin {
     fn handle_message(&mut self, dispatch_value: u32, message: UntypedMessage) {
         generated::dispatcher::dispatch_message(dispatch_value, message, self);
     }
+
+    fn handle_on_group_enabled_event(&mut self, _: u8) {}
+
+    fn handle_on_group_disabled_event(&mut self, _: u8) {}
 }
 
 impl MessageHandler for ShellPlugin {
@@ -95,6 +99,7 @@ impl HostSubscriber for ShellPlugin {
 }
 
 pub const M: usize = 1024;
+pub const S: usize = 32;
 define_bus_config! {
     Legacy,
     max_subscribers: 32,
@@ -103,7 +108,7 @@ define_bus_config! {
 }
 
 struct Shell {
-    engine: PluginEngine<Legacy, WasmtimeRuntime, AsyncLoader, ShellPlugin, M>,
+    engine: PluginEngine<Legacy, WasmtimeRuntime, AsyncLoader, ShellPlugin, S, M>,
 }
 
 impl Shell {
@@ -117,7 +122,8 @@ impl Shell {
             AsyncLoader::new(
                 LoaderConfig {
                     parallel_downloads: 10,
-                    plugin_directory: "./examples/shell/plugins".into(),
+                    plugin_directory: "examples/shell/plugins".into(),
+                    //plugin_directory: "plugins".into(),
                 }
                 .into_valid()?,
                 handle,
@@ -125,7 +131,7 @@ impl Shell {
             .await?,
         );
 
-        engine.add_custom_subscriber(PACKAGE, |inc, out| ShellPlugin {
+        engine.register_custom_plugin(PACKAGE, |inc, out| ShellPlugin {
             inc,
             out,
             streams: HashMap::default(),

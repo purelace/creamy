@@ -9,14 +9,16 @@ workspace = true
 
 [dependencies]
 creamy-engine-core.workspace = true
-creamy-system-plugin.workspace = true
+#creamy-system-plugin.workspace = true
 creamy-sdk.workspace = true
 serde.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 garde = { version = "0.23.0", features = ["derive"] }
-rustc-hash = "2.1.3"
+rustc-hash = { version = "2.1.3", default-features = false}
 log = "0.4.34"
+smol_str = "0.3.6"
+hashbrown = "0.17.1"
 
 [dev-dependencies]
 tempfile.workspace = true
@@ -25,3 +27,6 @@ tracing-subscriber.workspace = true
 pathenv.workspace = true
 creamy-loader.workspace = true
 creamy-wasmtime.workspace = true
+
+[build-dependencies]
+creamy-libgen-rs.workspace = true

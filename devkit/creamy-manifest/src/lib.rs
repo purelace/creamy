@@ -22,6 +22,27 @@ pub struct Package {
     authors: List<BString>,
 }
 
+impl Package {
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+//TODO: remove
+impl Default for Package {
+    fn default() -> Self {
+        Self {
+            id: BString::default(),
+            name: BString::default(),
+            version: Version::new(1, 0, 0),
+            description: BString::default(),
+            repository: BString::default(),
+            authors: List::default(),
+        }
+    }
+}
+
 #[derive(BinRead, BinWrite, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestedProtocol {
     #[br(map = |val: BString| Version::from_str(&val).unwrap())]
@@ -87,6 +108,11 @@ pub struct Manifest {
 }
 
 impl Manifest {
+    #[must_use]
+    pub fn into_package_manifest(self) -> Package {
+        self.package
+    }
+
     /// # Errors
     ///
     /// This function will return an error if manifest has errors.

@@ -23,6 +23,7 @@ fn compile_plugin() -> anyhow::Result<()> {
 }
 
 pub const M: usize = 1024;
+pub const S: usize = 32;
 define_bus_config! {
     Legacy,
     max_subscribers: 32,
@@ -30,8 +31,8 @@ define_bus_config! {
     max_groups: 32,
 }
 
-async fn init_engine() -> anyhow::Result<PluginEngine<Legacy, WasmtimeRuntime, AsyncLoader, (), M>>
-{
+async fn init_engine()
+-> anyhow::Result<PluginEngine<Legacy, WasmtimeRuntime, AsyncLoader, (), S, M>> {
     const HEAP_SIZE: u32 = 67_108_864;
     let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
     let loader = AsyncLoader::new(
