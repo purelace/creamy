@@ -574,7 +574,8 @@ pub struct RustGen<'s, W: IoWrite> {
 }
 
 impl<'s, W: IoWrite> RustGen<'s, W> {
-    pub const fn new(args: Args, writer: W) -> Self {
+    pub fn new(args: Args, mut writer: W) -> Self {
+        let _ = writer.write("#[allow(unused)]\n".as_bytes());
         Self {
             args,
             modules: vec![],
