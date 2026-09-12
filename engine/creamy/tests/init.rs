@@ -16,8 +16,8 @@ const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 fn compile_plugin() -> anyhow::Result<()> {
     std::process::Command::new("creamy")
         .arg("build")
-        .current_dir("/run/media/selrisu/SSD/fusionwm/creamy/examples/ping")
-        //.current_dir("../../examples/ping")
+        //.current_dir("/run/media/selrisu/SSD/fusionwm/creamy/examples/ping")
+        .current_dir("../../examples/ping")
         .env_remove("RUSTC_WRAPPER")
         .env_remove("RUSTFLAGS")
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
