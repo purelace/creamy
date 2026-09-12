@@ -37,14 +37,14 @@ fn compile_write_read() -> Result<(), Box<dyn core::error::Error + Send + Sync>>
     assert_eq!(package0.definitions.len(), 1);
     assert!(package0.core().is_empty());
 
-    package0.write_to_file(dir.path().join("package.cmy"))?;
+    let mut file = std::fs::File::create(dir.path().join("package.cmy"))?;
+    package0.write_to(&mut file)?;
 
-    let package1 = BinaryPlugin::load_from_file(dir.path().join("package.cmy"))?;
-    let package2 = BinaryPlugin::load_from_bytes(&std::fs::read(dir.path().join("package.cmy"))?)?;
+    let mut file = std::fs::File::open(dir.path().join("package.cmy"))?;
+
+    let package1 = BinaryPlugin::read_from(&mut file)?;
 
     assert_eq!(package0, package1);
-    assert_eq!(package0, package2);
-    assert_eq!(package1, package2);
 
     Ok(())
 }

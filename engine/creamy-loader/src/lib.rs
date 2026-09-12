@@ -6,11 +6,11 @@ use creamy_engine_core::{PluginLoader, devkit::BinaryPlugin};
 
 use self::watcher::FileWatcher;
 
-fn load_file(file: PathBuf) -> Result<BinaryPlugin, std::io::Error> {
-    tracing::info!("[Loader] Loading package: {}", file.display());
-    let bytes = std::fs::read(file)?;
+fn load_file(path: PathBuf) -> Result<BinaryPlugin, std::io::Error> {
+    tracing::info!("[Loader] Loading package: {}", path.display());
+    let mut file = std::fs::File::open(path)?;
 
-    let package = BinaryPlugin::load_from_bytes(&bytes).unwrap();
+    let package = BinaryPlugin::read_from(&mut file).unwrap();
     tracing::info!(
         "[Loader] Plugin '{name}@{version}' loaded",
         name = package.manifest().name(),

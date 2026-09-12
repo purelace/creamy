@@ -10,6 +10,7 @@ workspace = true
 [features]
 read = []
 write = []
+compile = []
 
 [dependencies]
 creamy-xmlc = { workspace = true, features=["compile"]}
@@ -22,3 +23,15 @@ fs-err = { version = "3.3.1", features = ["debug"] }
 [dev-dependencies]
 creamy-template.workspace = true
 tempfile.workspace = true
+
+[[test]]
+name = "compile"
+required-features = ["read", "write", "compile"]
+
+[[test]]
+name = "edge_cases"
+required-features = ["read", "write", "compile"]
+
+[[test]]
+name = "errors"
+required-features = ["read", "write", "compile"]

@@ -5,14 +5,6 @@ pub enum Error {
     #[error("`.creamy` directory not found")]
     MissingDirectory,
 
-    //#[error("Manifest file not found")]
-    //MissingManifest,
-
-    //#[error("{0} is not a file")]
-    //NotAFile(String),
-
-    //#[error("{0} is not a directory")]
-    //NotADirectory(String),
     #[error("{0}")]
     IO(#[from] std::io::Error),
 
@@ -24,4 +16,7 @@ pub enum Error {
 
     #[error("{0}")]
     BinRw(#[from] binrw::Error),
+
+    #[error("Too many files")]
+    TooManyFiles,
 }

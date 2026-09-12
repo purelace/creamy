@@ -68,8 +68,9 @@ pub fn build(workdir: Option<String>) -> anyhow::Result<()> {
     let out = output_path
         .join(binary.manifest().name())
         .with_extension("cmy");
-    binary
-        .write_to_file(out)
-        .map_err(anyhow::Error::from_boxed)?;
+
+    let mut file = std::fs::File::create(out)?;
+
+    binary.write_to(&mut file)?;
     Ok(())
 }

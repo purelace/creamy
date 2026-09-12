@@ -5,6 +5,8 @@ mod inner;
 mod progress;
 mod watcher;
 
+use std::io::Cursor;
+
 use creamy_engine_core::{
     PluginLoader,
     devkit::{self, BinaryPlugin},
@@ -25,7 +27,8 @@ pub enum Error {
 pub type Result<T> = core::result::Result<T, Error>;
 
 fn load_package(data: &[u8]) -> Result<BinaryPlugin> {
-    let package = BinaryPlugin::load_from_bytes(data)?;
+    let mut reader = Cursor::new(data);
+    let package = BinaryPlugin::read_from(&mut reader)?;
     tracing::info!(
         "[Loader] Plugin '{name}@{version}' loaded",
         name = package.manifest().name(),

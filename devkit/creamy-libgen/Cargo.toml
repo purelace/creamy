@@ -9,5 +9,5 @@ workspace = true
 
 [dependencies]
 creamy-phf.workspace = true
-creamy-devkit.workspace = true
+creamy-devkit = { workspace = true, features=["write"] }
 anyhow.workspace = true
