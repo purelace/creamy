@@ -5,13 +5,13 @@ use cbus_core::{
     defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN},
 };
 
-use crate::{INCOMING, MAX_HEAP, OUTGOING, export};
+use crate::{INCOMING, MAX_HEAP, OUTGOING};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn internal__init_plugin(max_heap: u32) -> u32 {
     unsafe {
         MAX_HEAP = max_heap;
-        export::init()
+        init()
     }
 }
 
@@ -62,5 +62,10 @@ pub extern "C" fn internal__export_outgoing_buffer(count: u32) -> u32 {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn internal__notify() {
-    unsafe { export::notify() }
+    unsafe { notify() }
+}
+
+unsafe extern "C" {
+    pub fn init() -> u32;
+    pub fn notify();
 }

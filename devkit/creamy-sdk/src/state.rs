@@ -36,7 +36,6 @@ impl<P: Plugin> InnerState<P> {
 }
 
 impl<P: Plugin> CustomHandler for InnerState<P> {
-    #[inline(always)]
     fn handle_message(&mut self, dispatch_value: u32, message: cbus_core::UntypedMessage) {
         dispatcher::dispatch_message(dispatch_value, message, self);
     }

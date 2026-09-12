@@ -7,7 +7,6 @@ use cbus_core::buffer::runtime::{DynIncBuf, DynOutBuf};
 
 extern crate alloc;
 pub mod api;
-mod export;
 pub mod logging;
 pub mod message;
 mod sender;
@@ -27,7 +26,7 @@ pub mod defines {
 
 pub use sender::Sender;
 
-//#[cfg(all(target_arch = "wasm32", not(target_feature = "atomics")))]
+#[cfg(target_arch = "wasm32")]
 #[global_allocator]
 static ALLOCATOR: rlsf::SmallGlobalTlsf = rlsf::SmallGlobalTlsf::new();
 
@@ -37,7 +36,7 @@ static mut OUTGOING: Option<DynOutBuf> = None;
 
 /// # Panics
 ///
-/// Panics if buffer is not initialized.
+/// Panics if a buffer is not initialized.
 #[must_use]
 #[allow(static_mut_refs)]
 #[doc(hidden)]
@@ -52,7 +51,7 @@ pub fn get_incoming() -> DynIncBuf {
 
 /// # Panics
 ///
-/// Panics if buffer is not initialized.
+/// Panics if a buffer is not initialized.
 #[must_use]
 #[allow(static_mut_refs)]
 #[doc(hidden)]

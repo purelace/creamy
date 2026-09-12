@@ -1,9 +1,6 @@
-use alloc::boxed::Box;
-use core::{any::TypeId, fmt::Display};
+use core::fmt::Display;
 
 use cbus_core::message::TypedMessage;
-use downcast_rs::Downcast;
-use rustc_hash::FxHashMap;
 use thiserror::Error;
 
 use crate::{
@@ -308,30 +305,6 @@ impl<W: StreamWriterFunctions> StreamWriter<W> {
     }
 }
 
-pub trait StreamStorage {
-    fn get_or_add_writer(&mut self, writer: dyn StreamWriterMarker);
-    fn get_or_add_reader(&mut self, reader: dyn StreamReaderMarker);
-}
-
-pub struct TypedStreamStorage<R: StreamReaderFunctions, W: StreamWriterFunctions> {
-    readers: FxHashMap<u16, StreamReader<R>>,
-    writers: FxHashMap<u16, StreamWriter<W>>,
-}
-
-pub struct StreamStorages {
-    inner: FxHashMap<TypeId, Box<dyn StreamStorage>>,
-}
-
-impl StreamStorages {
-    pub fn read_message(&mut self, message: impl StreamMessage) {}
-}
-
-pub trait StreamReaderMarker: Downcast {}
-downcast_rs::impl_downcast!(StreamReaderMarker);
-
-pub trait StreamWriterMarker: Downcast {}
-downcast_rs::impl_downcast!(StreamWriterMarker);
-
 impl StreamReaderFunctions for () {
     type Stream = Log;
 
@@ -340,5 +313,3 @@ impl StreamReaderFunctions for () {
     fn read_payload(&mut self, _: <Self::Stream as StreamMessage>::Payload) {}
     fn read_tail(&mut self, _: <Self::Stream as StreamMessage>::Tail) {}
 }
-
-//static STREAMS: [StreamReader<()>; 64] = [StreamReader::new(StreamId::new(0), ()); 64];
