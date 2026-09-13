@@ -951,7 +951,10 @@ name = "creamy-utils"
 version = "0.1.0"
 dependencies = [
  "binrw",
+ "hashbrown 0.17.1",
+ "rustc-hash",
  "serde",
+ "smol_str",
  "thiserror 2.0.20",
 ]
 

@@ -1,6 +1,8 @@
-#![allow(clippy::cast_possible_truncation)]
+#![no_std]
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::missing_errors_doc)]
+
+extern crate alloc;
 
 mod bstring;
 mod list;

@@ -1,6 +1,9 @@
-use std::ops::Deref;
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+};
+use core::ops::Deref;
 
-use binrw::{BinRead, BinWrite};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
@@ -25,16 +28,16 @@ impl BString {
     }
 }
 
-impl BinRead for BString {
+impl binrw::BinRead for BString {
     type Args<'a> = ();
 
-    fn read_options<R: std::io::Read + std::io::Seek>(
+    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
         reader: &mut R,
         endian: binrw::Endian,
         _args: Self::Args<'_>,
     ) -> binrw::BinResult<Self> {
         let len = u32::read_options(reader, endian, ())?;
-        let mut buf = vec![0u8; len as usize];
+        let mut buf = alloc::vec![0u8; len as usize];
         reader.read_exact(&mut buf)?;
         Ok(BString(String::from_utf8(buf).map_err(|e| {
             binrw::Error::Custom {
@@ -45,10 +48,10 @@ impl BinRead for BString {
     }
 }
 
-impl BinWrite for BString {
+impl binrw::BinWrite for BString {
     type Args<'a> = ();
 
-    fn write_options<W: std::io::Write + std::io::Seek>(
+    fn write_options<W: binrw::io::Write + binrw::io::Seek>(
         &self,
         writer: &mut W,
         endian: binrw::Endian,

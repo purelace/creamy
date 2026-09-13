@@ -1,6 +1,6 @@
-use std::ops::{Deref, DerefMut};
+use alloc::vec::Vec;
+use core::ops::{Deref, DerefMut};
 
-use binrw::{BinRead, BinWrite};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -43,13 +43,13 @@ impl<T> DerefMut for List<T> {
     }
 }
 
-impl<T: BinRead> BinRead for List<T>
+impl<T: binrw::BinRead> binrw::BinRead for List<T>
 where
-    T: for<'a> BinRead<Args<'a> = ()>,
+    T: for<'a> binrw::BinRead<Args<'a> = ()>,
 {
     type Args<'a> = ();
 
-    fn read_options<R: std::io::Read + std::io::Seek>(
+    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
         reader: &mut R,
         endian: binrw::Endian,
         args: Self::Args<'_>,
@@ -64,13 +64,13 @@ where
     }
 }
 
-impl<T: BinWrite> BinWrite for List<T>
+impl<T: binrw::BinWrite> binrw::BinWrite for List<T>
 where
-    T: for<'a> BinWrite<Args<'a> = ()>,
+    T: for<'a> binrw::BinWrite<Args<'a> = ()>,
 {
     type Args<'a> = ();
 
-    fn write_options<W: std::io::Write + std::io::Seek>(
+    fn write_options<W: binrw::io::Write + binrw::io::Seek>(
         &self,
         writer: &mut W,
         endian: binrw::Endian,
