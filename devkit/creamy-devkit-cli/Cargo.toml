@@ -8,7 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-creamy-devkit.workspace = true
+creamy-devkit = { workspace = true, features = ["write"] }
 creamy-protocol-tui.workspace = true
 creamy-template.workspace = true
 clap.workspace = true
