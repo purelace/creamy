@@ -1,4 +1,4 @@
-use std::num::NonZeroU8;
+use std::{env, num::NonZeroU8};
 
 use creamy::{
     core::{Constants, devkit::semver::Version},
@@ -13,20 +13,48 @@ use pathenv::to_absolute_path;
 
 const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 
+fn run_custom_builder() -> anyhow::Result<()> {
+    let mut cmd = std::process::Command::new("creamy");
+    cmd.current_dir("../../examples/ping");
+    cmd.arg("build");
+    cmd.env_clear();
+
+    if let Some(value) = env::var_os("TERM") {
+        cmd.env("TERM", value);
+    }
+
+    if let Some(value) = env::var_os("COLORTERM") {
+        cmd.env("COLORTERM", value);
+    }
+
+    if let Some(path) = env::var_os("PATH") {
+        cmd.env("PATH", path);
+    }
+
+    if let Some(cargo_home) = env::var_os("CARGO_HOME") {
+        cmd.env("CARGO_HOME", cargo_home);
+    }
+    if let Some(rustup_home) = env::var_os("RUSTUP_HOME") {
+        cmd.env("RUSTUP_HOME", rustup_home);
+    }
+
+    if cfg!(windows) {
+        if let Some(userprofile) = env::var_os("USERPROFILE") {
+            cmd.env("USERPROFILE", userprofile);
+        }
+        if let Some(systemroot) = env::var_os("SystemRoot") {
+            cmd.env("SystemRoot", systemroot);
+        }
+    } else if let Some(home) = env::var_os("HOME") {
+        cmd.env("HOME", home);
+    }
+
+    cmd.spawn()?.wait()?;
+    Ok(())
+}
+
 fn compile_plugin() -> anyhow::Result<()> {
-    std::process::Command::new("creamy")
-        .arg("build")
-        //.current_dir("/run/media/selrisu/SSD/fusionwm/creamy/examples/ping")
-        .current_dir("../../examples/ping")
-        .env_remove("RUSTC_WRAPPER")
-        .env_remove("RUSTFLAGS")
-        .env_remove("CARGO_ENCODED_RUSTFLAGS")
-        .env_remove("CARGO_LLVM_COV")
-        .env_remove("__CARGO_LLVM_COV_RUSTC_WRAPPER")
-        .env_remove("__CARGO_LLVM_COV_RUSTC_WRAPPER_CRATE_NAMES")
-        .env_remove("__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS")
-        .spawn()?
-        .wait()?;
+    run_custom_builder()?;
 
     Ok(())
 }
