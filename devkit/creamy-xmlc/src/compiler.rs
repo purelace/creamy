@@ -13,10 +13,12 @@ use crate::{
         Direction,
         storage::SymbolStorage,
         symbols::{
-            ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, FieldSymbol, FieldType,
-            FlagsSymbol, GlobalTypesSymbol, GroupSymbol, MessageSymbol, MessageSymbolType,
-            NumericSymbol, OptionSymbol, PrimitiveRepr, StreamPayloadFieldSymbol, StreamSymbol,
-            StructSymbol, Type, VariantSymbol,
+            ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID, FieldSymbol,
+            FieldType, FlagsSymbol, GlobalTypesSymbol, GroupSymbol, I8_ID, I16_ID, I32_ID, I64_ID,
+            I128_ID, MessageSymbol, MessageSymbolType,
+            NumericSymbol::{self},
+            OptionSymbol, PrimitiveRepr, StreamPayloadFieldSymbol, StreamSymbol, StructSymbol,
+            Type, U8_ID, U16_ID, U32_ID, U64_ID, U128_ID, VariantSymbol,
         },
     },
     table::{TypeMeta, TypeTable},
@@ -32,7 +34,26 @@ use crate::{
     utils::{BitsetValuesRange, FieldsRange, Range, Size, TypesRange},
 };
 
+fn insert_default_strings(pool: &mut StringPool) {
+    assert_eq!(pool.get_id_or_add("u8"), U8_ID);
+    assert_eq!(pool.get_id_or_add("u16"), U16_ID);
+    assert_eq!(pool.get_id_or_add("u32"), U32_ID);
+    assert_eq!(pool.get_id_or_add("u64"), U64_ID);
+    assert_eq!(pool.get_id_or_add("u128"), U128_ID);
+
+    assert_eq!(pool.get_id_or_add("i8"), I8_ID);
+    assert_eq!(pool.get_id_or_add("i16"), I16_ID);
+    assert_eq!(pool.get_id_or_add("i32"), I32_ID);
+    assert_eq!(pool.get_id_or_add("i64"), I64_ID);
+    assert_eq!(pool.get_id_or_add("i128"), I128_ID);
+
+    assert_eq!(pool.get_id_or_add("f32"), F32_ID);
+    assert_eq!(pool.get_id_or_add("f64"), F64_ID);
+}
+
 pub fn compile(pool: &mut StringPool, content: &str) -> Result<ProtocolDefinition, Diagnostics> {
+    insert_default_strings(pool);
+
     let content = content.trim();
     let diag = RefCell::new(Diagnostics::default());
     let tokens = tokenize(content, &diag);

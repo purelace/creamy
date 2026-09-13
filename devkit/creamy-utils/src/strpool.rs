@@ -23,38 +23,11 @@ impl StringId {
 }
 
 #[binrw::binrw]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct StringPool {
     #[br(parse_with = read_pool)]
     #[bw(write_with = write_pool)]
     map: HashMap<SmolStr, StringId>,
-}
-
-impl Default for StringPool {
-    fn default() -> Self {
-        let mut instance = Self {
-            map: HashMap::default(),
-        };
-
-        //TODO: fix
-        instance.get_id_or_add("u8");
-        instance.get_id_or_add("u16");
-        instance.get_id_or_add("u32");
-        instance.get_id_or_add("u64");
-        instance.get_id_or_add("u128");
-
-        instance.get_id_or_add("i8");
-        instance.get_id_or_add("i16");
-        instance.get_id_or_add("i32");
-        instance.get_id_or_add("i64");
-        instance.get_id_or_add("i128");
-
-        instance.get_id_or_add("f32");
-        instance.get_id_or_add("f64");
-        instance.get_id_or_add("bool");
-
-        instance
-    }
 }
 
 impl StringPool {
