@@ -34,7 +34,7 @@ use crate::{
     utils::{BitsetValuesRange, FieldsRange, Range, Size, TypesRange},
 };
 
-fn insert_default_strings(pool: &mut StringPool) {
+fn insert_default_keywords(pool: &mut StringPool) {
     assert_eq!(pool.get_id_or_add("u8"), U8_ID);
     assert_eq!(pool.get_id_or_add("u16"), U16_ID);
     assert_eq!(pool.get_id_or_add("u32"), U32_ID);
@@ -52,7 +52,7 @@ fn insert_default_strings(pool: &mut StringPool) {
 }
 
 pub fn compile(pool: &mut StringPool, content: &str) -> Result<ProtocolDefinition, Diagnostics> {
-    insert_default_strings(pool);
+    insert_default_keywords(pool);
 
     let content = content.trim();
     let diag = RefCell::new(Diagnostics::default());
