@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, coverage(off))]
+
 use alloc::vec::Vec;
 use core::ops::{Deref, DerefMut};
 
