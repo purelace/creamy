@@ -1,5 +1,5 @@
 use alloc::{boxed::Box, string::String, vec, vec::Vec};
-use core::{mem::MaybeUninit, str::FromStr};
+use core::mem::MaybeUninit;
 
 use binrw::{BinRead, BinResult, BinWrite};
 use hashbrown::HashMap;
@@ -31,9 +31,39 @@ pub struct StringPool {
 }
 
 impl StringPool {
+    /// Returns the [`StringId`] of the specified string
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the string is missing in the [`StringPool`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use creamy_utils::strpool::{StringPool, StringId};
+    ///
+    /// let mut pool = StringPool::default();
+    ///
+    /// let foo_id0 = pool.get_id_or_add("Foo");
+    /// let foo_id1 = pool.get_id("Foo");
+    ///
+    /// assert_eq!(foo_id0, foo_id1);
+    /// ```
+    ///
+    /// # Panic example
+    ///
+    /// ```should_panic
+    /// use creamy_utils::strpool::StringPool;
+    ///
+    /// let mut pool = StringPool::default();
+    /// pool.get_id("Foo");
+    /// ```
     #[must_use]
     pub fn get_id(&self, string: &str) -> StringId {
-        *self.map.get(string).unwrap()
+        *self
+            .map
+            .get(string)
+            .expect("string is missing in the string pool")
     }
 
     #[must_use]
@@ -41,17 +71,77 @@ impl StringPool {
         self.map.get(string).copied()
     }
 
+    /// Checks if the given string already exists in the pool and returns its [`StringId`].
+    /// If the string is missing, inserts it into the pool and returns a newly generated [`StringId`].
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the pool reaches its maximum capacity  (`u16::MAX`)
+    ///
+    /// # Examples
+    /// ```
+    /// use creamy_utils::strpool::StringPool;
+    ///
+    /// let mut pool = StringPool::default();
+    /// assert!(pool.try_get_id("Foo").is_none());
+    ///
+    /// let _ = pool.get_id_or_add("Foo");
+    /// assert!(pool.try_get_id("Foo").is_some());
+    /// ```
+    ///
+    /// # Panic example
+    /// ```should_panic
+    /// use creamy_utils::strpool::{StringPool, StringId};
+    ///
+    /// let mut pool = StringPool::default();
+    /// for i in 0..=u16::MAX {
+    ///     pool.get_id_or_add(&format!("value{i}"));
+    /// }
+    /// pool.get_id_or_add(&format!("overflow"));
+    /// ```
     pub fn get_id_or_add(&mut self, string: &str) -> StringId {
-        self.map.get(string).copied().unwrap_or_else(|| {
-            let id = StringId(self.map.len() as u16);
+        self.map.get(string).copied().unwrap_or({
+            let value = u16::try_from(self.map.len()).expect("Error: string pool overflow");
+            let id = StringId(value);
             self.map.insert(SmolStr::new(string), id);
             id
         })
     }
 
+    /// Returns the string associated with [`StringId`]
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the string is not found in the [`StringPool`]
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use creamy_utils::strpool::{StringPool, StringId};
+    ///
+    /// let mut pool = StringPool::default();
+    ///
+    /// let foo_id = pool.get_id_or_add("Foo");
+    /// let foo_string = pool.get_string(foo_id);
+    ///
+    /// assert_eq!(foo_string, "Foo");
+    /// ```
+    ///
+    /// # Panic example
+    ///
+    /// ```should_panic
+    /// use creamy_utils::strpool::{StringPool, StringId};
+    ///
+    /// let mut pool = StringPool::default();
+    /// pool.get_string(StringId::new(10));
+    /// ```
     #[must_use]
     pub fn get_string(&self, id: StringId) -> &str {
-        self.map.iter().find(|(_, v)| **v == id).unwrap().0
+        self.map
+            .iter()
+            .find(|(_, v)| **v == id)
+            .expect(&alloc::format!("string {id:#?} not found"))
+            .0
     }
 }
 
@@ -94,10 +184,7 @@ fn read_str() -> BinResult<SmolStr> {
         err: Box::new(e),
     })?;
 
-    SmolStr::from_str(str).map_err(|e| binrw::Error::Custom {
-        pos: r.stream_position().unwrap_or(0),
-        err: Box::new(e),
-    })
+    Ok(SmolStr::new(str))
 }
 
 #[binrw::writer(writer: w, endian)]
