@@ -1,18 +1,15 @@
-use binrw::{BinRead, BinWrite};
+use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
 use crate::{
     constraints::MAX_FIELDS,
-    define_readonly_struct, impl_with_ident,
-    model::{
-        storage::{Symbol, SymbolKey},
-        symbols::ArraySymbol,
-    },
+    model::{storage::SymbolKey, symbols::ArraySymbol},
     table::TypeId,
     utils::FieldsRange,
 };
 
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[binrw::binrw]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FieldType {
     #[brw(magic(0u8))]
     Type(TypeId),
@@ -20,18 +17,18 @@ pub enum FieldType {
     Array(ArraySymbol),
 }
 
-define_readonly_struct! {
-    [element(MAX_FIELDS, FieldsRange)]
-    struct FieldSymbol {
-        ident: StringId,
-        kind: FieldType,
-    }
+#[binrw::binrw]
+#[derive(Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[element(MAX_FIELDS, FieldsRange)]
+#[key(SymbolKey::Field)]
+pub struct FieldSymbol {
+    #[token(ident)]
+    ident: StringId,
+    kind: FieldType,
 }
-impl_with_ident!(FieldSymbol);
-
-impl Symbol for FieldSymbol {
-    const KEY: SymbolKey = SymbolKey::Field;
-}
+crate::define_readonly_struct!(@impl_methods FieldSymbol {
+    ident: StringId, kind: FieldType,
+});
 
 impl FieldSymbol {
     #[must_use]

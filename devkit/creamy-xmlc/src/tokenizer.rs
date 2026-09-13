@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::Deref, str::FromStr};
+use core::{cell::RefCell, ops::Deref, str::FromStr};
 
 use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern};
 use miette::SourceSpan;
@@ -9,7 +9,7 @@ use crate::{
     Access,
     diagnostics::Diagnostics,
     error::{Fallback, ProtocolError, ProtocolErrorExt, SyntaxError},
-    model::{definition::Direction, symbols::VariantValue},
+    model::{Direction, symbols::VariantValue},
     version::parse_version,
 };
 

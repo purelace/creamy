@@ -2,8 +2,6 @@ use std::fmt::Display;
 
 use binrw::{BinRead, BinWrite};
 
-use crate::define_readonly_struct;
-
 /// Max offset value: 2^27
 /// Max length value: 28
 #[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,16 +96,22 @@ impl Variants {
     }
 }
 
-define_readonly_struct! {
-    struct Options {
-        start: u16,
-        len: u16,
-    }
+#[binrw::binrw]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Options {
+    start: u16,
+    len: u16,
 }
+crate::define_readonly_struct!(@impl_methods Options {
+    start: u16, len: u16,
+});
 
-define_readonly_struct! {
-    struct BitsetValues {
-        start: u16,
-        len: u16,
-    }
+#[binrw::binrw]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BitsetValues {
+    start: u16,
+    len: u16,
 }
+crate::define_readonly_struct!(@impl_methods BitsetValues {
+    start: u16, len: u16,
+});

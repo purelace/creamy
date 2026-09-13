@@ -10,7 +10,7 @@ use crate::{
     diagnostics::Diagnostics,
     error::{ProtocolErrorExt, SemanticError},
     model::{
-        definition::Direction,
+        Direction,
         storage::SymbolStorage,
         symbols::{
             ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, FieldSymbol, FieldType,

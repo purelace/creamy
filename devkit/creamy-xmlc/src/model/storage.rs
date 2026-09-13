@@ -4,7 +4,7 @@ use std::{
 };
 
 use binrw::{BinRead, BinResult, BinWrite};
-use strum::IntoEnumIterator;
+use strum::{EnumIter, IntoEnumIterator};
 
 use super::symbols::{
     BitsetValueSymbol, FieldSymbol, GroupSymbol, MessageSymbolType, OptionSymbol,
@@ -12,10 +12,9 @@ use super::symbols::{
 };
 use crate::utils::{BoundedVec, Range, VectorElement};
 
+#[binrw::binrw]
 #[repr(u8)]
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, BinRead, BinWrite, strum::EnumIter,
-)]
+#[derive(EnumIter, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SymbolKey {
     #[brw(magic = 0u8)]
     Group,

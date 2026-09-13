@@ -17,6 +17,8 @@ strum.workspace = true
 semver.workspace = true
 downcast-rs.workspace = true
 smol_str = "0.3.6"
+creamy-protocol-model-macros.workspace = true
+
 
 termtree = { version = "1.0.0" }
 owo-colors = { version = "4.4.0" }

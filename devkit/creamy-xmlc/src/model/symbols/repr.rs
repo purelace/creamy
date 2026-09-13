@@ -1,12 +1,11 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
-use std::fmt::Display;
-
-use binrw::{BinRead, BinWrite};
+use core::fmt::Display;
 
 use super::enumeration::VariantValue;
 use crate::{error::SemanticError, model::symbols::NumericSymbol};
 
-#[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[binrw::binrw]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PrimitiveRepr {
     #[brw(magic = 0u8)]
     #[default]

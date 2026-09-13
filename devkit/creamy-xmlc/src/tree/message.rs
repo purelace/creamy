@@ -5,7 +5,7 @@ use super::nodes::{
 };
 use crate::{
     error::AstError,
-    model::{definition::Direction, symbols::U8_ID},
+    model::{Direction, symbols::U8_ID},
     tokenizer::{Identifier, Token},
     tree::RangeBuilder,
     utils::FieldsRange,

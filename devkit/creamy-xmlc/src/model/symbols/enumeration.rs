@@ -1,17 +1,13 @@
-use std::fmt::Display;
+use core::fmt::Display;
 
 use binrw::{BinRead, BinWrite};
+use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
 use crate::{
     constraints::{MAX_ENUMS, MAX_VARIANTS},
-    define_readonly_struct,
     error::{Fallback, SemanticError},
-    impl_with_ident,
-    model::{
-        storage::{Symbol, SymbolKey},
-        symbols::PrimitiveRepr,
-    },
+    model::{storage::SymbolKey, symbols::PrimitiveRepr},
     table::TypeMeta,
     utils::{EnumsRange, VariantsRange},
 };
@@ -24,9 +20,8 @@ pub enum VariantValue {
     Unsigned(u64),
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 impl Display for VariantValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             VariantValue::Singed(s) => write!(f, "{s}"),
             VariantValue::Unsigned(u) => write!(f, "{u}"),
@@ -40,28 +35,29 @@ impl Fallback for VariantValue {
     }
 }
 
-define_readonly_struct! {
-    [element(MAX_VARIANTS, VariantsRange)]
-    struct VariantSymbol {
-        ident: StringId,
-        value: VariantValue,
-    }
+#[derive(Token, Symbol, BinWrite, BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[element(MAX_VARIANTS, VariantsRange)]
+#[key(SymbolKey::Variant)]
+pub struct VariantSymbol {
+    #[token(ident)]
+    ident: StringId,
+    value: VariantValue,
 }
-impl_with_ident!(VariantSymbol);
+crate::define_readonly_struct!(@impl_methods VariantSymbol {
+    ident: StringId, value: VariantValue,
+});
 
-impl Symbol for VariantSymbol {
-    const KEY: SymbolKey = SymbolKey::Variant;
+#[derive(Token, BinWrite, BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[element(MAX_ENUMS, EnumsRange)]
+pub struct EnumSymbol {
+    #[token(ident)]
+    ident: StringId,
+    repr: PrimitiveRepr,
+    variants: VariantsRange,
 }
-
-define_readonly_struct! {
-    [element(MAX_ENUMS, EnumsRange)]
-    struct EnumSymbol {
-        ident: StringId,
-        repr: PrimitiveRepr,
-        variants: VariantsRange,
-    }
-}
-impl_with_ident!(EnumSymbol);
+crate::define_readonly_struct!(@impl_methods EnumSymbol {
+    ident: StringId, repr: PrimitiveRepr, variants: VariantsRange,
+});
 
 impl EnumSymbol {
     pub const fn meta(&self) -> Result<TypeMeta, SemanticError> {

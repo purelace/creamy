@@ -1,13 +1,12 @@
 use creamy_utils::strpool::{StringId, StringPool};
 
 use crate::{
-    Access,
     constraints::{
         MAX_BITSET_VALUES, MAX_BITSETS, MAX_ENUMS, MAX_FIELDS, MAX_FLAGS, MAX_GROUPS, MAX_MESSAGES,
         MAX_OPTIONS, MAX_STRUCTS, MAX_VARIANTS,
     },
     define_readonly_struct,
-    model::{definition::Direction, symbols::VariantValue},
+    model::{Access, Direction, symbols::VariantValue},
     tokenizer::IdentifierOrArray,
     utils::{
         BitsetValuesRange, BitsetsRange, EnumsRange, FieldsRange, FlagsRange, GroupsRange,

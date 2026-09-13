@@ -47,7 +47,7 @@ members = [
     "examples/ping",
     "examples/pong",
     "examples/shell",
-    "examples/shell/commands/*",
+    "examples/shell/commands/*", "devkit/creamy-protocol-model-macros", "devkit/creamy-protocol-model",
 ]
 
 [workspace.dependencies]
@@ -65,6 +65,7 @@ creamy-xmlc = { path = "devkit/creamy-xmlc" }
 creamy-phf = { path = "devkit/creamy-phf" }
 creamy-sdk = { path = "devkit/creamy-sdk" }
 creamy-template = { path = "devkit/creamy-template" }
+creamy-protocol-model-macros = { path = "devkit/creamy-protocol-model-macros"}
 
 # Engine
 creamy = { path = "engine/creamy" }

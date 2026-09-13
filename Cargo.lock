@@ -913,6 +913,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "creamy-protocol-model"
+version = "0.1.0"
+
+[[package]]
+name = "creamy-protocol-model-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.5",
+]
+
+[[package]]
 name = "creamy-protocol-tui"
 version = "0.1.0"
 dependencies = [
@@ -974,6 +987,7 @@ version = "0.1.0"
 dependencies = [
  "as-guard",
  "binrw",
+ "creamy-protocol-model-macros",
  "creamy-utils",
  "downcast-rs",
  "miette",

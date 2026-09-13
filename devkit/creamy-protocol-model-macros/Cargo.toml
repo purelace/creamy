@@ -1,0 +1,16 @@
+[package]
+name = "creamy-protocol-model-macros"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.47"
+syn = "3.0.5"
+proc-macro2 = "1.0.107"

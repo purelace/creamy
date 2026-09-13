@@ -1,7 +1,6 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
-use std::num::NonZeroU8;
+use core::num::NonZeroU8;
 
-use binrw::{BinRead, BinWrite};
 use creamy_utils::strpool::StringId;
 use strum::EnumCount;
 
@@ -84,7 +83,8 @@ pub const fn get_builtin_type_name(ty: TypeId) -> StringId {
     }
 }
 
-#[derive(EnumCount, BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
+#[binrw::binrw]
+#[derive(EnumCount, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NumericSymbol {
     #[brw(magic(0u8))]
     U8,

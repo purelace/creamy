@@ -14,8 +14,9 @@ use nodes::{
 use semver::Version;
 
 use crate::{
-    Access, Diagnostics,
+    Diagnostics,
     error::{AstError, Fallback},
+    model::Access,
     tokenizer::{Identifier, Token},
     tree::{
         bitset::{BValueParser, BitsetParser},

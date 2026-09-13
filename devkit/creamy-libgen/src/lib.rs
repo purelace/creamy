@@ -19,7 +19,7 @@ use devkit::compiler::{
     ProtocolDefinition, compile,
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     model::{
-        definition::Direction,
+        Direction,
         symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
     },
     utils::strpool::{StringId, StringPool},

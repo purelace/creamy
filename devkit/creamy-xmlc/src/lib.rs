@@ -1,3 +1,4 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
@@ -23,7 +24,7 @@ pub mod utils;
 mod version;
 
 pub use diagnostics::Diagnostics;
-pub use model::definition::{Access, ProtocolDefinition};
+pub use model::{Access, definition::ProtocolDefinition};
 pub use table::{FinishedTypeTable, TypeId};
 
 pub mod constraints {
