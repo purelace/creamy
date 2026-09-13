@@ -140,7 +140,7 @@ impl StringPool {
         self.map
             .iter()
             .find(|(_, v)| **v == id)
-            .expect(&alloc::format!("string {id:#?} not found"))
+            .expect("string not found")
             .0
     }
 }
