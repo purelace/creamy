@@ -63,3 +63,10 @@ pub fn get_outgoing() -> DynOutBuf {
         }
     }
 }
+
+#[cfg(target_arch = "wasm32")]
+#[inline(never)]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
