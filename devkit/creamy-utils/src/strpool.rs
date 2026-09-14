@@ -100,7 +100,7 @@ impl StringPool {
     /// pool.get_id_or_add(&format!("overflow"));
     /// ```
     pub fn get_id_or_add(&mut self, string: &str) -> StringId {
-        self.map.get(string).copied().unwrap_or({
+        self.map.get(string).copied().unwrap_or_else(|| {
             let value = u16::try_from(self.map.len()).expect("Error: string pool overflow");
             let id = StringId(value);
             self.map.insert(SmolStr::new(string), id);
