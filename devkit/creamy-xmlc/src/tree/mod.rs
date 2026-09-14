@@ -6,17 +6,19 @@ pub mod nodes;
 pub mod storage;
 mod structs;
 
-use creamy_utils::strpool::StringPoolIntern;
-use nodes::{
+use creamy_protocol_model::{
+    Access, BitsetValuesRange, BitsetsRange, EnumsRange, FieldsRange, FlagsRange, MessagesRange,
+    OptionsRange, StructsRange, VariantsRange, Version, error::Fallback,
+};
+use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern};
+
+use self::nodes::{
     BitsetNode, BitsetValueNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, GlobalTypesNode,
     GroupNode, MessageNodeType, OptionNode, StreamPayloadFieldNode, StructNode, VariantNode,
 };
-use semver::Version;
-
 use crate::{
     Diagnostics,
-    error::{AstError, Fallback},
-    model::Access,
+    error::AstError,
     tokenizer::{Identifier, Token},
     tree::{
         bitset::{BValueParser, BitsetParser},
@@ -25,11 +27,6 @@ use crate::{
         message::{MessageParser, StreamPayloadFieldParser},
         storage::NodeStorage,
         structs::StructParser,
-    },
-    utils::{
-        BitsetValuesRange, BitsetsRange, EnumsRange, FieldsRange, FlagsRange, MessagesRange,
-        OptionsRange, StructsRange, VariantsRange,
-        strpool::{StringId, StringPool},
     },
 };
 
@@ -366,7 +363,7 @@ macro_rules! define_misc_parser {
             pub fn $parse_all(
                 &mut self,
                 diag: &mut $crate::Diagnostics,
-                pool: &mut $crate::utils::strpool::StringPool,
+                pool: &mut creamy_utils::strpool::StringPool,
                 storage: &mut $crate::tree::storage::NodeStorage,
                 iter: &mut core::iter::Peekable<std::vec::Drain<$crate::tokenizer::Token>>,
             ) -> $ret {

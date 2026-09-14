@@ -1,19 +1,16 @@
-use creamy_utils::strpool::{StringId, StringPool};
-
-use crate::{
+use creamy_protocol_model::{
+    Access, BitsetValuesRange, BitsetsRange, Direction, EnumsRange, FieldsRange, FlagsRange,
+    GroupsRange, MessagesRange, OptionsRange, StreamsFieldsRange, StructsRange, VariantsRange,
+    VectorElement,
     constraints::{
         MAX_BITSET_VALUES, MAX_BITSETS, MAX_ENUMS, MAX_FIELDS, MAX_FLAGS, MAX_GROUPS, MAX_MESSAGES,
         MAX_OPTIONS, MAX_STRUCTS, MAX_VARIANTS,
     },
-    define_readonly_struct,
-    model::{Access, Direction, symbols::VariantValue},
-    tokenizer::IdentifierOrArray,
-    utils::{
-        BitsetValuesRange, BitsetsRange, EnumsRange, FieldsRange, FlagsRange, GroupsRange,
-        MessagesRange, OptionsRange, StreamsFieldsRange, StructsRange, VariantsRange,
-        VectorElement,
-    },
+    symbols::VariantValue,
 };
+use creamy_utils::strpool::{StringId, StringPool};
+
+use crate::{define_readonly_struct, tokenizer::IdentifierOrArray};
 
 macro_rules! define_node {
     ($key:expr, $name:ident, $is_type: expr) => {
@@ -102,7 +99,6 @@ impl MessageNodeType {
     }
 }
 
-//define_node!("message.node", MessageNode, false);
 define_readonly_struct! {
     [no_brw]
     struct MessageNode {

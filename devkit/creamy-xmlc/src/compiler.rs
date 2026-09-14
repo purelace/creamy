@@ -1,27 +1,27 @@
 use std::{cell::RefCell, num::NonZeroU8};
 
 use as_guard::AsGuard;
+use creamy_protocol_model::{
+    BitsetValuesRange, Direction, FieldsRange, Range, Size, TypeMeta, TypeTable, TypesRange,
+    constraints::MAX_PAYLOAD,
+    definition::ProtocolModel,
+    error::SemanticError,
+    storage::SymbolStorage,
+    symbols::{
+        ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID, FieldSymbol,
+        FieldType, FlagsSymbol, GlobalTypesSymbol, GroupSymbol, I8_ID, I16_ID, I32_ID, I64_ID,
+        I128_ID, MessageSymbol, MessageSymbolType,
+        NumericSymbol::{self},
+        OptionSymbol, PrimitiveRepr, StreamPayloadFieldSymbol, StreamSymbol, StructSymbol, Type,
+        U8_ID, U16_ID, U32_ID, U64_ID, U128_ID, VariantSymbol,
+    },
+};
 use creamy_utils::strpool::{StringPool, StringPoolResolver};
 use strum::EnumCount;
 
 use crate::{
-    ProtocolDefinition,
-    constraints::MAX_PAYLOAD,
     diagnostics::Diagnostics,
-    error::{ProtocolErrorExt, SemanticError},
-    model::{
-        Direction,
-        storage::SymbolStorage,
-        symbols::{
-            ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID, FieldSymbol,
-            FieldType, FlagsSymbol, GlobalTypesSymbol, GroupSymbol, I8_ID, I16_ID, I32_ID, I64_ID,
-            I128_ID, MessageSymbol, MessageSymbolType,
-            NumericSymbol::{self},
-            OptionSymbol, PrimitiveRepr, StreamPayloadFieldSymbol, StreamSymbol, StructSymbol,
-            Type, U8_ID, U16_ID, U32_ID, U64_ID, U128_ID, VariantSymbol,
-        },
-    },
-    table::{TypeMeta, TypeTable},
+    error::ProtocolErrorExt,
     tokenizer::tokenize,
     tree::{
         ProtocolTree,
@@ -31,7 +31,6 @@ use crate::{
             StreamPayloadFieldNode, StructNode, VariantNode,
         },
     },
-    utils::{BitsetValuesRange, FieldsRange, Range, Size, TypesRange},
 };
 
 fn insert_default_keywords(pool: &mut StringPool) {
@@ -51,7 +50,7 @@ fn insert_default_keywords(pool: &mut StringPool) {
     assert_eq!(pool.get_id_or_add("f64"), F64_ID);
 }
 
-pub fn compile(pool: &mut StringPool, content: &str) -> Result<ProtocolDefinition, Diagnostics> {
+pub fn compile(pool: &mut StringPool, content: &str) -> Result<ProtocolModel, Diagnostics> {
     insert_default_keywords(pool);
 
     let content = content.trim();
@@ -185,7 +184,7 @@ impl<'a> DefinitionBuilder<'a> {
     }
 }
 
-fn run(diag: &mut Diagnostics, pool: &StringPool, tree: ProtocolTree) -> ProtocolDefinition {
+fn run(diag: &mut Diagnostics, pool: &StringPool, tree: ProtocolTree) -> ProtocolModel {
     let mut tt = TypeTable::new(tree.storage.len_of::<GroupNode>() as u8, tree.type_count());
     let mut builder = DefinitionBuilder::new(diag, pool);
 
@@ -202,7 +201,7 @@ fn run(diag: &mut Diagnostics, pool: &StringPool, tree: ProtocolTree) -> Protoco
         assert!(builder.storage.add_symbol(symbol), "Unreachable!");
     }
 
-    ProtocolDefinition::new(
+    ProtocolModel::new(
         tree.name,
         tree.version,
         global,
@@ -322,6 +321,7 @@ impl<'a> Resolver<'a> {
                         //} else if messages.iter().any(|m| m.name() == kind) {
                         //    ProtocolError::MessageReference(name.to_string())
                         } else {
+                            dbg!(self.pool);
                             SemanticError::CannotResolveTypeFieldNotFound {
                                 from: name.to_string(),
                                 kind: kind.resolve(self.pool).to_string(),
@@ -344,7 +344,7 @@ impl<'a> Resolver<'a> {
                 } else {
                     self.resolve_fields(from);
                     let len = self.storage.get_symbol_slice::<FieldSymbol>().len() as u16;
-                    let meta = ProtocolDefinition::get_struct_meta(self.storage.get_symbol_range(
+                    let meta = ProtocolModel::get_struct_meta(self.storage.get_symbol_range(
                         FieldsRange::new(len - u16::from(s.fields().len()), s.fields().len()),
                     ))
                     .or_recover(self.diag);
@@ -401,7 +401,7 @@ impl<'a> Resolver<'a> {
             let len = self.storage.len_of::<FieldSymbol>() as u16;
 
             // Check size and align
-            ProtocolDefinition::get_message_meta(self.storage.get_symbol_range(FieldsRange::new(
+            ProtocolModel::get_message_meta(self.storage.get_symbol_range(FieldsRange::new(
                 len - u16::from(m.fields().len()),
                 m.fields().len(),
             )))

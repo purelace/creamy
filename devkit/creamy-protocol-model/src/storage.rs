@@ -1,9 +1,10 @@
-use std::{
-    any::Any,
+use alloc::{boxed::Box, vec::Vec};
+use core::any::Any;
+
+use binrw::{
+    BinRead, BinResult, BinWrite,
     io::{Read, Seek, Write},
 };
-
-use binrw::{BinRead, BinResult, BinWrite};
 use strum::{EnumIter, IntoEnumIterator};
 
 use super::symbols::{
@@ -33,7 +34,7 @@ pub enum SymbolKey {
 }
 
 fn create_storage() -> Vec<Box<dyn UntypedStorage>> {
-    let mut vec = vec![];
+    let mut vec = alloc::vec![];
     for key in SymbolKey::iter() {
         let storage = match key {
             SymbolKey::Group => TypedStorage::<GroupSymbol>::boxed(),
@@ -75,7 +76,7 @@ pub trait Symbol:
     + for<'a> BinWrite<Args<'a> = ()>
     + PartialEq
     + Eq
-    + std::fmt::Debug
+    + core::fmt::Debug
     + VectorElement
     + Send
     + Sync
@@ -84,7 +85,7 @@ pub trait Symbol:
     const KEY: SymbolKey;
 }
 
-pub trait UntypedStorage: Send + Sync + std::fmt::Debug + 'static {
+pub trait UntypedStorage: Send + Sync + core::fmt::Debug + 'static {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
     fn key(&self) -> SymbolKey;
@@ -182,8 +183,28 @@ impl<S: Symbol> UntypedStorage for TypedStorage<S> {
         writer: &mut dyn WriteSeek,
         endian: binrw::Endian,
     ) -> binrw::prelude::BinResult<()> {
-        let mut writer = std::io::BufWriter::new(writer);
+        let mut writer = Writer { object: writer };
         self.write_options(&mut writer, endian, ())
+    }
+}
+
+struct Writer<'a> {
+    object: &'a mut dyn WriteSeek,
+}
+
+impl Write for Writer<'_> {
+    fn write(&mut self, buf: &[u8]) -> binrw::io::Result<usize> {
+        self.object.write(buf)
+    }
+
+    fn flush(&mut self) -> binrw::io::Result<()> {
+        self.object.flush()
+    }
+}
+
+impl Seek for Writer<'_> {
+    fn seek(&mut self, pos: binrw::io::SeekFrom) -> binrw::io::Result<u64> {
+        self.object.seek(pos)
     }
 }
 
@@ -203,7 +224,7 @@ impl Default for SymbolStorage {
 impl BinRead for SymbolStorage {
     type Args<'a> = ();
 
-    fn read_options<R: std::io::prelude::Read + Seek>(
+    fn read_options<R: Read + Seek>(
         reader: &mut R,
         endian: binrw::Endian,
         args: Self::Args<'_>,

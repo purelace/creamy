@@ -9,7 +9,10 @@ mod show;
 mod utils;
 
 use clap::Parser;
-use creamy_devkit::compiler::{ProtocolDefinition, compile, utils::strpool::StringPool};
+use creamy_devkit::compiler::{
+    compile,
+    model::{definition::ProtocolModel, strpool::StringPool},
+};
 
 use self::utils::get_workdir;
 use crate::{
@@ -31,7 +34,7 @@ pub fn run() -> anyhow::Result<()> {
     }
 }
 
-fn compile_protocol(pool: &mut StringPool, xml_file: String) -> anyhow::Result<ProtocolDefinition> {
+fn compile_protocol(pool: &mut StringPool, xml_file: String) -> anyhow::Result<ProtocolModel> {
     let content = std::fs::read_to_string(xml_file)?;
     Ok(compile(pool, &content).unwrap())
 }

@@ -13,7 +13,7 @@ write = []
 compile = []
 
 [dependencies]
-creamy-xmlc = { workspace = true, features=["compile"]}
+creamy-xmlc.workspace = true
 creamy-manifest.workspace = true
 thiserror.workspace = true
 binrw.workspace = true

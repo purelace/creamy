@@ -6,10 +6,24 @@ macro_rules! define_readonly_range {
             len: $len_type: ty $(,)?
         }
     ) => {
-        $crate::define_readonly_struct! {
-            struct $name {
-                start: $start_type,
-                len: $len_type,
+        #[binrw::binrw]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        pub struct $name {
+            start: $start_type,
+            len: $len_type,
+        }
+
+        impl $name {
+            pub const fn new(start: $start_type, len: $len_type) -> Self {
+                Self { start, len }
+            }
+
+            pub const fn start(&self) -> $start_type {
+                self.start
+            }
+
+            pub const fn len(&self) -> $len_type {
+                self.len
             }
         }
 

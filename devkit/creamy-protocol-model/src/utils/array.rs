@@ -1,4 +1,5 @@
-use std::{
+use alloc::boxed::Box;
+use core::{
     mem::MaybeUninit,
     ops::{Deref, DerefMut},
 };
@@ -23,10 +24,10 @@ impl<T> Array<T> {
         assert!(len > count, "Count cannot be more than array length");
 
         let uninit = unsafe { Array::<MaybeUninit<T>>::zeroed(count).assume_init() };
-        let old = std::mem::replace(&mut self.inner, uninit.inner);
+        let old = core::mem::replace(&mut self.inner, uninit.inner);
 
         unsafe {
-            std::ptr::copy_nonoverlapping(
+            core::ptr::copy_nonoverlapping(
                 old.as_ptr(),            // Источник
                 self.inner.as_mut_ptr(), // Назначение (новый массив)
                 count,                   // Количество элементов для перемещения
@@ -38,7 +39,7 @@ impl<T> Array<T> {
 impl<T: Copy> Array<T> {
     pub fn new_with_default(size: usize, default: T) -> Self {
         Self {
-            inner: std::iter::repeat_with(|| default).take(size).collect(),
+            inner: core::iter::repeat_with(|| default).take(size).collect(),
         }
     }
 }
@@ -47,7 +48,7 @@ impl<T> Array<MaybeUninit<T>> {
     #[must_use]
     pub fn zeroed(size: usize) -> Self {
         Self {
-            inner: std::iter::repeat_with(|| MaybeUninit::zeroed())
+            inner: core::iter::repeat_with(|| MaybeUninit::zeroed())
                 .take(size)
                 .collect(),
         }
@@ -87,7 +88,7 @@ impl<T> Array<MaybeUninit<T>> {
     pub unsafe fn assume_init_ref_slice(&self) -> &[T] {
         let ptr = self.inner.as_ptr().cast::<T>();
         let len = self.inner.len();
-        unsafe { std::slice::from_raw_parts(ptr, len) }
+        unsafe { core::slice::from_raw_parts(ptr, len) }
     }
 }
 
@@ -103,7 +104,7 @@ where
 {
     type Args<'a> = ();
 
-    fn read_options<R: std::io::Read + std::io::Seek>(
+    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
         reader: &mut R,
         endian: binrw::Endian,
         args: Self::Args<'_>,
@@ -124,7 +125,7 @@ where
 {
     type Args<'a> = ();
 
-    fn write_options<W: std::io::Write + std::io::Seek>(
+    fn write_options<W: binrw::io::Write + binrw::io::Seek>(
         &self,
         writer: &mut W,
         endian: binrw::Endian,

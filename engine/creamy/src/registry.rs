@@ -1,9 +1,10 @@
 use alloc::boxed::Box;
 use core::{fmt::Debug, num::NonZeroU8};
 
-use creamy_engine_core::devkit::compiler::{
-    Access, ProtocolDefinition,
-    utils::strpool::{StringId, StringPool},
+use creamy_engine_core::devkit::compiler::model::{
+    Access,
+    definition::ProtocolModel,
+    strpool::{StringId, StringPool},
 };
 use creamy_sdk::SubscriberId;
 use hashbrown::HashMap;
@@ -242,12 +243,12 @@ pub struct GroupContext {
 }
 
 pub struct ProtocolContext {
-    model: ProtocolDefinition,
+    model: ProtocolModel,
     groups: HashMap<StringId, GroupContext, FxBuildHasher>,
 }
 
 impl ProtocolContext {
-    fn new(model: ProtocolDefinition) -> Self {
+    fn new(model: ProtocolModel) -> Self {
         let mut groups = HashMap::default();
         for group in model.groups() {
             let policy = match group.access() {
@@ -341,7 +342,7 @@ impl ProtocolContext {
         self.groups.get(&group).map(|c| c.access.iter()).unwrap()
     }
 
-    pub const fn model(&self) -> &ProtocolDefinition {
+    pub const fn model(&self) -> &ProtocolModel {
         &self.model
     }
 }
@@ -361,17 +362,13 @@ impl Default for ProtocolRegistry {
 }
 
 impl ProtocolRegistry {
-    pub(crate) fn replace_strings(
-        &mut self,
-        pool: &StringPool,
-        definition: &mut ProtocolDefinition,
-    ) {
-        definition.replace_identifiers(pool, &mut self.pool);
+    pub(crate) fn replace_strings(&mut self, pool: &StringPool, model: &mut ProtocolModel) {
+        model.replace_identifiers(pool, &mut self.pool);
     }
 
     pub fn get_or_declare_protocol(
         &mut self,
-        model: ProtocolDefinition,
+        model: ProtocolModel,
     ) -> (&StringPool, &mut ProtocolContext) {
         let context = self
             .map

@@ -4,10 +4,11 @@ use binrw::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
+use super::PrimitiveRepr;
 use crate::{
     constraints::{MAX_ENUMS, MAX_VARIANTS},
     error::{Fallback, SemanticError},
-    model::{storage::SymbolKey, symbols::PrimitiveRepr},
+    storage::SymbolKey,
     table::TypeMeta,
     utils::{EnumsRange, VariantsRange},
 };
@@ -43,9 +44,6 @@ pub struct VariantSymbol {
     ident: StringId,
     value: VariantValue,
 }
-crate::define_readonly_struct!(@impl_methods VariantSymbol {
-    ident: StringId, value: VariantValue,
-});
 
 #[derive(Token, BinWrite, BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_ENUMS, EnumsRange)]
@@ -55,9 +53,6 @@ pub struct EnumSymbol {
     repr: PrimitiveRepr,
     variants: VariantsRange,
 }
-crate::define_readonly_struct!(@impl_methods EnumSymbol {
-    ident: StringId, repr: PrimitiveRepr, variants: VariantsRange,
-});
 
 impl EnumSymbol {
     pub const fn meta(&self) -> Result<TypeMeta, SemanticError> {

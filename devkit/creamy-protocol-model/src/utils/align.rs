@@ -41,6 +41,6 @@ impl Align {
 
     #[must_use]
     pub const fn raw_value(self) -> u8 {
-        unsafe { std::mem::transmute(self) }
+        unsafe { core::mem::transmute(self) }
     }
 }

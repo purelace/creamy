@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use creamy_xmlc::constraints::HEADER_BYTES;
+use creamy_xmlc::model::constraints::HEADER_BYTES;
 use ptree::{Color, PrintConfig, Style, TreeItem, print_config::UTF_CHARS, print_tree_with};
 
 const fn style(color: Color) -> Style {

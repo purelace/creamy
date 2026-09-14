@@ -19,9 +19,11 @@ pub mod binrw {
 use std::{fs::ReadDir, path::Path, str::FromStr};
 
 use ::semver::Version;
-use compiler::utils::{BString, collections::List, strpool::StringPool};
 use creamy_manifest::Manifest;
-use creamy_xmlc::{ProtocolDefinition, compile};
+use creamy_xmlc::{
+    compile,
+    model::{BString, collections::List, definition::ProtocolModel, strpool::StringPool},
+};
 use fs_err as fs;
 
 use self::error::Error::TooManyFiles;
@@ -40,8 +42,8 @@ pub struct BinaryPlugin {
     pub manifest: Manifest,
     /// The string pool used for shared string references.
     pub pool: StringPool,
-    /// A list of compiled protocol definitions.
-    pub definitions: List<ProtocolDefinition>,
+    /// A list of compiled protocol models.
+    pub models: List<ProtocolModel>,
     /// The raw core logic of the plugin.
     core: List<u8>,
 }
@@ -73,9 +75,15 @@ impl BinaryPlugin {
     /// # Errors
     ///
     /// If writing fails, an [`Error`](binrw::Error) variant will be returned.
-    pub fn write_to<W: std::io::Write + std::io::Seek>(&self, writer: &mut W) -> Result<(), Error> {
+    pub fn write_to<W: binrw::io::Write + binrw::io::Seek>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), Error> {
         use binrw::BinWrite;
-        self.write(writer)?;
+
+        use self::error::BinRwError;
+
+        self.write(writer).map_err(BinRwError::from)?;
         Ok(())
     }
 
@@ -85,9 +93,12 @@ impl BinaryPlugin {
     /// # Errors
     ///
     /// If reading fails, an [`Error`](binrw::Error) variant will be returned.
-    pub fn read_from<R: std::io::Read + std::io::Seek>(reader: &mut R) -> Result<Self, Error> {
+    pub fn read_from<R: binrw::io::Read + binrw::io::Seek>(reader: &mut R) -> Result<Self, Error> {
         use binrw::BinRead;
-        Ok(Self::read(reader)?)
+
+        use self::error::BinRwError;
+
+        Ok(Self::read(reader).map_err(BinRwError::from)?)
     }
 }
 
@@ -117,7 +128,7 @@ pub fn compile_to_binary(
     let manifest = Manifest::read_manifest(&manifest_file)?;
 
     let definitions_path = creamy_dir.join("definitions");
-    let definitions = if std::fs::exists(&definitions_path)? {
+    let models = if std::fs::exists(&definitions_path)? {
         let dir = std::fs::read_dir(definitions_path)?;
         compile_protocols(dir, &mut pool)?
     } else {
@@ -128,15 +139,12 @@ pub fn compile_to_binary(
         version: Version::from_str(env!("CARGO_PKG_VERSION"))?,
         manifest,
         pool,
-        definitions,
+        models,
         core: List::wrap(module),
     })
 }
 
-fn compile_protocols(
-    dir: ReadDir,
-    pool: &mut StringPool,
-) -> Result<List<ProtocolDefinition>, Error> {
+fn compile_protocols(dir: ReadDir, pool: &mut StringPool) -> Result<List<ProtocolModel>, Error> {
     let files = dir
         .flatten()
         .filter(|e| e.path().extension().is_some_and(|p| p == "xml"))

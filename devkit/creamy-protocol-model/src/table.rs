@@ -1,12 +1,13 @@
-use std::{collections::HashMap, fmt::Debug, mem::MaybeUninit, num::NonZeroU8, ops::Index};
+use core::{fmt::Debug, mem::MaybeUninit, num::NonZeroU8, ops::Index};
 
 use binrw::{BinRead, BinWrite, binrw};
 use creamy_utils::strpool::{StringId, StringPool};
+use hashbrown::HashMap;
 use strum::EnumCount;
 
 use crate::{
     error::{Fallback, SemanticError},
-    model::symbols::{
+    symbols::{
         BUILTIN_GROUP, NumericSymbol, Type, U8_META, U16_META, U32_META, U64_META, U128_META,
     },
     utils::{Align, Array, Range, Size, TypesRange},
@@ -21,7 +22,7 @@ pub struct TypeMeta {
 }
 
 impl Debug for TypeMeta {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TypeMeta")
             .field("size", &self.size().value())
             .field("align", &self.align().value())
@@ -120,8 +121,8 @@ impl TypeMeta {
     }
 
     pub const fn align(self) -> Align {
-        let value = self.value & 0b00000111;
-        unsafe { std::mem::transmute(value) }
+        let value = self.value & 0b0000_0111;
+        unsafe { core::mem::transmute(value) }
     }
 }
 
@@ -195,7 +196,7 @@ impl GroupsMeta {
 impl BinRead for GroupsMeta {
     type Args<'a> = ();
 
-    fn read_options<R: std::io::Read + std::io::Seek>(
+    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
         reader: &mut R,
         endian: binrw::Endian,
         args: Self::Args<'_>,
@@ -216,7 +217,7 @@ impl BinRead for GroupsMeta {
 impl BinWrite for GroupsMeta {
     type Args<'a> = ();
 
-    fn write_options<W: std::io::Write + std::io::Seek>(
+    fn write_options<W: binrw::io::Write + binrw::io::Seek>(
         &self,
         writer: &mut W,
         endian: binrw::Endian,

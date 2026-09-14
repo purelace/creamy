@@ -1,8 +1,10 @@
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    Data, DeriveInput, Expr, Ident, Type,
+    Data, DeriveInput, Expr, Field, Ident, Type,
     parse::{Parse, ParseStream},
+    punctuated::Punctuated,
+    token::Comma,
 };
 
 struct ElementAttr {
@@ -151,13 +153,35 @@ pub fn generate_with_ident_impl(ast: &DeriveInput) -> proc_macro::TokenStream {
 //    )*
 //}
 
-//pub fn generate_impl_block(ast: &DeriveInput) -> proc_macro::TokenStream {
-//    quote! {
-//        #[allow(unused)]
-//        pub const fn new(...) {
-//            Self {
-//                ...
-//            }
-//        }
-//    }
-//}
+pub fn generate_impl_block(
+    name: &Ident,
+    fields: &Punctuated<Field, Comma>,
+) -> proc_macro::TokenStream {
+    let idents = fields
+        .iter()
+        .map(|f| f.ident.as_ref().unwrap())
+        .collect::<Vec<_>>();
+
+    let types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
+
+    quote! {
+        //#[allow(unused)]
+        impl #name {
+            pub const fn new(
+                #(#idents: #types,)*
+            ) -> Self {
+                Self {
+                    #(#idents,)*
+                }
+            }
+
+            #(
+                pub const fn #idents(&self) -> #types {
+                    self.#idents
+                }
+            )*
+        }
+
+    }
+    .into()
+}

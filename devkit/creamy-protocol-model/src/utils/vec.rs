@@ -1,7 +1,7 @@
 #![allow(clippy::as_conversions)]
-#![allow(clippy::cast_possible_truncation)]
 
-use std::ops::{Deref, DerefMut, Index, RangeBounds};
+use alloc::vec::Vec;
+use core::ops::{Deref, DerefMut, Index, RangeBounds};
 
 use binrw::{BinRead, BinWrite};
 
@@ -21,7 +21,9 @@ impl<T: VectorElement> Default for BoundedVec<T> {
 impl<T: VectorElement> BoundedVec<T> {
     #[must_use]
     pub const fn new() -> Self {
-        Self { inner: vec![] }
+        Self {
+            inner: alloc::vec![],
+        }
     }
 
     #[must_use]
@@ -59,7 +61,7 @@ impl<T: VectorElement> BoundedVec<T> {
         self.inner.as_slice()
     }
 
-    pub fn drain<R: RangeBounds<usize>>(&mut self, range: R) -> std::vec::Drain<'_, T> {
+    pub fn drain<R: RangeBounds<usize>>(&mut self, range: R) -> alloc::vec::Drain<'_, T> {
         self.inner.drain(range)
     }
 }
@@ -70,7 +72,7 @@ where
 {
     type Args<'a> = ();
 
-    fn read_options<R: std::io::Read + std::io::Seek>(
+    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
         reader: &mut R,
         endian: binrw::Endian,
         args: Self::Args<'_>,
@@ -91,7 +93,7 @@ where
 {
     type Args<'a> = ();
 
-    fn write_options<W: std::io::Write + std::io::Seek>(
+    fn write_options<W: binrw::io::Write + binrw::io::Seek>(
         &self,
         writer: &mut W,
         endian: binrw::Endian,

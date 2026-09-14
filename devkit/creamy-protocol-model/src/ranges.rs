@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use core::fmt::Display;
 
 use binrw::{BinRead, BinWrite};
 
@@ -13,7 +13,7 @@ pub struct RangePackedU32 {
 }
 
 impl Display for RangePackedU32 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let start = self.start();
         let len = self.len();
         write!(f, "{start}..{len}")
@@ -31,7 +31,7 @@ impl RangePackedU32 {
 
     #[must_use]
     pub const fn start(&self) -> u32 {
-        self.value & 0b00000111_11111111_11111111_11111111
+        self.value & 0b0000_0111_1111_1111_1111_1111_1111_1111
     }
 
     #[allow(clippy::len_without_is_empty)]
@@ -102,9 +102,23 @@ pub struct Options {
     start: u16,
     len: u16,
 }
-crate::define_readonly_struct!(@impl_methods Options {
-    start: u16, len: u16,
-});
+impl Options {
+    #[must_use]
+    pub const fn new(start: u16, len: u16) -> Self {
+        Self { start, len }
+    }
+
+    #[must_use]
+    pub const fn start(&self) -> u16 {
+        self.start
+    }
+
+    #[must_use]
+    #[allow(clippy::len_without_is_empty)]
+    pub const fn len(&self) -> u16 {
+        self.len
+    }
+}
 
 #[binrw::binrw]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -112,6 +126,21 @@ pub struct BitsetValues {
     start: u16,
     len: u16,
 }
-crate::define_readonly_struct!(@impl_methods BitsetValues {
-    start: u16, len: u16,
-});
+
+impl BitsetValues {
+    #[must_use]
+    pub const fn new(start: u16, len: u16) -> Self {
+        Self { start, len }
+    }
+
+    #[must_use]
+    pub const fn start(&self) -> u16 {
+        self.start
+    }
+
+    #[must_use]
+    #[allow(clippy::len_without_is_empty)]
+    pub const fn len(&self) -> u16 {
+        self.len
+    }
+}

@@ -14,9 +14,9 @@ use creamy_engine_core::{
     devkit::{
         BinaryPlugin,
         binrw::io::Cursor,
-        compiler::{
-            ProtocolDefinition,
-            utils::strpool::{StringPool, StringPoolResolver},
+        compiler::model::{
+            definition::ProtocolModel,
+            strpool::{StringPool, StringPoolResolver},
         },
         manifest::{Package, RequestedProtocol},
     },
@@ -35,7 +35,7 @@ use crate::{
 const SYSTEM_PLUGIN: SubscriberId = SubscriberId::new(NonZeroU8::new(1).unwrap());
 const SYSTEM_GROUP: NonZeroU8 = NonZeroU8::new(1).unwrap();
 
-type Models = HashMap<Box<str>, (ProtocolDefinition, RequestedProtocol), FxBuildHasher>;
+type Models = HashMap<Box<str>, (ProtocolModel, RequestedProtocol), FxBuildHasher>;
 
 struct PluginPackage {
     manifest: Package,
@@ -48,20 +48,20 @@ impl PluginPackage {
         BinaryPlugin {
             manifest,
             pool,
-            mut definitions,
+            mut models,
             ..
         }: BinaryPlugin,
     ) -> Result<Self, PluginError> {
         let mut map = HashMap::default();
         for (name, request) in manifest.requested_groups() {
-            if let Some(index) = definitions.iter().enumerate().find_map(|(idx, def)| {
+            if let Some(index) = models.iter().enumerate().find_map(|(idx, def)| {
                 if def.name().resolve(&pool) == name.as_str() {
                     Some(idx)
                 } else {
                     None
                 }
             }) {
-                let definition = definitions.swap_remove(index);
+                let definition = models.swap_remove(index);
                 map.insert(name.as_str().into(), (definition, request.clone()));
             } else {
                 return Err(PluginError::ProtocolModelNotFound {
@@ -251,7 +251,7 @@ impl<
 
     fn is_possible_to_resolve(
         &self,
-        model: &ProtocolDefinition,
+        model: &ProtocolModel,
         request: &RequestedProtocol,
     ) -> Result<(), PluginError> {
         let pool = self.registry.pool();
@@ -374,7 +374,7 @@ impl<
     fn provide_model(
         &mut self,
         provider: SubscriberId,
-        model: ProtocolDefinition,
+        model: ProtocolModel,
         request: &RequestedProtocol,
     ) {
         let model_name_id = model.name();
@@ -416,7 +416,7 @@ impl<
     fn consume_model(
         &mut self,
         plugin_id: SubscriberId,
-        model: ProtocolDefinition,
+        model: ProtocolModel,
         request: &RequestedProtocol,
     ) {
         let (pool, context) = self.registry.get_or_declare_protocol(model);

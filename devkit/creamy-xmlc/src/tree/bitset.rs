@@ -1,11 +1,11 @@
+use creamy_protocol_model::BitsetValuesRange;
 use creamy_utils::strpool::StringPoolIntern;
 
-use super::nodes::{BitsetNode, BitsetValueNode};
 use crate::{
     define_misc_parser, define_toplevel_parser,
     error::AstError,
     tokenizer::{Identifier, Token},
-    utils::BitsetValuesRange,
+    tree::nodes::{BitsetNode, BitsetValueNode},
 };
 
 #[inline]

@@ -1,3 +1,4 @@
+use alloc::string::ToString;
 use core::str::FromStr;
 
 use as_guard::AsGuard;
@@ -15,7 +16,7 @@ use super::{
 use crate::{
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     error::SemanticError,
-    model::symbols::{
+    symbols::{
         BitsetValueSymbol, FieldSymbol, FieldType, GroupSymbol, OptionSymbol, Type, VariantSymbol,
     },
     table::{FinishedTypeTable, TypeMeta},
@@ -23,7 +24,7 @@ use crate::{
 };
 
 #[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
-pub struct ProtocolDefinition {
+pub struct ProtocolModel {
     name: StringId,
     #[br(map = |val: BString| Version::from_str(&val).unwrap())]
     #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
@@ -34,7 +35,7 @@ pub struct ProtocolDefinition {
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl ProtocolDefinition {
+impl ProtocolModel {
     #[must_use]
     pub const fn new(
         name: StringId,
@@ -124,7 +125,7 @@ impl ProtocolDefinition {
     }
 }
 
-impl ProtocolDefinition {
+impl ProtocolModel {
     #[must_use]
     pub fn get_struct_paddings(fields: &[FieldSymbol]) -> u8 {
         let mut paddings = 0;

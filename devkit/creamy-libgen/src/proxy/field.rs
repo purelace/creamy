@@ -1,16 +1,11 @@
 use std::borrow::Cow;
 
-use creamy_devkit::compiler::{
-    FinishedTypeTable,
-    model::{
-        definition::LayoutCalculator,
-        symbols::{
-            ArraySymbol, FieldSymbol, FieldType, T_U8_ID, get_builtin_type_name, is_builtin_type,
-        },
-    },
-    utils::{
-        Size,
-        strpool::{StringPool, StringPoolResolver},
+use creamy_devkit::compiler::model::{
+    FinishedTypeTable, Size,
+    definition::LayoutCalculator,
+    strpool::{StringPool, StringPoolResolver},
+    symbols::{
+        ArraySymbol, FieldSymbol, FieldType, T_U8_ID, get_builtin_type_name, is_builtin_type,
     },
 };
 

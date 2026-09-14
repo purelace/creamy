@@ -246,7 +246,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6df92e0e9baae4dc82c7bad7715ca40c0a5c71539057bf2ea04a5c29c980410b"
 dependencies = [
  "either",
- "owo-colors",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -915,6 +914,17 @@ dependencies = [
 [[package]]
 name = "creamy-protocol-model"
 version = "0.1.0"
+dependencies = [
+ "as-guard",
+ "binrw",
+ "creamy-protocol-model-macros",
+ "creamy-utils",
+ "hashbrown 0.17.1",
+ "miette",
+ "semver",
+ "strum",
+ "thiserror 2.0.20",
+]
 
 [[package]]
 name = "creamy-protocol-model-macros"
@@ -987,6 +997,7 @@ version = "0.1.0"
 dependencies = [
  "as-guard",
  "binrw",
+ "creamy-protocol-model",
  "creamy-protocol-model-macros",
  "creamy-utils",
  "downcast-rs",
@@ -994,7 +1005,6 @@ dependencies = [
  "owo-colors",
  "pretty_assertions",
  "roxmltree",
- "semver",
  "smol_str",
  "strum",
  "termtree 1.0.0",

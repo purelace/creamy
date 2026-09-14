@@ -1,8 +1,8 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 use core::fmt::Display;
 
-use super::enumeration::VariantValue;
-use crate::{error::SemanticError, model::symbols::NumericSymbol};
+use super::{NumericSymbol, enumeration::VariantValue};
+use crate::error::SemanticError;
 
 #[binrw::binrw]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -125,7 +125,7 @@ impl TryFrom<&str> for PrimitiveRepr {
 }
 
 impl Display for PrimitiveRepr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             PrimitiveRepr::U8 => write!(f, "u8"),
             PrimitiveRepr::U16 => write!(f, "u16"),

@@ -14,11 +14,11 @@ binrw.workspace = true
 as-guard.workspace = true
 roxmltree.workspace = true
 strum.workspace = true
-semver.workspace = true
+#semver.workspace = true
 downcast-rs.workspace = true
 smol_str = "0.3.6"
 creamy-protocol-model-macros.workspace = true
-
+creamy-protocol-model = { path = "../creamy-protocol-model", features = ["std"] }
 
 termtree = { version = "1.0.0" }
 owo-colors = { version = "4.4.0" }
@@ -26,6 +26,3 @@ miette = { version = "7.6.0", features = [ "fancy", "syntect-highlighter" ] }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
-
-[features]
-compile = []

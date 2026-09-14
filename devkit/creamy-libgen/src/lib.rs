@@ -12,18 +12,21 @@ use std::{
     borrow::Cow, collections::HashMap, ffi::OsString, io::Cursor, path::PathBuf, str::FromStr,
 };
 
-use creamy_devkit::{compiler::utils::strpool::StringPoolResolver, manifest::Manifest};
+use creamy_devkit::{
+    compiler::{
+        compile,
+        model::{
+            Direction,
+            constraints::{HEADER_BYTES, MAX_PAYLOAD},
+            definition::ProtocolModel,
+            strpool::{StringId, StringPool, StringPoolResolver},
+            symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
+        },
+    },
+    manifest::Manifest,
+};
 pub use creamy_phf::PerfectHashTable;
 use creamy_phf::generate_perfect_hash_table;
-use devkit::compiler::{
-    ProtocolDefinition, compile,
-    constraints::{HEADER_BYTES, MAX_PAYLOAD},
-    model::{
-        Direction,
-        symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
-    },
-    utils::strpool::{StringId, StringPool},
-};
 pub use utils::Path;
 
 use self::{
@@ -111,7 +114,7 @@ pub trait CodeGenerator<'s> {
 pub struct ProtocolLibrary {
     pool: StringPool,
     manifest: Manifest,
-    inner: HashMap<String, ProtocolDefinition>,
+    inner: HashMap<String, ProtocolModel>,
     creamy_dir: PathBuf,
 }
 
@@ -227,7 +230,7 @@ impl Codegen {
     fn generate_groups<'s, G: CodeGenerator<'s>>(
         pool: &'s StringPool,
         manifest: &'s Manifest,
-        library: &'s mut HashMap<String, ProtocolDefinition>,
+        library: &'s mut HashMap<String, ProtocolModel>,
         target: Target,
         message_paths: &mut Vec<Path>,
         group_paths: &mut Vec<Path>,
@@ -357,7 +360,7 @@ impl Codegen {
 
     fn generate_types<'s, G: CodeGenerator<'s>>(
         pool: &'s StringPool,
-        definition: &'s ProtocolDefinition,
+        model: &'s ProtocolModel,
         module_path: &AbsolutePath,
         types: &[Type],
         generator: &mut G,
@@ -366,13 +369,13 @@ impl Codegen {
             match ty {
                 Type::Numeric(_) | Type::Array(_) => {}
                 Type::Struct(symbol) => {
-                    let fields = definition.fields_range(symbol.fields());
+                    let fields = model.fields_range(symbol.fields());
                     let symbol = EnrichedStructSymbol {
                         name: symbol.ident().resolve(pool),
                         fields: FieldList::new(
                             module_path.clone(),
                             pool,
-                            definition.table(),
+                            model.table(),
                             fields.iter().copied(),
                             0,
                         ),
@@ -383,13 +386,12 @@ impl Codegen {
                     let symbol = EnrichedEnumSymbol {
                         name: symbol.ident().resolve(pool),
                         repr: symbol.repr(),
-                        variants: definition
-                            .variants_slice(symbol.variants())
-                            .iter()
-                            .map(|v| EnrichedVariantSymbol {
+                        variants: model.variants_slice(symbol.variants()).iter().map(|v| {
+                            EnrichedVariantSymbol {
                                 name: v.ident().resolve(pool),
                                 value: v.value(),
-                            }),
+                            }
+                        }),
                     };
 
                     generator.generate_enum(symbol);
@@ -405,13 +407,13 @@ impl Codegen {
                             65..=128 => FlagUnderlyingType::U128,
                             other => unreachable!("Unreachable length: {other}"),
                         },
-                        options: OptionList::new(pool, definition.options_slice(symbol.values())),
+                        options: OptionList::new(pool, model.options_slice(symbol.values())),
                     };
 
                     generator.generate_flags(symbol);
                 }
                 Type::Bitset(symbol) => {
-                    let slice = definition.bvalues_slice(symbol.values());
+                    let slice = model.bvalues_slice(symbol.values());
                     let symbol = EnrichedBitsetSymbol {
                         name: symbol.ident().resolve(pool),
                         values: BitsetValueList::new(pool, slice),
@@ -426,14 +428,14 @@ impl Codegen {
     #[allow(clippy::too_many_lines)]
     fn generate_group<'s, G: CodeGenerator<'s>>(
         pool: &'s StringPool,
-        definition: &'s ProtocolDefinition,
+        model: &'s ProtocolModel,
         dispatch_value_table: &HashMap<StringId, (u8, u32)>, //group, value
         module_path: &AbsolutePath,
         types: &[Type],
         messages: &[MessageSymbolType],
         generator: &mut G,
     ) {
-        Self::generate_types(pool, definition, module_path, types, generator);
+        Self::generate_types(pool, model, module_path, types, generator);
 
         for message in messages {
             let (group, dispatch_value) =
@@ -451,8 +453,8 @@ impl Codegen {
                             FieldList::new(
                                 module_path.clone(),
                                 pool,
-                                definition.table(),
-                                definition.fields_range(symbol.fields()).iter().copied(),
+                                model.table(),
+                                model.fields_range(symbol.fields()).iter().copied(),
                                 HEADER_BYTES,
                             ),
                         ),
@@ -461,7 +463,7 @@ impl Codegen {
                     generator.generate_single_message(symbol);
                 }
                 MessageSymbolType::Stream(symbol) => {
-                    let payload_slice = definition
+                    let payload_slice = model
                         .payload_slice(symbol.payload())
                         .iter()
                         .map(|p| match p {
@@ -483,15 +485,15 @@ impl Codegen {
                             FieldList::new(
                                 module_path.clone(),
                                 pool,
-                                definition.table(),
-                                definition.fields_range(fields).iter().copied(),
+                                model.table(),
+                                model.fields_range(fields).iter().copied(),
                                 HEADER_BYTES,
                             )
                         }),
                         payload: FieldList::new(
                             module_path.clone(),
                             pool,
-                            definition.table(),
+                            model.table(),
                             //TODO: allow arrays
                             payload_slice.into_iter(),
                             HEADER_BYTES,
@@ -500,8 +502,8 @@ impl Codegen {
                             FieldList::new(
                                 module_path.clone(),
                                 pool,
-                                definition.table(),
-                                definition.fields_range(fields).iter().copied(),
+                                model.table(),
+                                model.fields_range(fields).iter().copied(),
                                 HEADER_BYTES,
                             )
                         }),

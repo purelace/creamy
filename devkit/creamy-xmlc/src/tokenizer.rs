@@ -1,35 +1,15 @@
 use core::{cell::RefCell, ops::Deref, str::FromStr};
 
+use creamy_protocol_model::{Access, Direction, Version, error::Fallback, symbols::VariantValue};
 use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern};
 use miette::SourceSpan;
 use roxmltree::{Document, Node, NodeType, TextPos};
-use semver::Version;
 
 use crate::{
-    Access,
     diagnostics::Diagnostics,
-    error::{Fallback, ProtocolError, ProtocolErrorExt, SyntaxError},
-    model::{Direction, symbols::VariantValue},
+    error::{ProtocolError, ProtocolErrorExt, SyntaxError},
     version::parse_version,
 };
-
-impl Fallback for String {
-    fn fallback() -> Self {
-        ERROR_IDENT.to_string()
-    }
-}
-
-impl Fallback for &str {
-    fn fallback() -> Self {
-        ERROR_IDENT
-    }
-}
-
-impl Fallback for usize {
-    fn fallback() -> Self {
-        0
-    }
-}
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Identifier<'a>(&'a str);

@@ -1,3 +1,4 @@
+use creamy_protocol_model::VariantsRange;
 use creamy_utils::strpool::StringPoolIntern;
 
 use super::nodes::{EnumNode, VariantNode};
@@ -5,7 +6,6 @@ use crate::{
     define_misc_parser, define_toplevel_parser,
     error::AstError,
     tokenizer::{Identifier, Token},
-    utils::VariantsRange,
 };
 
 #[inline]

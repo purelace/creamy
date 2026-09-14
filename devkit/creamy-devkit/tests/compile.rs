@@ -34,7 +34,7 @@ fn compile_write_read() -> Result<(), Box<dyn core::error::Error + Send + Sync>>
 
     let package0 = compile_to_binary(dir.path().join("example"), vec![])?;
     assert_eq!(package0.version(), &Version::new(0, 1, 0));
-    assert_eq!(package0.definitions.len(), 1);
+    assert_eq!(package0.models.len(), 1);
     assert!(package0.core().is_empty());
 
     let mut file = std::fs::File::create(dir.path().join("package.cmy"))?;

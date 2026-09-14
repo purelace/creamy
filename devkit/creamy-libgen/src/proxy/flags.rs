@@ -1,6 +1,6 @@
-use creamy_devkit::compiler::{
-    model::symbols::OptionSymbol,
-    utils::strpool::{StringPool, StringPoolResolver},
+use creamy_devkit::compiler::model::{
+    strpool::{StringPool, StringPoolResolver},
+    symbols::OptionSymbol,
 };
 
 use crate::SymbolIterator;

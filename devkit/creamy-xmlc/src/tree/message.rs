@@ -1,3 +1,4 @@
+use creamy_protocol_model::{Direction, FieldsRange, symbols::U8_ID};
 use creamy_utils::strpool::StringPoolIntern;
 
 use super::nodes::{
@@ -5,10 +6,8 @@ use super::nodes::{
 };
 use crate::{
     error::AstError,
-    model::{Direction, symbols::U8_ID},
     tokenizer::{Identifier, Token},
     tree::RangeBuilder,
-    utils::FieldsRange,
 };
 
 #[inline]
@@ -28,7 +27,7 @@ impl StreamPayloadFieldParser {
     pub fn parse_fields(
         &mut self,
         diag: &mut crate::Diagnostics,
-        pool: &mut crate::utils::strpool::StringPool,
+        pool: &mut creamy_utils::strpool::StringPool,
         storage: &mut crate::tree::storage::NodeStorage,
         iter: &mut core::iter::Peekable<std::vec::Drain<crate::tokenizer::Token>>,
     ) -> FieldsRange {

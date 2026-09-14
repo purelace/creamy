@@ -93,7 +93,7 @@ macro_rules! define_readonly_struct {
     {
         @impl_vector_element $name:ident $size:tt $type:ty
     } => {
-        impl $crate::utils::VectorElement for $name {
+        impl creamy_protocol_model::VectorElement for $name {
             const MAX_SIZE: usize = $size;
             type RangeType = $type;
         }

@@ -1,10 +1,8 @@
 #![allow(clippy::missing_errors_doc)]
 
+use creamy_protocol_model::definition::ProtocolModel;
 use creamy_utils::strpool::StringPool;
-use creamy_xmlc::{
-    ProtocolDefinition,
-    error::{AstError, ProtocolError, SyntaxError},
-};
+use creamy_xmlc::error::{AstError, ProtocolError, SyntaxError};
 use miette::SourceSpan;
 
 #[must_use]
@@ -18,7 +16,7 @@ pub fn get_xml(version: &str, content: &str) -> String {
     )
 }
 
-pub fn compile(content: &str) -> Result<ProtocolDefinition, Vec<ProtocolError>> {
+pub fn compile(content: &str) -> Result<ProtocolModel, Vec<ProtocolError>> {
     match creamy_xmlc::compile(&mut StringPool::default(), content) {
         Ok(value) => Ok(value),
         Err(err) => Err(err.into_inner()),

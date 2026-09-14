@@ -1,12 +1,8 @@
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
-use crate::{
-    constraints::MAX_FIELDS,
-    model::{storage::SymbolKey, symbols::ArraySymbol},
-    table::TypeId,
-    utils::FieldsRange,
-};
+use super::ArraySymbol;
+use crate::{constraints::MAX_FIELDS, storage::SymbolKey, table::TypeId, utils::FieldsRange};
 
 #[binrw::binrw]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,9 +22,6 @@ pub struct FieldSymbol {
     ident: StringId,
     kind: FieldType,
 }
-crate::define_readonly_struct!(@impl_methods FieldSymbol {
-    ident: StringId, kind: FieldType,
-});
 
 impl FieldSymbol {
     #[must_use]

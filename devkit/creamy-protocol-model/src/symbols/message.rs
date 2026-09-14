@@ -3,8 +3,9 @@ use creamy_utils::strpool::StringId;
 
 use super::{ArrayFieldSymbol, FieldSymbol};
 use crate::{
+    Direction,
     constraints::{MAX_FIELDS, MAX_MESSAGES},
-    model::{storage::SymbolKey, utils::Direction},
+    storage::SymbolKey,
     utils::{FieldsRange, MessagesRange, VectorElement},
 };
 
@@ -18,10 +19,6 @@ pub struct MessageSymbol {
     direction: Direction,
     kind: u8,
 }
-
-crate::define_readonly_struct!(@impl_methods MessageSymbol {
-    ident: StringId, fields: FieldsRange, direction: Direction, kind: u8,
-});
 
 #[binrw::binrw]
 #[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -54,17 +51,8 @@ pub struct StreamSymbol {
     #[bw(write_with = write_opt)]
     tail: Option<FieldsRange>,
 }
-crate::define_readonly_struct!(@impl_methods StreamSymbol {
-    ident: StringId,
-    direction: Direction,
-    timeout: u8,
-    kind: u8,
-    head: Option<FieldsRange>,
-    payload: FieldsRange,
-    tail: Option<FieldsRange>,
-});
 
-fn read_opt<T: binrw::BinRead<Args<'static> = ()>, R: std::io::Read + std::io::Seek>(
+fn read_opt<T: binrw::BinRead<Args<'static> = ()>, R: binrw::io::Read + binrw::io::Seek>(
     reader: &mut R,
     endian: binrw::Endian,
     _: (),
@@ -80,7 +68,7 @@ fn read_opt<T: binrw::BinRead<Args<'static> = ()>, R: std::io::Read + std::io::S
 }
 
 #[allow(clippy::ref_option)]
-fn write_opt<T: binrw::BinWrite<Args<'static> = ()>, W: std::io::Write + std::io::Seek>(
+fn write_opt<T: binrw::BinWrite<Args<'static> = ()>, W: binrw::io::Write + binrw::io::Seek>(
     opt: &Option<T>,
     writer: &mut W,
     endian: binrw::Endian,

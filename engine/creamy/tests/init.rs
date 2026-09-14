@@ -5,7 +5,7 @@ use creamy::{
     engine::PluginEngine,
 };
 use creamy_engine_core::{
-    bus::define_bus_config, devkit::compiler::utils::strpool::StringPoolResolver,
+    bus::define_bus_config, devkit::compiler::model::strpool::StringPoolResolver,
 };
 use creamy_loader::Loader;
 use creamy_wasmtime::WasmtimeRuntime;

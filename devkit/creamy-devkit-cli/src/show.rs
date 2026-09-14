@@ -1,8 +1,8 @@
 use std::num::NonZeroU8;
 
-use creamy_devkit::compiler::{
-    ProtocolDefinition,
-    utils::strpool::{StringPool, StringPoolIntern},
+use creamy_devkit::compiler::model::{
+    definition::ProtocolModel,
+    strpool::{StringPool, StringPoolIntern},
 };
 use creamy_protocol_tui::{
     show_all_groups, show_all_messages, show_memory_layout, show_one_group_by_idx,
@@ -59,7 +59,7 @@ pub fn execute_show_cmd(show: ShowCommand) -> anyhow::Result<()> {
 }
 
 fn get_group_index(
-    def: &ProtocolDefinition,
+    def: &ProtocolModel,
     pool: &mut StringPool,
     key: StringOrNonZeroNumber,
 ) -> Option<u8> {
@@ -77,7 +77,7 @@ fn get_group_index(
 }
 
 fn get_message_index(
-    def: &ProtocolDefinition,
+    def: &ProtocolModel,
     pool: &mut StringPool,
     group: u8,
     key: StringOrNumber,

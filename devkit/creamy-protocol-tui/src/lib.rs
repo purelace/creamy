@@ -1,4 +1,3 @@
-#![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 
@@ -6,11 +5,11 @@ mod memory;
 use std::num::NonZeroU8;
 
 use console::style;
-use creamy_xmlc::{
-    ProtocolDefinition,
+use creamy_xmlc::model::{
     constraints::HEADER_BYTES,
-    model::symbols::{FieldSymbol, FieldType, MessageSymbolType, Type},
-    utils::strpool::{StringPool, StringPoolResolver},
+    definition::ProtocolModel,
+    strpool::{StringPool, StringPoolResolver},
+    symbols::{FieldSymbol, FieldType, MessageSymbolType, Type},
 };
 
 use crate::memory::{ArrayField, MemoryReport, SimpleField};
@@ -18,9 +17,9 @@ use crate::memory::{ArrayField, MemoryReport, SimpleField};
 const STRUCT_COLOR: (u8, u8, u8) = (78, 201, 176);
 const GROUP_COLOR: (u8, u8, u8) = (219, 219, 169);
 
-fn print_header(def: &ProtocolDefinition, pool: &StringPool) {
-    let name = style(def.name().resolve(pool)).green().bold();
-    let version = style(format!("v{}", def.version())).yellow().bold();
+fn print_header(model: &ProtocolModel, pool: &StringPool) {
+    let name = style(model.name().resolve(pool)).green().bold();
+    let version = style(format!("v{}", model.version())).yellow().bold();
     println!("— {name} | {version}");
 }
 
@@ -36,7 +35,7 @@ fn print_item(group_idx: u8, message_idx: u8, name: &str, name_color: (u8, u8, u
     println!("* [{index}] {name}");
 }
 
-pub fn show_all_messages(def: &ProtocolDefinition, pool: &StringPool) {
+pub fn show_all_messages(def: &ProtocolModel, pool: &StringPool) {
     print_header(def, pool);
     println!("+ List of messages");
 
@@ -53,7 +52,7 @@ pub fn show_all_messages(def: &ProtocolDefinition, pool: &StringPool) {
     }
 }
 
-pub fn show_one_group_by_idx(def: &ProtocolDefinition, pool: &StringPool, idx: NonZeroU8) {
+pub fn show_one_group_by_idx(def: &ProtocolModel, pool: &StringPool, idx: NonZeroU8) {
     let group = def.groups()[idx.get() as usize - 1];
     let group_name_id = group.ident();
     let group_name = group_name_id.resolve(pool);
@@ -67,7 +66,7 @@ pub fn show_one_group_by_idx(def: &ProtocolDefinition, pool: &StringPool, idx: N
     }
 }
 
-pub fn show_one_group_by_name(def: &ProtocolDefinition, pool: &mut StringPool, name: &str) {
+pub fn show_one_group_by_name(def: &ProtocolModel, pool: &mut StringPool, name: &str) {
     let name_id = pool.get_id_or_add(name);
     if let Some(idx) = def
         .groups()
@@ -82,7 +81,7 @@ pub fn show_one_group_by_name(def: &ProtocolDefinition, pool: &mut StringPool, n
     }
 }
 
-pub fn show_all_groups(def: &ProtocolDefinition, pool: &StringPool) {
+pub fn show_all_groups(def: &ProtocolModel, pool: &StringPool) {
     println!("+ List of groups");
     print_header(def, pool);
 
@@ -94,7 +93,7 @@ pub fn show_all_groups(def: &ProtocolDefinition, pool: &StringPool) {
 }
 
 pub fn show_memory_layout(
-    def: &ProtocolDefinition,
+    def: &ProtocolModel,
     pool: &StringPool,
     flat: bool,
     group: NonZeroU8,
@@ -115,17 +114,17 @@ pub fn show_memory_layout(
     } else {
         make_report(def, &mut report, fields, pool);
     }
-    let meta = ProtocolDefinition::get_struct_meta(fields).unwrap();
+    let meta = ProtocolModel::get_struct_meta(fields).unwrap();
     let finished_report = report.finish(
         meta.size().value() as usize,
         meta.align().value() as usize,
-        ProtocolDefinition::get_struct_paddings(fields) as usize,
+        ProtocolModel::get_struct_paddings(fields) as usize,
     );
     finished_report.print_tree();
 }
 
 fn make_flat_report(
-    def: &ProtocolDefinition,
+    def: &ProtocolModel,
     report: &mut MemoryReport,
     fields: &[FieldSymbol],
     pool: &StringPool,
@@ -185,7 +184,7 @@ fn make_flat_report(
 }
 
 fn make_report(
-    def: &ProtocolDefinition,
+    def: &ProtocolModel,
     report: &mut MemoryReport,
     fields: &[FieldSymbol],
     pool: &StringPool,

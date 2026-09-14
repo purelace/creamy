@@ -1,14 +1,12 @@
 use std::{any::Any, collections::HashMap};
 
-use crate::utils::{BoundedVec, Range, VectorElement};
+use creamy_protocol_model::{BoundedVec, Range, VectorElement};
 
-// 1. Сам узел должен возвращать свой TypeId (или наследовать std::any::Any)
 pub trait Node: std::fmt::Debug + VectorElement + 'static {
     const KEY: NodeKey;
     const IS_TYPE: bool;
 }
 
-// 2. dyn-совместимый трейт (без генериков в методах!)
 pub trait UntypedStorage: std::fmt::Debug + 'static {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;

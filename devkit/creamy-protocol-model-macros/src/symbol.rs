@@ -43,8 +43,8 @@ pub fn generate_symbol_trait_impl(ast: &DeriveInput) -> proc_macro::TokenStream 
     let value = parsed_struct_attr.value;
 
     quote! {
-        impl crate::model::storage::Symbol for #name {
-            const KEY: crate::model::storage::SymbolKey = #value;
+        impl crate::storage::Symbol for #name {
+            const KEY: crate::storage::SymbolKey = #value;
         }
     }
     .into()

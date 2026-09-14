@@ -17,11 +17,10 @@ use crate::{
     constraints::{
         MAX_BITSET_VALUES, MAX_BITSETS, MAX_FLAGS, MAX_GROUPS, MAX_OPTIONS, MAX_STRUCTS,
     },
-    model::utils::Access,
     table::TypeId,
     utils::{
-        BitsetValuesRange, BitsetsRange, FieldsRange, FlagsRange, GroupsRange, MessagesRange,
-        OptionsRange, Size, StructsRange, TypesRange,
+        Access, BitsetValuesRange, BitsetsRange, FieldsRange, FlagsRange, GroupsRange,
+        MessagesRange, OptionsRange, Size, StructsRange, TypesRange,
     },
 };
 
@@ -75,9 +74,23 @@ pub struct ArraySymbol {
     kind: TypeId,
     len: Size,
 }
-crate::define_readonly_struct!(@impl_methods ArraySymbol {
-    kind: TypeId, len: Size,
-});
+
+impl ArraySymbol {
+    #[must_use]
+    pub const fn new(kind: TypeId, len: Size) -> Self {
+        Self { kind, len }
+    }
+
+    #[must_use]
+    pub const fn kind(&self) -> TypeId {
+        self.kind
+    }
+
+    #[must_use]
+    pub const fn len(&self) -> Size {
+        self.len
+    }
+}
 
 #[binrw::binrw]
 #[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -87,13 +100,22 @@ pub struct StructSymbol {
     ident: StringId,
     fields: FieldsRange,
 }
-crate::define_readonly_struct!(@impl_methods StructSymbol {
-    ident: StringId, fields: FieldsRange,
-});
 
-crate::define_readonly_struct! {
-    struct GlobalTypesSymbol {
-        types: TypesRange,
+#[binrw::binrw]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GlobalTypesSymbol {
+    types: TypesRange,
+}
+
+impl GlobalTypesSymbol {
+    #[must_use]
+    pub const fn new(types: TypesRange) -> Self {
+        Self { types }
+    }
+
+    #[must_use]
+    pub const fn types(&self) -> TypesRange {
+        self.types
     }
 }
 
@@ -108,9 +130,6 @@ pub struct GroupSymbol {
     messages: MessagesRange,
     types: TypesRange,
 }
-crate::define_readonly_struct!(@impl_methods GroupSymbol {
-    ident: StringId, access: Access, messages: MessagesRange, types: TypesRange,
-});
 
 #[binrw::binrw]
 #[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -120,9 +139,6 @@ pub struct FlagsSymbol {
     ident: StringId,
     values: OptionsRange,
 }
-crate::define_readonly_struct!(@impl_methods FlagsSymbol {
-    ident: StringId, values: OptionsRange,
-});
 
 #[binrw::binrw]
 #[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -132,9 +148,6 @@ pub struct BitsetSymbol {
     ident: StringId,
     values: BitsetValuesRange,
 }
-crate::define_readonly_struct!(@impl_methods BitsetSymbol {
-    ident: StringId, values: BitsetValuesRange,
-});
 
 #[binrw::binrw]
 #[derive(Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -144,9 +157,6 @@ pub struct OptionSymbol {
     #[token(ident)]
     ident: StringId,
 }
-crate::define_readonly_struct!(@impl_methods OptionSymbol {
-    ident: StringId,
-});
 
 #[binrw::binrw]
 #[derive(Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -159,10 +169,6 @@ pub struct BitsetValueSymbol {
     bits: u8,
 }
 
-crate::define_readonly_struct!(@impl_methods BitsetValueSymbol {
-    ident: StringId, repr: TypeId, bits: u8,
-});
-
 #[binrw::binrw]
 #[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ArrayFieldSymbol {
@@ -171,6 +177,3 @@ pub struct ArrayFieldSymbol {
     kind: TypeId,
     len: StringId,
 }
-crate::define_readonly_struct!(@impl_methods ArrayFieldSymbol {
-    ident: StringId, kind: TypeId, len: StringId,
-});
