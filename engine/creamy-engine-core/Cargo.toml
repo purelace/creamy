@@ -12,4 +12,3 @@ creamy-devkit = { workspace = true, features = ["read"] }
 serde.workspace = true
 cbus.workspace = true
 creamy-phf.workspace = true
-tracing = "0.1.44"

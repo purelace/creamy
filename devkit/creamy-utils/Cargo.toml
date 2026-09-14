@@ -9,8 +9,6 @@ workspace = true
 
 [dependencies]
 binrw.workspace = true
-thiserror.workspace = true
 serde.workspace = true
 hashbrown.workspace = true
-rustc-hash.workspace = true
 smol_str.workspace = true
