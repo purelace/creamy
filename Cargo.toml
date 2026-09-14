@@ -58,7 +58,6 @@ cbus-core = { path = "bus/cbus-core" }
 creamy-devkit = { path = "devkit/creamy-devkit" }
 creamy-libgen = { path = "devkit/creamy-libgen" }
 creamy-libgen-rs = { path = "devkit/creamy-libgen-rs" }
-creamy-libgen-sdk = { path = "devkit/creamy-libgen-sdk" }
 creamy-manifest = { path = "devkit/creamy-manifest" }
 creamy-protocol-tui = { path = "devkit/creamy-protocol-tui" }
 creamy-utils = { path = "devkit/creamy-utils" }
@@ -71,7 +70,6 @@ creamy-protocol-model-macros = { path = "devkit/creamy-protocol-model-macros"}
 
 # Engine
 creamy = { path = "engine/creamy" }
-creamy-cbus-driver = { path = "engine/creamy-cbus-driver" }
 creamy-engine-core = { path = "engine/creamy-engine-core" }
 creamy-async-loader = { path = "engine/creamy-async-loader" }
 creamy-loader = { path = "engine/creamy-loader" }
@@ -85,11 +83,9 @@ static_assertions = "1.1.0"
 cfg-if = "1.0.4"
 criterion = { version = "0.8.2", features = ["html_reports"] }
 bitflags = "2.13.2"
-derive_more = { version = "2.1.1", features = ["from", "display"] }
 tempfile = "3.27.0"
 tracing = { version = "0.1.44", default-features = false, features = ["attributes"] }
 tracing-subscriber = "0.3.23"
-tracing-tracy = "0.12.0"
 downcast-rs = { version = "2.0.2", default-features = false }
 binrw = { version = "0.15.2", default-features = false }
 thiserror = { version = "2.0.20", default-features = false }
@@ -99,7 +95,6 @@ ptree = "0.5.2"
 console = "0.16.6"
 semver = { version = "1.0.28", features = ["serde", "std"] }
 inotify = "0.11.5"
-rustc-hash = "2.1.3"
 hashbrown = "0.17.1"
 smol_str = { version = "0.3.6", default-features = false }
 
