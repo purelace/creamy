@@ -18,7 +18,7 @@ thiserror.workspace = true
 pathenv.workspace = true
 
 [dependencies.tokio]
-version = "1.53.1"
+version = "1.53.3"
 default-features = false
 features = ["fs", "rt", "io-util", "macros", "sync", "time", "rt-multi-thread"]
 
