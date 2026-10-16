@@ -3,7 +3,10 @@ use embedded_io::{Read, Write};
 use crate::{BinaryReader, BinaryWriter, Endianness, ReadError, WriteError};
 
 impl BinaryWriter for bool {
-    fn write<W: Write, E: Endianness>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         u8::from(*self).write::<W, E>(writer)
     }
 }

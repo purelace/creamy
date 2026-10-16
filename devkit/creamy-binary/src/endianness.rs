@@ -1,5 +1,7 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 
+use crate::DynEndianness;
+
 pub trait Endianness: sealed::Sealed {
     const EMPTY_U8: [u8; size_of::<u8>()] = [0; size_of::<u8>()];
     const EMPTY_U16: [u8; size_of::<u16>()] = [0; size_of::<u16>()];
@@ -45,6 +47,8 @@ pub trait Endianness: sealed::Sealed {
 
     fn read_f32(bytes: [u8; size_of::<f32>()]) -> f32;
     fn read_f64(bytes: [u8; size_of::<f64>()]) -> f64;
+
+    fn as_dyn_endian() -> DynEndianness;
 }
 
 pub struct LittleEndian;
@@ -59,7 +63,7 @@ mod sealed {
 }
 
 macro_rules! impl_endianness_struct {
-    ($struct_name:ident, $suffix:ident) => {
+    ($struct_name:ident, $suffix:ident, $dyn:ident) => {
         impl Endianness for $struct_name {
             paste::item! {
                 #[inline(always)] fn write_u8(value: u8) -> [u8; size_of::<u8>()] { value.[<to_ $suffix _bytes>]() }
@@ -91,11 +95,15 @@ macro_rules! impl_endianness_struct {
 
                 #[inline(always)] fn read_f32(bytes: [u8; size_of::<f32>()]) -> f32 { f32::[<from_ $suffix _bytes>](bytes) }
                 #[inline(always)] fn read_f64(bytes: [u8; size_of::<f64>()]) -> f64 { f64::[<from_ $suffix _bytes>](bytes) }
+
+                fn as_dyn_endian() -> DynEndianness {
+                    DynEndianness::$dyn
+                }
             }
         }
     };
 }
 
-impl_endianness_struct!(LittleEndian, le);
-impl_endianness_struct!(BigEndian, be);
-impl_endianness_struct!(NativeEndian, ne);
+impl_endianness_struct!(LittleEndian, le, Little);
+impl_endianness_struct!(BigEndian, be, Big);
+impl_endianness_struct!(NativeEndian, ne, Native);

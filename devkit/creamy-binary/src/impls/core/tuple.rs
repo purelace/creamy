@@ -7,7 +7,10 @@ use crate::{BinaryReader, BinaryWriter, Endianness, ReadError, WriteError};
 
 #[impl_for_tuples(64)]
 impl BinaryWriter for Tuple {
-    fn write<W: Write, E: Endianness>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         for_tuples!( #( Tuple.write::<W, E>(writer)?;  )* );
         Ok(())
     }

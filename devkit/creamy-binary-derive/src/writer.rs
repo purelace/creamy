@@ -23,7 +23,7 @@ fn impl_writer_for_named_fields(
 
     quote! {
         impl #impl_generics creamy_binary::BinaryWriter for #name #ty_generics #where_clause {
-            fn write<W: creamy_binary::Write, E: creamy_binary::Endianness>(&self, writer: &mut W)
+            fn write<W: creamy_binary::Write<Error: Send + Sync + 'static>, E: creamy_binary::Endianness>(&self, writer: &mut W)
                 -> Result<(), creamy_binary::WriteError<W::Error>> {
                 #magic
                 #(
@@ -57,7 +57,7 @@ fn impl_writer_for_unnamed_fields(
 
     quote! {
         impl #impl_generics creamy_binary::BinaryWriter for #name #ty_generics #where_clause {
-            fn write<W: creamy_binary::Write, E: creamy_binary::Endianness>(&self, writer: &mut W)
+            fn write<W: creamy_binary::Write<Error: Send + Sync + 'static>, E: creamy_binary::Endianness>(&self, writer: &mut W)
                 -> Result<(), creamy_binary::WriteError<W::Error>> {
                 #magic
                 #(
@@ -82,7 +82,7 @@ fn impl_writer_for_unit(base: TokenContext) -> proc_macro::TokenStream {
 
     quote! {
         impl #impl_generics creamy_binary::BinaryWriter for #name #ty_generics #where_clause {
-            fn write<W: creamy_binary::Write, E: creamy_binary::Endianness>(&self, writer: &mut W)
+            fn write<W: creamy_binary::Write<Error: Send + Sync + 'static>, E: creamy_binary::Endianness>(&self, writer: &mut W)
                 -> Result<(), creamy_binary::WriteError<W::Error>> {
                 #magic
                 Ok(())
@@ -112,7 +112,7 @@ fn impl_writer_for_enum(base: TokenContext, repr: Repr, s: &DataEnum) -> proc_ma
 
     quote! {
         impl #impl_generics creamy_binary::BinaryWriter for #name #ty_generics #where_clause {
-            fn write<W: creamy_binary::Write, E: creamy_binary::Endianness>(&self, writer: &mut W)
+            fn write<W: creamy_binary::Write<Error: Send + Sync + 'static>, E: creamy_binary::Endianness>(&self, writer: &mut W)
                 -> Result<(), creamy_binary::WriteError<W::Error>> {
                     #magic
                     match self {

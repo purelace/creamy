@@ -10,7 +10,7 @@ use crate::{BinaryReader, BinaryWriter, Endianness, ReadError, WriteError};
 macro_rules! impl_num_type {
     ($type: ident, $default:ident, $write: ident, $read: ident) => {
         impl BinaryWriter for $type {
-            fn write<W: Write, E: Endianness>(
+            fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
                 &self,
                 writer: &mut W,
             ) -> Result<(), WriteError<W::Error>> {
@@ -50,7 +50,7 @@ impl_num_type!(f64, EMPTY_F64, write_f64, read_f64);
 macro_rules! impl_non_zero_num_type {
     ($type: ident, $original: ident) => {
         impl BinaryWriter for $type {
-            fn write<W: Write, E: Endianness>(
+            fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
                 &self,
                 writer: &mut W,
             ) -> Result<(), WriteError<W::Error>> {

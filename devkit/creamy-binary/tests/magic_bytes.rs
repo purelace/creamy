@@ -2,7 +2,7 @@ use creamy_binary::{BinaryReader, BinaryWriter};
 use creamy_binary_derive::{BinRead, BinWrite};
 
 #[derive(BinRead, BinWrite)]
-#[magic(r"CMY!")]
+#[magic(b"CMY!")]
 struct Header;
 
 #[test]

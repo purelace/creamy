@@ -5,13 +5,19 @@ use embedded_io::{Read, Write};
 use crate::{BinaryReader, BinaryWriter, CustomError, Endianness, ReadError, WriteError};
 
 impl BinaryWriter for &str {
-    fn write<W: Write, E: Endianness>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         self.as_bytes().write::<W, E>(writer)
     }
 }
 
 impl BinaryWriter for char {
-    fn write<W: Write, E: Endianness>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         (*self as u32).write::<W, E>(writer)
     }
 }
@@ -37,7 +43,10 @@ impl BinaryReader for String {
 }
 
 impl BinaryWriter for String {
-    fn write<W: Write, E: Endianness>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         self.as_bytes().write::<W, E>(writer)?;
         Ok(())
     }

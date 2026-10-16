@@ -1,9 +1,9 @@
 use core::mem::MaybeUninit;
 
-use crate::{BinaryReader, BinaryWriter, Buffer, ReadError};
+use crate::{BinaryReader, BinaryWriter, ReadError};
 
 impl<T: BinaryWriter, const N: usize> BinaryWriter for [T; N] {
-    fn write<W: embedded_io::Write, E: crate::Endianness>(
+    fn write<W: embedded_io::Write<Error: Send + Sync + 'static>, E: crate::Endianness>(
         &self,
         writer: &mut W,
     ) -> Result<(), crate::WriteError<W::Error>> {
@@ -34,21 +34,16 @@ impl<T: BinaryReader, const N: usize> BinaryReader for [T; N] {
     }
 }
 
-impl<T> Buffer for &[T] {
-    type Item = T;
+impl<T: BinaryWriter> BinaryWriter for &[T] {
+    fn write<W: embedded_io::Write<Error: Send + Sync + 'static>, E: crate::Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::WriteError<W::Error>> {
+        (self.len() as u32).write::<W, E>(writer)?;
+        for i in *self {
+            i.write::<W, E>(writer)?;
+        }
 
-    type Iter<'a>
-        = core::slice::Iter<'a, T>
-    where
-        Self: 'a;
-
-    type Length = u32;
-
-    fn length(&self) -> Self::Length {
-        self.len() as u32
-    }
-
-    fn iterator(&self) -> Self::Iter<'_> {
-        self.iter()
+        Ok(())
     }
 }

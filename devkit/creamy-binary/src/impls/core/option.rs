@@ -3,7 +3,10 @@ use embedded_io::{Read, Write};
 use crate::{BinaryReader, BinaryWriter, Endianness, ReadError, WriteError};
 
 impl<T: BinaryWriter> BinaryWriter for Option<T> {
-    fn write<W: Write, E: Endianness>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         if let Some(value) = self {
             true.write::<W, E>(writer)?;
             value.write::<W, E>(writer)?;

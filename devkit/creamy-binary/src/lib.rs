@@ -4,19 +4,25 @@
 extern crate alloc;
 use alloc::{boxed::Box, string::String};
 
+mod dyn_support;
 mod endianness;
 mod impls;
-mod length;
 
+pub use creamy_binary_derive::{BinRead, BinWrite};
+pub use dyn_support::*;
 pub use embedded_io::{Read, Write};
 
 pub use self::endianness::{BigEndian, Endianness, LittleEndian, NativeEndian};
-use self::length::UnsignedInteger;
+
+#[cfg(feature = "std")]
+pub mod adapters {
+    pub use embedded_io_adapters::std::*;
+}
 
 #[derive(Debug, thiserror::Error)]
 pub struct CustomError {
     pub message: String,
-    pub error: Option<Box<dyn core::error::Error>>,
+    pub error: Option<Box<dyn core::error::Error + Send + Sync + 'static>>,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
@@ -35,11 +41,13 @@ impl core::fmt::Display for CustomError {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum WriteError<W: core::error::Error> {
+pub enum WriteError<W: core::error::Error + Send + Sync + 'static> {
     #[error("{0}")]
     Write(#[from] W),
     #[error("{0}")]
     Custom(CustomError),
+    #[error("{0}")]
+    Dyn(DynError),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -64,14 +72,20 @@ pub trait BinaryWriter {
     /// Returns an error if:
     /// - The underlying writer fails to write data.
     /// - Can't write the specified type.
-    fn write<W: Write, E: Endianness>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>>;
+    fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>>;
 
     /// Writes the [`Self`] into the given writer using little endian byte order.
     ///
     /// # Errors
     ///
     /// See [`write`] method.
-    fn write_le<W: Write>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write_le<W: Write<Error: Send + Sync + 'static>>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         self.write::<W, LittleEndian>(writer)
     }
 
@@ -80,7 +94,10 @@ pub trait BinaryWriter {
     /// # Errors
     ///
     /// See [`write`] method.
-    fn write_be<W: Write>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write_be<W: Write<Error: Send + Sync + 'static>>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         self.write::<W, BigEndian>(writer)
     }
 
@@ -89,7 +106,10 @@ pub trait BinaryWriter {
     /// # Errors
     ///
     /// See [`write`] method.
-    fn write_ne<W: Write>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write_ne<W: Write<Error: Send + Sync + 'static>>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         self.write::<W, NativeEndian>(writer)
     }
 }
@@ -128,73 +148,5 @@ pub trait BinaryReader: Sized {
     /// See [`read`] method.
     fn read_ne<R: Read>(reader: &mut R) -> Result<Self, ReadError<R::Error>> {
         Self::read::<R, NativeEndian>(reader)
-    }
-}
-
-pub trait Buffer {
-    type Item;
-
-    type Iter<'a>: IntoIterator<Item = &'a Self::Item>
-    where
-        Self: 'a;
-
-    type Length: UnsignedInteger;
-    fn length(&self) -> Self::Length;
-    fn iterator(&self) -> Self::Iter<'_>;
-}
-
-pub trait BufferWriter: Buffer<Item: BinaryWriter> + BinaryWriter {}
-impl<T> BufferWriter for T
-where
-    T: Buffer + ?Sized,
-    T::Item: BinaryWriter,
-{
-}
-
-pub trait BufferReader: Buffer<Item: BinaryReader> + Sized {
-    type Temp: TempBuffer<Base = Self>;
-    /// Creates the instance of [`Self`] from temp buffer.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when the convertation fails.
-    fn from_temp(
-        buffer: <<Self as BufferReader>::Temp as TempBuffer>::Type,
-    ) -> Result<Self, CustomError>;
-}
-
-pub trait TempBuffer {
-    type Type;
-    type Base: BufferReader;
-
-    fn add(
-        buffer: &mut Self::Type,
-        index: <<Self as TempBuffer>::Base as Buffer>::Length,
-        item: <<Self as TempBuffer>::Base as Buffer>::Item,
-    );
-
-    fn new_with_capacity(capacity: <<Self as TempBuffer>::Base as Buffer>::Length) -> Self::Type;
-}
-
-impl<T: BufferWriter + ?Sized> BinaryWriter for T {
-    fn write<W: Write, E: Endianness>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
-        self.length().write::<W, E>(writer)?;
-        for element in self.iterator() {
-            element.write::<W, E>(writer)?;
-        }
-        Ok(())
-    }
-}
-
-impl<T: BufferReader> BinaryReader for T {
-    fn read<R: Read, E: Endianness>(reader: &mut R) -> Result<Self, ReadError<R::Error>> {
-        let length = T::Length::read::<R, E>(reader)?;
-        let mut buffer = T::Temp::new_with_capacity(length);
-        for index in length.range_from_zero() {
-            let item = T::Item::read::<R, E>(reader)?;
-            T::Temp::add(&mut buffer, index, item);
-        }
-
-        T::from_temp(buffer).map_err(ReadError::Custom)
     }
 }

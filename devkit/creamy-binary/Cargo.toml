@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+creamy-binary-derive = { path = "../creamy-binary-derive" }
 embedded-io = { version = "0.7.1", features=["alloc"] }
 thiserror.workspace = true
 smallvec = "1.16.3"
@@ -12,22 +13,19 @@ paste = "1.0.15"
 impl-trait-for-tuples = "0.2.3"
 
 smol_str = { workspace = true, optional = true}
-semver = {workspace = true, optional = true}
+semver = { workspace = true, optional = true }
+hashbrown = { version = "0.17.1", default-features = false, optional = true, features = ["alloc", "inline-more", "raw-entry", "core"] }
+embedded-io-adapters = { version = "0.7.0" , optional = true, features = ["std"] }
 
 [lints]
 workspace = true
 
-[dev-dependencies]
-creamy-binary-derive.workspace = true
-
 [features]
-std = ["embedded-io/std"]
+default = ["hash"]
+std = ["embedded-io/std", "embedded-io-adapters"]
 smol_str = ["dep:smol_str"]
-semver = ["dep:semver"]
-
-#[[test]]
-#name = "general"
-#required-features = ["std"]
+semver = ["dep:semver", "smol_str"]
+hash = ["hashbrown"]
 
 [[test]]
 name = "vec"

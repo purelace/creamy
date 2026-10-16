@@ -1,54 +1,27 @@
-use alloc::{boxed::Box, vec::Vec};
-use core::{marker::PhantomData, mem::MaybeUninit};
+use alloc::vec::Vec;
 
-use crate::{BinaryReader, Buffer, BufferReader, CustomError, TempBuffer};
+use crate::{BinaryReader, BinaryWriter};
 
-impl<T> Buffer for Vec<T> {
-    type Item = T;
+impl<T: BinaryReader> BinaryReader for Vec<T> {
+    fn read<R: embedded_io::Read, E: crate::Endianness>(
+        reader: &mut R,
+    ) -> Result<Self, crate::ReadError<R::Error>> {
+        let len = u32::read::<R, E>(reader)?;
+        let mut vec = Vec::with_capacity(len as usize);
+        for _ in 0..len {
+            let item = T::read::<R, E>(reader)?;
+            vec.push(item);
+        }
 
-    type Iter<'a>
-        = core::slice::Iter<'a, Self::Item>
-    where
-        Self: 'a;
-
-    type Length = u32;
-
-    fn length(&self) -> Self::Length {
-        self.len() as u32
-    }
-
-    fn iterator(&self) -> Self::Iter<'_> {
-        self.iter()
+        Ok(vec)
     }
 }
 
-impl<T: BinaryReader> BufferReader for Vec<T> {
-    type Temp = Temp<T>;
-
-    fn from_temp(
-        buffer: <<Self as BufferReader>::Temp as TempBuffer>::Type,
-    ) -> Result<Self, CustomError> {
-        Ok(unsafe { buffer.assume_init().into_vec() })
-    }
-}
-
-pub struct Temp<T: BinaryReader> {
-    _phantom: PhantomData<T>,
-}
-
-impl<T: BinaryReader> TempBuffer for Temp<T> {
-    type Type = Box<[MaybeUninit<T>]>;
-    type Base = Vec<T>;
-
-    fn add(
-        buffer: &mut Self::Type,
-        index: <<Self as TempBuffer>::Base as Buffer>::Length,
-        item: <<Self as TempBuffer>::Base as Buffer>::Item,
-    ) {
-        buffer[index as usize] = MaybeUninit::new(item);
-    }
-
-    fn new_with_capacity(capacity: <<Self as TempBuffer>::Base as Buffer>::Length) -> Self::Type {
-        Box::new_zeroed_slice(capacity as usize)
+impl<T: BinaryWriter> BinaryWriter for Vec<T> {
+    fn write<W: embedded_io::Write<Error: Send + Sync + 'static>, E: crate::Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), crate::WriteError<W::Error>> {
+        self.as_slice().write::<W, E>(writer)
     }
 }

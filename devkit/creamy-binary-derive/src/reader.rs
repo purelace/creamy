@@ -138,7 +138,7 @@ fn impl_reader_for_enum(base: TokenContext, repr: Repr, s: &DataEnum) -> proc_ma
                         _ => Err(creamy_binary::ReadError::Custom(creamy_binary::CustomError {
                             message: format!("Unknown discriminant: {value}"),
                             error: None,
-                        } ))
+                        }))
                     }
             }
         }

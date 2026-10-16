@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+
 use embedded_io::{Read, Write};
 use semver::{BuildMetadata, Prerelease, Version};
 use smol_str::SmolStr;
@@ -33,7 +35,10 @@ impl BinaryReader for Version {
 }
 
 impl BinaryWriter for Version {
-    fn write<W: Write, E: Endianness>(&self, writer: &mut W) -> Result<(), WriteError<W::Error>> {
+    fn write<W: Write<Error: Send + Sync + 'static>, E: Endianness>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), WriteError<W::Error>> {
         self.major.write::<W, E>(writer)?;
         self.minor.write::<W, E>(writer)?;
         self.patch.write::<W, E>(writer)?;

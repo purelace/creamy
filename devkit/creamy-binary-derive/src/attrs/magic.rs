@@ -11,14 +11,14 @@ fn parse_magic_bytes(attr: &Attribute) -> syn::Result<Vec<u8>> {
     let expr: Expr = meta_list.parse_args()?;
 
     match expr {
-        // Формат 1: Строковый литерал (включая сырые строки r"WIN!")
+        // Формат: Байтовый строковый литерал (b"WIN!" или br#"WIN!"#)
         Expr::Lit(syn::ExprLit {
-            lit: Lit::Str(lit_str),
+            lit: syn::Lit::ByteStr(lit_byte_str),
             ..
         }) => {
-            // .value() автоматически обрабатывает экранирование и сырые строки,
-            // возвращая чистую String, которую мы переводим в байты
-            Ok(lit_str.value().into_bytes())
+            // .value() для байтовых строк возвращает Vec<u8>,
+            // автоматически обрабатывая экранирование
+            Ok(lit_byte_str.value())
         }
 
         // Формат 2: Одиночное число (например, 0x50 или 80)
