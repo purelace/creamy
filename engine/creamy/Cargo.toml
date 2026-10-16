@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+creamy-binary = { path = "../../devkit/creamy-binary"}
 creamy-engine-core.workspace = true
 creamy-sdk.workspace = true
 tracing.workspace = true

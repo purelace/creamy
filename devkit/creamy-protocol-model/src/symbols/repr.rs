@@ -1,29 +1,23 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 use core::fmt::Display;
 
+use creamy_binary::{BinRead, BinWrite};
+
 use super::{NumericSymbol, enumeration::VariantValue};
 use crate::error::SemanticError;
 
-#[binrw::binrw]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum PrimitiveRepr {
-    #[brw(magic = 0u8)]
     #[default]
-    U8,
-    #[brw(magic = 1u8)]
-    U16,
-    #[brw(magic = 2u8)]
-    U32,
-    #[brw(magic = 3u8)]
-    U64,
-    #[brw(magic = 4u8)]
-    I8,
-    #[brw(magic = 5u8)]
-    I16,
-    #[brw(magic = 6u8)]
-    I32,
-    #[brw(magic = 7u8)]
-    I64,
+    U8 = 0,
+    U16 = 1,
+    U32 = 2,
+    U64 = 3,
+    I8 = 4,
+    I16 = 5,
+    I32 = 6,
+    I64 = 7,
 }
 
 impl PrimitiveRepr {

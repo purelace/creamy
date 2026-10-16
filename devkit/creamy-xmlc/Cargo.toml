@@ -10,7 +10,6 @@ workspace = true
 [dependencies]
 creamy-utils.workspace = true
 thiserror.workspace = true
-binrw.workspace = true
 as-guard.workspace = true
 roxmltree.workspace = true
 strum.workspace = true

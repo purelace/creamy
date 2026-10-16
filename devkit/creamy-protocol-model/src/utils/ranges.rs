@@ -6,8 +6,7 @@ macro_rules! define_readonly_range {
             len: $len_type: ty $(,)?
         }
     ) => {
-        #[binrw::binrw]
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        #[derive(creamy_binary::BinRead, creamy_binary::BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
         pub struct $name {
             start: $start_type,
             len: $len_type,

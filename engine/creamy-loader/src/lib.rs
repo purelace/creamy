@@ -2,15 +2,17 @@ mod watcher;
 
 use std::path::{Path, PathBuf};
 
+use creamy_binary::BinaryReader;
 use creamy_engine_core::{PluginLoader, devkit::BinaryPlugin};
 
 use self::watcher::FileWatcher;
 
 fn load_file(path: PathBuf) -> Result<BinaryPlugin, std::io::Error> {
     tracing::info!("[Loader] Loading package: {}", path.display());
-    let mut file = std::fs::File::open(path)?;
+    let file = std::fs::File::open(path)?;
+    let mut file = creamy_binary::adapters::FromStd::new(file);
 
-    let package = BinaryPlugin::read_from(&mut file).unwrap();
+    let package = BinaryPlugin::read_ne(&mut file).unwrap();
     tracing::info!(
         "[Loader] Plugin '{name}@{version}' loaded",
         name = package.manifest().name(),

@@ -1,6 +1,6 @@
 use core::fmt::Display;
 
-use binrw::{BinRead, BinWrite};
+use creamy_binary::{BinRead, BinWrite};
 
 /// Max offset value: 2^27
 /// Max length value: 28
@@ -96,8 +96,7 @@ impl Variants {
     }
 }
 
-#[binrw::binrw]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Options {
     start: u16,
     len: u16,
@@ -120,8 +119,7 @@ impl Options {
     }
 }
 
-#[binrw::binrw]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BitsetValues {
     start: u16,
     len: u16,

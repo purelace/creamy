@@ -13,9 +13,8 @@ use creamy_engine_core::{
     },
     devkit::{
         BinaryPlugin,
-        binrw::io::Cursor,
         compiler::model::{
-            definition::ProtocolModel,
+            definition::{BinaryReader, ProtocolModel},
             strpool::{StringPool, StringPoolResolver},
         },
         manifest::{Package, RequestedProtocol},
@@ -508,11 +507,10 @@ impl<
 
     pub fn register_custom_plugin(
         &mut self,
-        package: &[u8],
+        mut package: &[u8],
         custom: impl Fn(IncBuf<M>, OutBuf<M>) -> H,
     ) {
-        let mut reader = Cursor::new(package);
-        let package = match BinaryPlugin::read_from(&mut reader) {
+        let package = match BinaryPlugin::read_ne(&mut package) {
             Ok(v) => v,
             Err(e) => {
                 self.errors.push(PluginError::Binary(e));

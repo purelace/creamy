@@ -1,6 +1,6 @@
 use core::{fmt::Debug, mem::MaybeUninit, num::NonZeroU8, ops::Index};
 
-use binrw::{BinRead, BinWrite, binrw};
+use creamy_binary::{BinRead, BinWrite, BinaryReader};
 use creamy_utils::strpool::{StringId, StringPool};
 use hashbrown::HashMap;
 use strum::EnumCount;
@@ -154,7 +154,7 @@ impl TypeId {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(BinWrite, Debug, PartialEq, Eq)]
 struct GroupsMeta {
     count: u8,
     inner: Array<u16>,
@@ -193,42 +193,17 @@ impl GroupsMeta {
     }
 }
 
-impl BinRead for GroupsMeta {
-    type Args<'a> = ();
-
-    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
+impl BinaryReader for GroupsMeta {
+    fn read<R: creamy_binary::Read, E: creamy_binary::Endianness>(
         reader: &mut R,
-        endian: binrw::Endian,
-        args: Self::Args<'_>,
-    ) -> binrw::BinResult<Self> {
-        let count_u8 = u8::read_options(reader, endian, args)?;
-        let count = count_u8 as usize + 1;
-        let mut inner = Array::new_with_default(count, 0);
-        for index in 0..count {
-            inner[index] = u16::read_options(reader, endian, args)?;
-        }
+    ) -> Result<Self, creamy_binary::ReadError<R::Error>> {
+        let count_u8 = u8::read::<R, E>(reader)?;
+        let inner = Array::<u16>::read::<R, E>(reader)?;
+
         Ok(Self {
             inner,
             count: count_u8,
         })
-    }
-}
-
-impl BinWrite for GroupsMeta {
-    type Args<'a> = ();
-
-    fn write_options<W: binrw::io::Write + binrw::io::Seek>(
-        &self,
-        writer: &mut W,
-        endian: binrw::Endian,
-        args: Self::Args<'_>,
-    ) -> binrw::BinResult<()> {
-        (self.count).write_options(writer, endian, args)?;
-        let payload = &self.inner[..=(self.count as usize)];
-        for &count in payload {
-            count.write_options(writer, endian, args)?;
-        }
-        Ok(())
     }
 }
 
@@ -243,6 +218,7 @@ pub struct TypeTable {
 }
 
 impl TypeTable {
+    #[must_use]
     pub fn new(groups: u8, types: u16) -> Self {
         //TODO: fix use internal and external u8
         let groups = groups.saturating_add(1);
@@ -310,8 +286,7 @@ impl TypeTable {
     }
 }
 
-#[binrw]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
 pub struct FinishedTypeTable {
     meta: GroupsMeta,
     types: Array<Type>,

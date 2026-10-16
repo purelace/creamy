@@ -2,24 +2,21 @@
 
 mod error;
 
-use std::{collections::HashMap, str::FromStr};
+use std::collections::HashMap;
 
-use binrw::{BinRead, BinWrite};
-use creamy_utils::{BString, collections::List};
+use creamy_binary::{BinRead, BinWrite};
 pub use error::ManifestError;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 
 #[derive(BinRead, BinWrite, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Package {
-    id: BString,
-    name: BString,
-    #[br(map = |val: BString| Version::from_str(&val).unwrap())]
-    #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
+    id: String,
+    name: String,
     version: Version,
-    description: BString,
-    repository: BString,
-    authors: List<BString>,
+    description: String,
+    repository: String,
+    authors: Vec<String>,
 }
 
 impl Package {
@@ -33,24 +30,20 @@ impl Package {
 impl Default for Package {
     fn default() -> Self {
         Self {
-            id: BString::default(),
-            name: BString::default(),
+            id: String::default(),
+            name: String::default(),
             version: Version::new(1, 0, 0),
-            description: BString::default(),
-            repository: BString::default(),
-            authors: List::default(),
+            description: String::default(),
+            repository: String::default(),
+            authors: Vec::default(),
         }
     }
 }
 
 #[derive(BinRead, BinWrite, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestedProtocol {
-    #[br(map = |val: BString| Version::from_str(&val).unwrap())]
-    #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
     version: Version,
-    groups: List<BString>,
-    #[br(map = |val: u8| val != 0)]
-    #[bw(map = |val: &bool| u8::from(*val))]
+    groups: Vec<String>,
     #[serde(default)]
     provide: bool,
 }
@@ -63,8 +56,8 @@ impl RequestedProtocol {
     }
 
     #[must_use]
-    pub fn groups(&self) -> &[BString] {
-        &self.groups
+    pub const fn groups(&self) -> &[String] {
+        self.groups.as_slice()
     }
 
     #[must_use]
@@ -77,34 +70,13 @@ impl RequestedProtocol {
 pub struct ParsedManifest {
     package: Package,
     #[serde(default)]
-    protocols: HashMap<BString, RequestedProtocol>,
+    protocols: HashMap<String, RequestedProtocol>,
 }
 
-#[derive(BinRead, BinWrite)]
-struct MapEntry {
-    key: BString,
-    value: RequestedProtocol,
-}
-
-#[binrw::binrw]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
 pub struct Manifest {
     package: Package,
-
-    #[br(temp)]
-    #[bw(calc = u32::try_from(protocols.len()).unwrap())]
-    entry_count: u32,
-
-    #[br(
-        count = entry_count,
-        map = |vec: Vec<MapEntry>| vec.into_iter().map(|e| (e.key, e.value)).collect::<HashMap<_, _>>()
-    )]
-    #[bw(
-        map = |map: &HashMap<BString, RequestedProtocol>| {
-            map.iter().map(|(key, value)| MapEntry { key: key.clone(), value: value.clone() }).collect::<Vec<_>>()
-        }
-    )]
-    protocols: HashMap<BString, RequestedProtocol>,
+    protocols: HashMap<String, RequestedProtocol>,
 }
 
 impl Manifest {
@@ -137,17 +109,17 @@ impl Manifest {
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl Manifest {
     #[must_use]
-    pub fn name(&self) -> &str {
+    pub const fn name(&self) -> &str {
         self.package.name.as_str()
     }
 
     #[must_use]
-    pub fn id(&self) -> &str {
-        &self.package.id
+    pub const fn id(&self) -> &str {
+        self.package.id.as_str()
     }
 
     #[must_use]
-    pub const fn requested_groups(&self) -> &HashMap<BString, RequestedProtocol> {
+    pub const fn requested_groups(&self) -> &HashMap<String, RequestedProtocol> {
         &self.protocols
     }
 }
@@ -156,7 +128,6 @@ impl Manifest {
 mod test {
     use std::{assert_matches, collections::HashMap};
 
-    use creamy_utils::collections::List;
     use semver::Version;
 
     use crate::{Manifest, ManifestError, Package, RequestedProtocol};
@@ -187,7 +158,7 @@ mod test {
                     version: Version::new(0, 4, 2),
                     description: "Test manifest".into(),
                     repository: "https://github.com/purelace/chocomint".into(),
-                    authors: List::wrap(vec!["selrisu <myirisuchan@gmail.com>".into()])
+                    authors: vec!["selrisu <myirisuchan@gmail.com>".into()]
                 },
                 protocols: {
                     let mut map = HashMap::new();
@@ -195,7 +166,7 @@ mod test {
                         "testcase".into(),
                         RequestedProtocol {
                             version: Version::new(1, 0, 0),
-                            groups: List::wrap(vec!["valid".into()]),
+                            groups: vec!["valid".into()],
                             provide: false,
                         },
                     );

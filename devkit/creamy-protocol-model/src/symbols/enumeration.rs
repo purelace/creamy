@@ -1,6 +1,6 @@
 use core::fmt::Display;
 
-use binrw::{BinRead, BinWrite};
+use creamy_binary::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
@@ -14,11 +14,10 @@ use crate::{
 };
 
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum VariantValue {
-    #[brw(magic = 0u8)]
-    Singed(i64),
-    #[brw(magic = 1u8)]
-    Unsigned(u64),
+    Singed(i64) = 0,
+    Unsigned(u64) = 1,
 }
 
 impl Display for VariantValue {

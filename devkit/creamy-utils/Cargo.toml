@@ -8,7 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-binrw.workspace = true
+creamy-binary = { path = "../creamy-binary", features = ["smol_str", "hash"] }
 serde.workspace = true
 hashbrown.workspace = true
 smol_str.workspace = true

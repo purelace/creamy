@@ -4,6 +4,7 @@ mod message;
 mod numeric;
 mod repr;
 
+use creamy_binary::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 pub use enumeration::{EnumSymbol, VariantSymbol, VariantValue};
@@ -24,21 +25,15 @@ use crate::{
     },
 };
 
-#[binrw::binrw]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum Type {
-    #[brw(magic = 0u8)]
-    Numeric(NumericSymbol),
-    #[brw(magic = 1u8)]
-    Array(ArraySymbol),
-    #[brw(magic = 2u8)]
-    Struct(StructSymbol),
-    #[brw(magic = 3u8)]
-    Enum(EnumSymbol),
-    #[brw(magic = 4u8)]
-    Flags(FlagsSymbol),
-    #[brw(magic = 5u8)]
-    Bitset(BitsetSymbol),
+    Numeric(NumericSymbol) = 0,
+    Array(ArraySymbol) = 1,
+    Struct(StructSymbol) = 2,
+    Enum(EnumSymbol) = 3,
+    Flags(FlagsSymbol) = 4,
+    Bitset(BitsetSymbol) = 5,
 }
 
 impl Type {
@@ -68,8 +63,7 @@ impl Type {
     }
 }
 
-#[binrw::binrw]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ArraySymbol {
     kind: TypeId,
     len: Size,
@@ -92,8 +86,7 @@ impl ArraySymbol {
     }
 }
 
-#[binrw::binrw]
-#[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_STRUCTS, StructsRange)]
 pub struct StructSymbol {
     #[token(ident)]
@@ -101,8 +94,7 @@ pub struct StructSymbol {
     fields: FieldsRange,
 }
 
-#[binrw::binrw]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GlobalTypesSymbol {
     types: TypesRange,
 }
@@ -119,8 +111,7 @@ impl GlobalTypesSymbol {
     }
 }
 
-#[binrw::binrw]
-#[derive(Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_GROUPS, GroupsRange)]
 #[key(SymbolKey::Group)]
 pub struct GroupSymbol {
@@ -131,8 +122,7 @@ pub struct GroupSymbol {
     types: TypesRange,
 }
 
-#[binrw::binrw]
-#[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_FLAGS, FlagsRange)]
 pub struct FlagsSymbol {
     #[token(ident)]
@@ -140,8 +130,7 @@ pub struct FlagsSymbol {
     values: OptionsRange,
 }
 
-#[binrw::binrw]
-#[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_BITSETS, BitsetsRange)]
 pub struct BitsetSymbol {
     #[token(ident)]
@@ -149,8 +138,7 @@ pub struct BitsetSymbol {
     values: BitsetValuesRange,
 }
 
-#[binrw::binrw]
-#[derive(Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_OPTIONS, OptionsRange)]
 #[key(SymbolKey::Option)]
 pub struct OptionSymbol {
@@ -158,8 +146,7 @@ pub struct OptionSymbol {
     ident: StringId,
 }
 
-#[binrw::binrw]
-#[derive(Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_BITSET_VALUES, BitsetValuesRange)]
 #[key(SymbolKey::BitsetValue)]
 pub struct BitsetValueSymbol {
@@ -169,8 +156,7 @@ pub struct BitsetValueSymbol {
     bits: u8,
 }
 
-#[binrw::binrw]
-#[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ArrayFieldSymbol {
     #[token(ident)]
     ident: StringId,

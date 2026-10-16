@@ -1,6 +1,6 @@
 use core::num::NonZeroU8;
 
-use binrw::{BinRead, BinWrite};
+use creamy_binary::{BinRead, BinWrite};
 
 use crate::{
     constraints::MAX_PAYLOAD,

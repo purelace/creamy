@@ -1,6 +1,6 @@
 use std::assert_matches;
 
-use binrw::{BinRead, BinWrite};
+use creamy_binary::{BinaryReader, BinaryWriter};
 use creamy_utils::strpool::{StringPool, StringPoolIntern, StringPoolResolver};
 
 #[test]
@@ -8,7 +8,7 @@ use creamy_utils::strpool::{StringPool, StringPoolIntern, StringPoolResolver};
     clippy::needless_borrow,
     reason = "StringPoolResolver trait extenstion testing"
 )]
-fn serialize_deserialize() -> Result<(), binrw::Error> {
+fn serialize_deserialize() -> Result<(), Box<dyn core::error::Error>> {
     let mut pool = StringPool::default();
     let value0 = "value0".intern(&mut pool);
     let value1 = pool.get_id_or_add("value1");
@@ -18,12 +18,10 @@ fn serialize_deserialize() -> Result<(), binrw::Error> {
     assert_eq!(value1.value(), 1);
     assert_eq!(value2.value(), 2);
 
-    let mut bytes = Vec::with_capacity(1024);
+    let mut buffer = Vec::with_capacity(1024);
+    pool.write_ne(&mut buffer)?;
 
-    let mut writer = binrw::io::Cursor::new(&mut bytes);
-    pool.write_le(&mut writer)?;
-
-    let pool = StringPool::read_le(&mut binrw::io::Cursor::new(&mut bytes))?;
+    let pool = StringPool::read_ne(&mut buffer.as_slice())?;
     assert_eq!(value0.resolve(&pool), "value0");
     assert_eq!((&&value1).resolve(&pool), "value1");
     assert_eq!(value2.resolve(&pool), "value2");
@@ -33,34 +31,34 @@ fn serialize_deserialize() -> Result<(), binrw::Error> {
 
 #[test]
 fn read_errors() {
-    let mut vec = vec![];
-    let result = StringPool::read_le(&mut binrw::io::Cursor::new(&mut vec));
+    let mut buffer = vec![];
+    let result = StringPool::read_ne(&mut buffer.as_slice());
 
     // Could not parse the number of elements
-    assert_matches!(result, Err(binrw::Error::Backtrace(_)));
+    assert_matches!(result, Err(creamy_binary::ReadError::EndOfBuffer));
 
     // Push the number of elements in bytes (1: u16)
-    vec.extend_from_slice(&(1u16.to_le_bytes()));
+    buffer.extend_from_slice(&(1u16.to_le_bytes()));
 
     // Cound not parse the length of string
-    let result = StringPool::read_le(&mut binrw::io::Cursor::new(&mut vec));
-    assert_matches!(result, Err(binrw::Error::Backtrace(_)));
+    let result = StringPool::read_ne(&mut buffer.as_slice());
+    assert_matches!(result, Err(creamy_binary::ReadError::EndOfBuffer));
 
     // Push the length of string (7: u32)
-    vec.extend_from_slice(&7u32.to_le_bytes());
+    buffer.extend_from_slice(&7u32.to_le_bytes());
 
     // push the unicode string with forbidden character (0xff)
-    vec.extend_from_slice(&[0x48, 0x65, 0x6c, 0x6c, 0x6f, 0xff, 0x21]);
+    buffer.extend_from_slice(&[0x48, 0x65, 0x6c, 0x6c, 0x6f, 0xff, 0x21]);
 
-    let result = StringPool::read_le(&mut binrw::io::Cursor::new(&mut vec));
-    assert_matches!(result, Err(binrw::Error::Backtrace(_)));
+    let result = StringPool::read_ne(&mut buffer.as_slice());
+    assert_matches!(result, Err(creamy_binary::ReadError::EndOfBuffer));
 
-    vec.clear();
+    buffer.clear();
 
     // Push the broken string
-    vec.extend_from_slice(&(1u16.to_le_bytes()));
-    vec.extend_from_slice(&[0, 0, 7]);
-    vec.extend_from_slice(&[1, 2, 3]);
-    let result = StringPool::read_le(&mut binrw::io::Cursor::new(&mut vec));
-    assert_matches!(result, Err(binrw::Error::Backtrace(_)));
+    buffer.extend_from_slice(&(1u16.to_le_bytes()));
+    buffer.extend_from_slice(&[0, 0, 7]);
+    buffer.extend_from_slice(&[1, 2, 3]);
+    let result = StringPool::read_ne(&mut buffer.as_slice());
+    assert_matches!(result, Err(creamy_binary::ReadError::EndOfBuffer));
 }

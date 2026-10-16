@@ -3,13 +3,36 @@
 use alloc::vec::Vec;
 use core::ops::{Deref, DerefMut, Index, RangeBounds};
 
-use binrw::{BinRead, BinWrite};
+use creamy_binary::{BinaryReader, BinaryWriter};
 
 use crate::utils::Range;
 
+//TODO: check length after deserialization
 #[derive(Debug, PartialEq, Eq)]
 pub struct BoundedVec<T: VectorElement> {
     inner: Vec<T>,
+}
+
+impl<T: BinaryReader + VectorElement> BinaryReader for BoundedVec<T> {
+    fn read<R: creamy_binary::Read, E: creamy_binary::Endianness>(
+        reader: &mut R,
+    ) -> Result<Self, creamy_binary::ReadError<R::Error>> {
+        Ok(Self {
+            inner: Vec::read::<R, E>(reader)?,
+        })
+    }
+}
+
+impl<T: BinaryWriter + VectorElement> BinaryWriter for BoundedVec<T> {
+    fn write<
+        W: creamy_binary::Write<Error: Send + Sync + 'static>,
+        E: creamy_binary::Endianness,
+    >(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), creamy_binary::WriteError<W::Error>> {
+        self.inner.write::<W, E>(writer)
+    }
 }
 
 impl<T: VectorElement> Default for BoundedVec<T> {
@@ -63,48 +86,6 @@ impl<T: VectorElement> BoundedVec<T> {
 
     pub fn drain<R: RangeBounds<usize>>(&mut self, range: R) -> alloc::vec::Drain<'_, T> {
         self.inner.drain(range)
-    }
-}
-
-impl<T: BinRead + VectorElement> BinRead for BoundedVec<T>
-where
-    T: for<'a> BinRead<Args<'a> = ()>,
-{
-    type Args<'a> = ();
-
-    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
-        reader: &mut R,
-        endian: binrw::Endian,
-        args: Self::Args<'_>,
-    ) -> binrw::BinResult<Self> {
-        let len = u32::read_options(reader, endian, args)? as usize;
-        let mut inner = Vec::with_capacity(len);
-        for _ in 0..len {
-            inner.push(T::read_options(reader, endian, args)?);
-        }
-
-        Ok(Self { inner })
-    }
-}
-
-impl<T: BinWrite + VectorElement> BinWrite for BoundedVec<T>
-where
-    T: for<'a> BinWrite<Args<'a> = ()>,
-{
-    type Args<'a> = ();
-
-    fn write_options<W: binrw::io::Write + binrw::io::Seek>(
-        &self,
-        writer: &mut W,
-        endian: binrw::Endian,
-        args: Self::Args<'_>,
-    ) -> binrw::BinResult<()> {
-        (self.inner.len() as u32).write_options(writer, endian, args)?;
-        let slice = &self.inner[..self.inner.len()];
-        for item in slice {
-            item.write_options(writer, endian, args)?;
-        }
-        Ok(())
     }
 }
 

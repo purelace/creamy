@@ -1,18 +1,18 @@
 use core::{fmt::Display, str::FromStr};
 
+use creamy_binary::{BinRead, BinWrite};
+
 use crate::error::Fallback;
 
-#[binrw::binrw]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
 pub enum Access {
-    #[brw(magic(0u8))]
     /// Один поставщик - много пользователей
-    Public,
+    Public = 0,
 
     #[default]
-    #[brw(magic(1u8))]
     /// Один поставщик - один пользователей
-    Private,
+    Private = 1,
 }
 
 impl FromStr for Access {

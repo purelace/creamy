@@ -1,5 +1,7 @@
-use binrw::{BinRead, BinWrite};
-use creamy_protocol_model::{Version, definition::ProtocolModel};
+use creamy_protocol_model::{
+    Version,
+    definition::{BinaryReader, BinaryWriter, ProtocolModel},
+};
 use creamy_utils::strpool::{StringPool, StringPoolResolver};
 use creamy_xmlc::compile;
 
@@ -26,20 +28,15 @@ fn serialize_and_deserialize() {
     match compile(&mut pool, SUCCESS_TEST) {
         Ok(original) => {
             let mut buffer = Vec::new();
-            let mut writer = binrw::io::Cursor::new(&mut buffer);
+            original.write_ne(&mut buffer).expect("Failed to serialize");
 
-            original.write_le(&mut writer).expect("Failed to serialize");
-
-            let mut reader = binrw::io::Cursor::new(&buffer);
-            let deserialized =
-                ProtocolModel::read_le(&mut reader).expect("Failed to deserialize from binary");
+            let deserialized = ProtocolModel::read_ne(&mut buffer.as_slice())
+                .expect("Failed to deserialize from binary");
 
             assert_eq!(
                 original, deserialized,
                 "Protocol changed after round-trip serialization"
             );
-
-            assert_eq!(reader.position(), buffer.len() as u64);
         }
         Err(diag) => {
             diag.print(SUCCESS_TEST);

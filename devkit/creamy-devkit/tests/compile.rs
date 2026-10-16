@@ -1,5 +1,6 @@
 use std::io::Write;
 
+use creamy_binary::{BinaryReader, BinaryWriter};
 use creamy_devkit::{BinaryPlugin, compile_to_binary};
 use creamy_template::{Id, Template};
 use semver::Version;
@@ -37,12 +38,14 @@ fn compile_write_read() -> Result<(), Box<dyn core::error::Error + Send + Sync>>
     assert_eq!(package0.models.len(), 1);
     assert!(package0.core().is_empty());
 
-    let mut file = std::fs::File::create(dir.path().join("package.cmy"))?;
-    package0.write_to(&mut file)?;
+    let file = std::fs::File::create(dir.path().join("package.cmy"))?;
+    let mut file = creamy_binary::adapters::FromStd::new(file);
+    package0.write_ne(&mut file)?;
 
-    let mut file = std::fs::File::open(dir.path().join("package.cmy"))?;
+    let file = std::fs::File::open(dir.path().join("package.cmy"))?;
+    let mut file = creamy_binary::adapters::FromStd::new(file);
 
-    let package1 = BinaryPlugin::read_from(&mut file)?;
+    let package1 = BinaryPlugin::read_ne(&mut file)?;
 
     assert_eq!(package0, package1);
 

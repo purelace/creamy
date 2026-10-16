@@ -1,12 +1,7 @@
-use alloc::string::ToString;
-use core::str::FromStr;
-
 use as_guard::AsGuard;
-use binrw::{BinRead, BinWrite};
-use creamy_utils::{
-    BString,
-    strpool::{StringId, StringPool},
-};
+use creamy_binary::{BinRead, BinWrite};
+pub use creamy_binary::{BinaryReader, BinaryWriter};
+use creamy_utils::strpool::{StringId, StringPool};
 use semver::Version;
 
 use super::{
@@ -26,8 +21,6 @@ use crate::{
 #[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
 pub struct ProtocolModel {
     name: StringId,
-    #[br(map = |val: BString| Version::from_str(&val).unwrap())]
-    #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
     version: Version,
     global: GlobalTypesSymbol,
     storage: SymbolStorage,

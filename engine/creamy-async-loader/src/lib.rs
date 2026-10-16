@@ -5,11 +5,10 @@ mod inner;
 mod progress;
 mod watcher;
 
-use std::io::Cursor;
-
+use creamy_binary::ReadError;
 use creamy_engine_core::{
     PluginLoader,
-    devkit::{self, BinaryPlugin},
+    devkit::{self, BinaryPlugin, compiler::model::definition::BinaryReader},
 };
 use tokio::{sync::mpsc::UnboundedReceiver, task::JoinHandle};
 
@@ -22,13 +21,15 @@ pub enum Error {
 
     #[error("{0}")]
     Devkit(#[from] devkit::Error),
+
+    #[error("{0}")]
+    Package(#[from] ReadError<core::convert::Infallible>),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
 
-fn load_package(data: &[u8]) -> Result<BinaryPlugin> {
-    let mut reader = Cursor::new(data);
-    let package = BinaryPlugin::read_from(&mut reader)?;
+fn load_package(mut data: &[u8]) -> Result<BinaryPlugin> {
+    let package = BinaryPlugin::read_ne(&mut data)?;
     tracing::info!(
         "[Loader] Plugin '{name}@{version}' loaded",
         name = package.manifest().name(),

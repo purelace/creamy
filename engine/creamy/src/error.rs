@@ -25,8 +25,9 @@ pub enum PluginError {
         protocol: Box<str>,
         provider: Box<str>,
     },
+
     #[error("{0}")]
-    Binary(#[from] creamy_engine_core::devkit::Error),
+    Binary(#[from] creamy_binary::ReadError<core::convert::Infallible>),
 }
 
 #[derive(Debug, thiserror::Error)]

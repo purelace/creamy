@@ -4,7 +4,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use binrw::{BinRead, BinWrite};
+use creamy_binary::{BinaryReader, BinaryWriter};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Array<T> {
@@ -98,42 +98,31 @@ impl<T> From<Box<[T]>> for Array<T> {
     }
 }
 
-impl<T: BinRead> BinRead for Array<T>
-where
-    T: for<'a> BinRead<Args<'a> = ()>,
-{
-    type Args<'a> = ();
-
-    fn read_options<R: binrw::io::Read + binrw::io::Seek>(
+impl<T: BinaryReader> BinaryReader for Array<T> {
+    fn read<R: creamy_binary::Read, E: creamy_binary::Endianness>(
         reader: &mut R,
-        endian: binrw::Endian,
-        args: Self::Args<'_>,
-    ) -> binrw::BinResult<Self> {
-        let len = u32::read_options(reader, endian, args)? as usize;
+    ) -> Result<Self, creamy_binary::ReadError<R::Error>> {
+        let len = u32::read::<R, E>(reader)? as usize;
         let mut array = Array::<MaybeUninit<T>>::zeroed(len);
         for index in 0..len {
-            array.inner[index] = MaybeUninit::new(T::read_options(reader, endian, args)?);
+            array.inner[index] = MaybeUninit::new(T::read::<R, E>(reader)?);
         }
 
         unsafe { Ok(array.assume_init()) }
     }
 }
 
-impl<T: BinWrite> BinWrite for Array<T>
-where
-    T: for<'a> BinWrite<Args<'a> = ()>,
-{
-    type Args<'a> = ();
-
-    fn write_options<W: binrw::io::Write + binrw::io::Seek>(
+impl<T: BinaryWriter> BinaryWriter for Array<T> {
+    fn write<
+        W: creamy_binary::Write<Error: Send + Sync + 'static>,
+        E: creamy_binary::Endianness,
+    >(
         &self,
         writer: &mut W,
-        endian: binrw::Endian,
-        args: Self::Args<'_>,
-    ) -> binrw::BinResult<()> {
-        (self.inner.len() as u32).write_options(writer, endian, args)?;
+    ) -> Result<(), creamy_binary::WriteError<W::Error>> {
+        (self.inner.len() as u32).write::<W, E>(writer)?;
         for s in &self.inner[..self.inner.len()] {
-            s.write_options(writer, endian, args)?;
+            s.write::<W, E>(writer)?;
         }
         Ok(())
     }

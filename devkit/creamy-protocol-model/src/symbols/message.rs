@@ -1,3 +1,4 @@
+use creamy_binary::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
@@ -9,8 +10,7 @@ use crate::{
     utils::{FieldsRange, MessagesRange, VectorElement},
 };
 
-#[binrw::binrw]
-#[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_MESSAGES, MessagesRange)]
 pub struct MessageSymbol {
     #[token(ident)]
@@ -20,8 +20,7 @@ pub struct MessageSymbol {
     kind: u8,
 }
 
-#[binrw::binrw]
-#[derive(Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_MESSAGES, MessagesRange)]
 pub struct StreamSymbol {
     #[token(ident)]
@@ -39,59 +38,21 @@ pub struct StreamSymbol {
     kind: u8,
 
     /// Head of the message stream.
-    #[br(parse_with = read_opt)]
-    #[bw(write_with = write_opt)]
     head: Option<FieldsRange>,
 
     /// Payload of the message stream.
     payload: FieldsRange,
 
     /// Tail of the message stream
-    #[br(parse_with = read_opt)]
-    #[bw(write_with = write_opt)]
     tail: Option<FieldsRange>,
 }
 
-fn read_opt<T: binrw::BinRead<Args<'static> = ()>, R: binrw::io::Read + binrw::io::Seek>(
-    reader: &mut R,
-    endian: binrw::Endian,
-    _: (),
-) -> binrw::BinResult<Option<T>> {
-    use binrw::BinRead;
-    let has_pos: u8 = <u8>::read_options(reader, endian, ())?;
-    if has_pos != 0 {
-        let data = <T>::read_options(reader, endian, ())?;
-        Ok(Some(data))
-    } else {
-        Ok(None)
-    }
-}
-
-#[allow(clippy::ref_option)]
-fn write_opt<T: binrw::BinWrite<Args<'static> = ()>, W: binrw::io::Write + binrw::io::Seek>(
-    opt: &Option<T>,
-    writer: &mut W,
-    endian: binrw::Endian,
-    _: (),
-) -> binrw::BinResult<()> {
-    use binrw::BinWrite;
-    if let Some(data) = opt {
-        <u8>::write_options(&1u8, writer, endian, ())?;
-        <T>::write_options(data, writer, endian, ())?;
-    } else {
-        <u8>::write_options(&0u8, writer, endian, ())?;
-    }
-    Ok(())
-}
-
-#[binrw::binrw]
-#[derive(Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[key(SymbolKey::Message)]
+#[repr(u8)]
 pub enum MessageSymbolType {
-    #[brw(magic = 0u8)]
-    Single(MessageSymbol),
-    #[brw(magic = 1u8)]
-    Stream(StreamSymbol),
+    Single(MessageSymbol) = 0,
+    Stream(StreamSymbol) = 1,
 }
 
 impl VectorElement for MessageSymbolType {
@@ -134,14 +95,12 @@ impl MessageSymbolType {
 }
 // TODO:
 // Тут надо пересчитать максимальное количество типов.
-#[binrw::binrw]
-#[derive(Symbol, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Symbol, Debug, Clone, Copy, PartialEq, Eq)]
 #[key(SymbolKey::StreamPayloadField)]
+#[repr(u8)]
 pub enum StreamPayloadFieldSymbol {
-    #[brw(magic = 0u8)]
-    Field(FieldSymbol),
-    #[brw(magic = 1u8)]
-    Array(ArrayFieldSymbol),
+    Field(FieldSymbol) = 0,
+    Array(ArrayFieldSymbol) = 1,
 }
 
 impl VectorElement for StreamPayloadFieldSymbol {

@@ -11,6 +11,6 @@ workspace = true
 creamy-utils.workspace = true
 thiserror.workspace = true
 serde.workspace = true
-binrw.workspace = true
 toml.workspace = true
 semver.workspace = true
+creamy-binary = { path = "../creamy-binary", features = ["semver"] }

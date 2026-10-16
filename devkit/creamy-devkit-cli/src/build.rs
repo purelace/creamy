@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use anyhow::Context;
-use creamy_devkit::compile_to_binary;
+use creamy_binary::BinaryWriter;
+use creamy_devkit::{self, compile_to_binary};
 use fs_err as fs;
 use serde::Deserialize;
 
@@ -69,8 +70,9 @@ pub fn build(workdir: Option<String>) -> anyhow::Result<()> {
         .join(binary.manifest().name())
         .with_extension("cmy");
 
-    let mut file = std::fs::File::create(out)?;
+    let file = std::fs::File::create(out.clone())?;
+    let mut file = creamy_binary::adapters::FromStd::new(file);
+    binary.write_ne(&mut file)?;
 
-    binary.write_to(&mut file)?;
     Ok(())
 }

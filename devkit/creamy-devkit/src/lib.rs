@@ -12,17 +12,14 @@ pub mod semver {
     pub use semver::*;
 }
 
-pub mod binrw {
-    pub use binrw::*;
-}
-
 use std::{fs::ReadDir, path::Path, str::FromStr};
 
 use ::semver::Version;
+use creamy_binary::{BinRead, BinWrite};
 use creamy_manifest::Manifest;
 use creamy_xmlc::{
     compile,
-    model::{BString, collections::List, definition::ProtocolModel, strpool::StringPool},
+    model::{definition::ProtocolModel, strpool::StringPool},
 };
 use fs_err as fs;
 
@@ -30,22 +27,19 @@ use self::error::Error::TooManyFiles;
 pub use crate::error::Error;
 
 /// Represents a compiled binary plugin containing metadata, protocol definitions, and core logic.
-#[binrw::binrw]
-#[brw(magic = b"CMY!", little)]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
+#[magic(b"CMY!")]
 pub struct BinaryPlugin {
     /// The semantic version of the plugin.
-    #[br(map = |val: BString| Version::from_str(&val).unwrap())]
-    #[bw(map = |val: &Version| BString::wrap(val.to_string()))]
     pub version: Version,
     /// The manifest containing plugin metadata.
     pub manifest: Manifest,
     /// The string pool used for shared string references.
     pub pool: StringPool,
     /// A list of compiled protocol models.
-    pub models: List<ProtocolModel>,
+    pub models: Vec<ProtocolModel>,
     /// The raw core logic of the plugin.
-    core: List<u8>,
+    core: Vec<u8>,
 }
 
 impl BinaryPlugin {
@@ -65,40 +59,8 @@ impl BinaryPlugin {
     }
 
     #[must_use]
-    pub fn core(&self) -> &[u8] {
+    pub const fn core(&self) -> &[u8] {
         self.core.as_slice()
-    }
-
-    #[cfg(feature = "write")]
-    /// Writes the binary plugin data to a file.
-    ///
-    /// # Errors
-    ///
-    /// If writing fails, an [`Error`](binrw::Error) variant will be returned.
-    pub fn write_to<W: binrw::io::Write + binrw::io::Seek>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), Error> {
-        use binrw::BinWrite;
-
-        use self::error::BinRwError;
-
-        self.write(writer).map_err(BinRwError::from)?;
-        Ok(())
-    }
-
-    #[cfg(feature = "read")]
-    /// Loads a `BinaryPlugin` from the specified reader.
-    ///
-    /// # Errors
-    ///
-    /// If reading fails, an [`Error`](binrw::Error) variant will be returned.
-    pub fn read_from<R: binrw::io::Read + binrw::io::Seek>(reader: &mut R) -> Result<Self, Error> {
-        use binrw::BinRead;
-
-        use self::error::BinRwError;
-
-        Ok(Self::read(reader).map_err(BinRwError::from)?)
     }
 }
 
@@ -132,7 +94,7 @@ pub fn compile_to_binary(
         let dir = std::fs::read_dir(definitions_path)?;
         compile_protocols(dir, &mut pool)?
     } else {
-        List::default()
+        vec![]
     };
 
     Ok(BinaryPlugin {
@@ -140,11 +102,11 @@ pub fn compile_to_binary(
         manifest,
         pool,
         models,
-        core: List::wrap(module),
+        core: module,
     })
 }
 
-fn compile_protocols(dir: ReadDir, pool: &mut StringPool) -> Result<List<ProtocolModel>, Error> {
+fn compile_protocols(dir: ReadDir, pool: &mut StringPool) -> Result<Vec<ProtocolModel>, Error> {
     let files = dir
         .flatten()
         .filter(|e| e.path().extension().is_some_and(|p| p == "xml"))
@@ -155,7 +117,7 @@ fn compile_protocols(dir: ReadDir, pool: &mut StringPool) -> Result<List<Protoco
         return Err(TooManyFiles);
     };
 
-    let mut protocols = List::with_capacity(len);
+    let mut protocols = Vec::with_capacity(len as usize);
     for path in files {
         let content = fs::read_to_string(path)?;
         protocols.push(compile(pool, &content).unwrap());

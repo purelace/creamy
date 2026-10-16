@@ -1,20 +1,18 @@
+use creamy_binary::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
 use super::ArraySymbol;
 use crate::{constraints::MAX_FIELDS, storage::SymbolKey, table::TypeId, utils::FieldsRange};
 
-#[binrw::binrw]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum FieldType {
-    #[brw(magic(0u8))]
-    Type(TypeId),
-    #[brw(magic(1u8))]
-    Array(ArraySymbol),
+    Type(TypeId) = 0,
+    Array(ArraySymbol) = 1,
 }
 
-#[binrw::binrw]
-#[derive(Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_FIELDS, FieldsRange)]
 #[key(SymbolKey::Field)]
 pub struct FieldSymbol {

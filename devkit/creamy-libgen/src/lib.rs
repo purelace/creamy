@@ -8,9 +8,7 @@ pub mod devkit {
 
 pub mod proxy;
 mod utils;
-use std::{
-    borrow::Cow, collections::HashMap, ffi::OsString, io::Cursor, path::PathBuf, str::FromStr,
-};
+use std::{borrow::Cow, collections::HashMap, ffi::OsString, path::PathBuf, str::FromStr};
 
 use creamy_devkit::{
     compiler::{
@@ -18,7 +16,7 @@ use creamy_devkit::{
         model::{
             Direction,
             constraints::{HEADER_BYTES, MAX_PAYLOAD},
-            definition::ProtocolModel,
+            definition::{BinaryWriter, ProtocolModel},
             strpool::{StringId, StringPool, StringPoolResolver},
             symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
         },
@@ -313,8 +311,7 @@ impl Codegen {
     fn generate_host_package<'s, G: CodeGenerator<'s>>(creamy_dir: PathBuf, generator: &mut G) {
         let binary = creamy_devkit::compile_to_binary(creamy_dir, vec![]).unwrap();
         let mut vec = vec![];
-        let mut cursor = Cursor::new(&mut vec);
-        binary.write_to(&mut cursor).unwrap();
+        binary.write_ne(&mut vec).unwrap();
 
         generator.generate_host_package(vec);
     }
