@@ -116,20 +116,42 @@ pub enum DynEndianness {
 }
 
 pub trait DynBinaryWrite {
+    /// Writes the [`Self`] into the dyn writer using the specified endian byte order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Writer fails to write data.
+    /// - Can't write the specified type.
     fn dyn_write(
         &self,
         endian: DynEndianness,
         writer: &mut DynWriter,
     ) -> Result<(), WriteError<DynError>>;
 
+    /// Writes the [`Self`] into the dyn writer using little endian byte order.
+    ///
+    /// # Errors
+    ///
+    /// See [`dyn_write`] method.
     fn dyn_write_le(&self, writer: &mut DynWriter) -> Result<(), WriteError<DynError>> {
         self.dyn_write(DynEndianness::Little, writer)
     }
 
+    /// Writes the [`Self`] into the dyn writer using big endian byte order.
+    ///
+    /// # Errors
+    ///
+    /// See [`dyn_write`] method.
     fn dyn_write_be(&self, writer: &mut DynWriter) -> Result<(), WriteError<DynError>> {
         self.dyn_write(DynEndianness::Big, writer)
     }
 
+    /// Writes the [`Self`] into the dyn writer using native endian byte order.
+    ///
+    /// # Errors
+    ///
+    /// See [`dyn_write`] method.
     fn dyn_write_ne(&self, writer: &mut DynWriter) -> Result<(), WriteError<DynError>> {
         self.dyn_write(DynEndianness::Native, writer)
     }
