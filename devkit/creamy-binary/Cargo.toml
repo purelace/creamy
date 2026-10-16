@@ -1,0 +1,42 @@
+[package]
+name = "creamy-binary"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+embedded-io = { version = "0.7.1", features=["alloc"] }
+thiserror.workspace = true
+smallvec = "1.16.3"
+paste = "1.0.15"
+impl-trait-for-tuples = "0.2.3"
+
+smol_str = { workspace = true, optional = true}
+semver = {workspace = true, optional = true}
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+creamy-binary-derive.workspace = true
+
+[features]
+std = ["embedded-io/std"]
+smol_str = ["dep:smol_str"]
+semver = ["dep:semver"]
+
+#[[test]]
+#name = "general"
+#required-features = ["std"]
+
+[[test]]
+name = "vec"
+required-features = ["std"]
+
+[[test]]
+name = "smol_str"
+required-features = ["smol_str"]
+
+[[test]]
+name = "semver"
+required-features = ["semver"]

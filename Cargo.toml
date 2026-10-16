@@ -48,7 +48,7 @@ members = [
     "examples/ping",
     "examples/pong",
     "examples/shell",
-    "examples/shell/commands/*", "devkit/creamy-protocol-model-macros", "devkit/creamy-protocol-model",
+    "examples/shell/commands/*", "devkit/creamy-protocol-model-macros", "devkit/creamy-protocol-model", "devkit/creamy-binary", "devkit/creamy-binary-derive",
 ]
 
 [workspace.dependencies]
@@ -67,6 +67,8 @@ creamy-sdk = { path = "devkit/creamy-sdk" }
 creamy-template = { path = "devkit/creamy-template" }
 creamy-protocol-model = { path = "devkit/creamy-protocol-model" }
 creamy-protocol-model-macros = { path = "devkit/creamy-protocol-model-macros"}
+creamy-binary = { path = "devkit/creamy-binary" }
+creamy-binary-derive = { path = "devkit/creamy-binary-derive" }
 
 # Engine
 creamy = { path = "engine/creamy" }
@@ -80,7 +82,7 @@ anyhow = "1.0.104"
 as-guard = "0.1.0"
 idmint = { version = "0.2.2", features = ["stack"] }
 static_assertions = "1.1.0"
-cfg-if = "1.0.4"
+cfg-if = "1.0.5"
 criterion = { version = "0.8.2", features = ["html_reports"] }
 bitflags = "2.13.2"
 tempfile = "3.27.0"
@@ -88,7 +90,7 @@ tracing = { version = "0.1.44", default-features = false, features = ["attribute
 tracing-subscriber = "0.3.23"
 downcast-rs = { version = "2.0.2", default-features = false }
 binrw = { version = "0.15.2", default-features = false }
-thiserror = { version = "2.0.20", default-features = false }
+thiserror = { version = "2.0.21", default-features = false }
 roxmltree = "0.21.1"
 strum = { version = "0.28.0", features = ["derive"] }
 ptree = "0.5.2"
@@ -98,17 +100,21 @@ inotify = "0.11.5"
 hashbrown = "0.17.1"
 smol_str = { version = "0.3.6", default-features = false }
 
+quote = "1.0.47"
+syn = { version = "3.0.9", features = ["full"] }
+proc-macro2 = "1.0.107"
+
 [workspace.dependencies.serde]
 version = "1.0.229"
 default-features = false
 features = ["derive"]
 
 [workspace.dependencies.clap]
-version = "4.6.6"
+version = "4.6.7"
 features = ["derive"]
 default-features = true
 
 [workspace.dependencies.toml]
-version = "1.1.6"
+version = "1.1.8"
 default-features = false
 features = ["serde", "parse"]

@@ -11,6 +11,6 @@ workspace = true
 proc-macro = true
 
 [dependencies]
-quote = "1.0.47"
-syn = "3.0.5"
-proc-macro2 = "1.0.107"
+syn.workspace = true
+quote.workspace = true
+proc-macro2.workspace = true
