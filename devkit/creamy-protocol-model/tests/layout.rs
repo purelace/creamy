@@ -1,7 +1,7 @@
 use creamy_protocol_model::{
     Size,
     constraints::HEADER_BYTES,
-    layout::{LayoutCalculator, compute_layout},
+    layout::LayoutCalculator,
     symbols::{ArraySymbol, FieldSymbol, FieldType, T_I16_ID, T_I128_ID, T_U8_ID, T_U32_ID},
 };
 use creamy_utils::strpool::StringId;

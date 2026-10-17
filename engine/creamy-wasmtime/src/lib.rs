@@ -100,6 +100,11 @@ pub struct WasmtimeRuntime {
 }
 
 impl WasmtimeRuntime {
+    /// Creates a new [`WasmtimeRuntime`].
+    ///
+    /// # Errors
+    ///
+    /// See [`wasmtime::engine::Engine::new()`].
     pub fn new(heap_size: u32) -> Result<Self, RuntimeError> {
         let mut config = Config::default();
         let mut pooling = PoolingAllocationConfig::new();

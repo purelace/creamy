@@ -1,4 +1,3 @@
-use creamy_binary::{BinaryReader, BinaryWriter};
 use creamy_protocol_model::{Size, error::SemanticError};
 
 #[test]
@@ -19,16 +18,3 @@ fn validate() {
     let result = Size::try_new(10);
     assert!(result.is_ok_and(|v| v.value() == 10));
 }
-
-//#[test]
-//fn serialization() -> Result<(), Box<dyn core::error::Error>> {
-//    let mut buffer = vec![];
-//    let size = Size::try_new(10)?;
-//
-//    size.write_ne(&mut buffer)?;
-//
-//    let result = Size::read_ne(&mut buffer.as_slice())?;
-//    assert_eq!(size, result);
-//
-//    Ok(())
-//}

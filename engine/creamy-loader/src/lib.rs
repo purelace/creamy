@@ -27,6 +27,11 @@ pub struct Loader {
 }
 
 impl Loader {
+    /// Creates a new [`Loader`]
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the underlying inotify instance fails to initialize.
     pub fn new(directory: impl AsRef<Path>) -> Result<Self, std::io::Error> {
         Ok(Self {
             watcher: FileWatcher::new(directory.as_ref())?,
