@@ -131,12 +131,13 @@ fn impl_reader_for_enum(base: TokenContext, repr: Repr, s: &DataEnum) -> proc_ma
         impl #impl_generics creamy_binary::BinaryReader for #name #ty_generics #where_clause {
             fn read<R: creamy_binary::Read, E: creamy_binary::Endianness>(reader: &mut R)
                 -> Result<Self, creamy_binary::ReadError<R::Error>> {
+                    extern crate alloc;
                     #magic
                     let value = #ident::read::<R, E>(reader)?;
                     match value {
                         #(#variants)*
                         _ => Err(creamy_binary::ReadError::Custom(creamy_binary::CustomError {
-                            message: format!("Unknown discriminant: {value}"),
+                            message: alloc::format!("Unknown discriminant: {value}"),
                             error: None,
                         }))
                     }
