@@ -10,21 +10,19 @@ pub mod proxy;
 mod utils;
 use std::{borrow::Cow, collections::HashMap, ffi::OsString, path::PathBuf, str::FromStr};
 
-use creamy_devkit::{
-    compiler::{
-        compile,
-        model::{
-            Direction,
-            constraints::{HEADER_BYTES, MAX_PAYLOAD},
-            definition::{BinaryWriter, ProtocolModel},
-            strpool::{StringId, StringPool, StringPoolResolver},
-            symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
-        },
-    },
-    manifest::Manifest,
-};
+use creamy_devkit::manifest::Manifest;
 pub use creamy_phf::PerfectHashTable;
 use creamy_phf::generate_perfect_hash_table;
+use creamy_xmlc::{
+    compile,
+    model::{
+        Direction,
+        constraints::{HEADER_BYTES, MAX_PAYLOAD},
+        definition::{BinaryWriter, ProtocolModel},
+        strpool::{StringId, StringPool, StringPoolResolver},
+        symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
+    },
+};
 pub use utils::Path;
 
 use self::{
@@ -309,7 +307,8 @@ impl Codegen {
     }
 
     fn generate_host_package<'s, G: CodeGenerator<'s>>(creamy_dir: PathBuf, generator: &mut G) {
-        let binary = creamy_devkit::compile_to_binary(creamy_dir, vec![]).unwrap();
+        let binary =
+            creamy_devkit::compilation::compile_to_binary(creamy_dir, Box::default()).unwrap();
         let mut vec = vec![];
         binary.write_ne(&mut vec).unwrap();
 

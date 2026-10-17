@@ -1,19 +1,19 @@
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("`.creamy` directory not found")]
     MissingDirectory,
 
     #[error("{0}")]
-    IO(#[from] std::io::Error),
-
-    #[error("{0}")]
     Manifest(#[from] creamy_manifest::ManifestError),
 
     #[error("{0}")]
-    Binary(Box<dyn core::error::Error + Send + Sync + 'static>),
+    Binary(alloc::boxed::Box<dyn core::error::Error + Send + Sync + 'static>),
 
+    #[cfg(feature = "compile")]
     #[error("Too many files")]
     TooManyFiles,
+
+    #[cfg(feature = "compile")]
+    #[error("{0}")]
+    IO(#[from] std::io::Error),
 }

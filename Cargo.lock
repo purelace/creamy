@@ -784,7 +784,9 @@ version = "0.1.0"
 dependencies = [
  "creamy-binary",
  "creamy-manifest",
+ "creamy-protocol-model",
  "creamy-template",
+ "creamy-utils",
  "creamy-xmlc",
  "fs-err",
  "semver",
@@ -804,6 +806,7 @@ dependencies = [
  "creamy-devkit",
  "creamy-protocol-tui",
  "creamy-template",
+ "creamy-xmlc",
  "fs-err",
  "predicates",
  "rustyline",
@@ -829,6 +832,7 @@ dependencies = [
  "anyhow",
  "creamy-devkit",
  "creamy-phf",
+ "creamy-xmlc",
 ]
 
 [[package]]

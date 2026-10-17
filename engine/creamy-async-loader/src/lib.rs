@@ -5,10 +5,10 @@ mod inner;
 mod progress;
 mod watcher;
 
-use creamy_binary::ReadError;
+use creamy_binary::{BinaryReader, ReadError};
 use creamy_engine_core::{
     PluginLoader,
-    devkit::{self, BinaryPlugin, compiler::model::definition::BinaryReader},
+    devkit::{self, BinaryPlugin},
 };
 use tokio::{sync::mpsc::UnboundedReceiver, task::JoinHandle};
 

@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use creamy_devkit::compiler::model::{
+use creamy_xmlc::model::{
     FinishedTypeTable, Size,
     definition::LayoutCalculator,
     strpool::{StringPool, StringPoolResolver},

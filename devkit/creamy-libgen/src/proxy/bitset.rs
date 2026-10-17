@@ -1,4 +1,4 @@
-use creamy_devkit::compiler::model::{
+use creamy_xmlc::model::{
     TypeId,
     strpool::{StringPool, StringPoolResolver},
     symbols::{

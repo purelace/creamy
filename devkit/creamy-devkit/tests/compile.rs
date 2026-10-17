@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use creamy_binary::{BinaryReader, BinaryWriter};
-use creamy_devkit::{BinaryPlugin, compile_to_binary};
+use creamy_devkit::{BinaryPlugin, compilation::compile_to_binary};
 use creamy_template::{Id, Template};
 use semver::Version;
 
@@ -33,7 +33,7 @@ fn compile_write_read() -> Result<(), Box<dyn core::error::Error + Send + Sync>>
         std::fs::File::create(dir.path().join("example/.creamy/definitions/testcase.xml"))?;
     write!(file, "{PROTOCOL}")?;
 
-    let package0 = compile_to_binary(dir.path().join("example"), vec![])?;
+    let package0 = compile_to_binary(dir.path().join("example"), Box::default())?;
     assert_eq!(package0.version(), &Version::new(0, 1, 0));
     assert_eq!(package0.models.len(), 1);
     assert_eq!(package0.core(), &[] as &[u8]);

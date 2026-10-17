@@ -8,8 +8,10 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-creamy-binary = {path = "../creamy-binary", features = ["std"]}
-creamy-devkit.workspace = true
+creamy-binary = { path = "../creamy-binary", features = ["std"] }
+creamy-devkit = { path = "../creamy-devkit", features = ["compile"]}
+creamy-xmlc.workspace = true
+
 creamy-protocol-tui.workspace = true
 creamy-template.workspace = true
 clap.workspace = true

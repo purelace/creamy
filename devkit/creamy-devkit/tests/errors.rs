@@ -1,11 +1,11 @@
-use creamy_devkit::{Error, compile_to_binary};
+use creamy_devkit::{Error, compilation::compile_to_binary};
 use creamy_template::{Id, Template};
 
 #[test]
 fn missing_directory_error() -> Result<(), Box<dyn core::error::Error>> {
     let dir = tempfile::tempdir()?;
     std::fs::create_dir(dir.path().join("example"))?;
-    let result = compile_to_binary(dir.path().join("example"), vec![]);
+    let result = compile_to_binary(dir.path().join("example"), Box::default());
     assert!(matches!(result, Err(Error::MissingDirectory)));
 
     Ok(())
@@ -15,7 +15,7 @@ fn missing_directory_error() -> Result<(), Box<dyn core::error::Error>> {
 fn not_a_file() -> Result<(), Box<dyn core::error::Error>> {
     let dir = tempfile::tempdir()?;
     std::fs::create_dir_all(dir.path().join("example/.creamy/manifest.toml"))?;
-    let result = compile_to_binary(dir.path().join("example"), vec![]);
+    let result = compile_to_binary(dir.path().join("example"), Box::default());
     assert!(matches!(result, Err(Error::IO(_))));
 
     Ok(())
@@ -26,7 +26,7 @@ fn not_a_directory() -> Result<(), Box<dyn core::error::Error>> {
     let dir = tempfile::tempdir()?;
     std::fs::create_dir_all(dir.path().join("example/.creamy"))?;
     std::fs::File::create_new(dir.path().join("example/.creamy/definitions"))?;
-    let result = compile_to_binary(dir.path().join("example"), vec![]);
+    let result = compile_to_binary(dir.path().join("example"), Box::default());
     assert!(matches!(result, Err(Error::IO(_))));
 
     Ok(())
@@ -52,7 +52,7 @@ fn missing_manifest() -> Result<(), Box<dyn core::error::Error>> {
             .join("manifest.toml"),
     )?;
 
-    let result = compile_to_binary(dir.path().join("example"), vec![]);
+    let result = compile_to_binary(dir.path().join("example"), Box::default());
     assert!(matches!(result, Err(Error::IO(_))));
     Ok(())
 }

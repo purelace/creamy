@@ -13,11 +13,11 @@ use creamy_engine_core::{
     },
     devkit::{
         BinaryPlugin,
-        compiler::model::{
+        manifest::{Package, RequestedProtocol},
+        model::{
             definition::{BinaryReader, ProtocolModel},
             strpool::{StringPool, StringPoolResolver},
         },
-        manifest::{Package, RequestedProtocol},
     },
 };
 use hashbrown::HashMap;

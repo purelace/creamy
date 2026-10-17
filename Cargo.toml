@@ -78,6 +78,13 @@ creamy-loader = { path = "engine/creamy-loader" }
 creamy-wasmtime= { path = "engine/creamy-wasmtime" }
 pathenv = { path = "engine/pathenv" }
 
+# no_std
+thiserror = { version = "2.0.21", default-features = false }
+downcast-rs = { version = "2.0.2", default-features = false }
+semver = { version = "1.0.28", default-features = false, features = ["serde"] }
+smol_str = { version = "0.3.6", default-features = false }
+
+
 anyhow = "1.0.104"
 as-guard = "0.1.0"
 idmint = { version = "0.2.2", features = ["stack"] }
@@ -88,15 +95,11 @@ bitflags = "2.13.2"
 tempfile = "3.27.0"
 tracing = { version = "0.1.44", default-features = false, features = ["attributes"] }
 tracing-subscriber = "0.3.23"
-downcast-rs = { version = "2.0.2", default-features = false }
-thiserror = { version = "2.0.21", default-features = false }
 roxmltree = "0.21.1"
 strum = { version = "0.28.0", features = ["derive"] }
 ptree = "0.5.2"
 console = "0.16.6"
-semver = { version = "1.0.28", default-features = false, features = ["serde"] }
 inotify = "0.11.5"
-smol_str = { version = "0.3.6", default-features = false }
 
 hashbrown = { version = "0.17.1", features = ["serde"] }
 

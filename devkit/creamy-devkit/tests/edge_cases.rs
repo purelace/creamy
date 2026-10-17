@@ -1,4 +1,4 @@
-use creamy_devkit::compile_to_binary;
+use creamy_devkit::compilation::compile_to_binary;
 use creamy_template::{Id, Template};
 
 #[test]
@@ -21,6 +21,6 @@ fn missing_definitions_directory() -> Result<(), Box<dyn core::error::Error>> {
             .join("definitions"),
     )?;
 
-    compile_to_binary(dir.path().join("example"), vec![])?;
+    compile_to_binary(dir.path().join("example"), Box::default())?;
     Ok(())
 }

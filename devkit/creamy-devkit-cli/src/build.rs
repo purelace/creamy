@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::Context;
 use creamy_binary::BinaryWriter;
-use creamy_devkit::{self, compile_to_binary};
+use creamy_devkit::compilation::compile_to_binary;
 use fs_err as fs;
 use serde::Deserialize;
 
@@ -65,7 +65,7 @@ pub fn build(workdir: Option<String>) -> anyhow::Result<()> {
     let output_file = workdir.join(&output_path).join("module.optimized.wasm");
     optimize_wasm_module(&workdir, &output_file, &configuration)?;
 
-    let binary = compile_to_binary(workdir, fs::read(&output_file)?)?;
+    let binary = compile_to_binary(workdir, fs::read(&output_file)?.into_boxed_slice())?;
     let out = output_path
         .join(binary.manifest().name())
         .with_extension("cmy");
