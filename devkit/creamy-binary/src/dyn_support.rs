@@ -5,18 +5,22 @@ use embedded_io::{ErrorType, Write};
 use crate::{BinaryWriter, WriteError};
 
 pub struct DynError(Box<dyn embedded_io::Error + Send + Sync + 'static>);
+
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl core::fmt::Debug for DynError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.0.fmt(f)
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl core::fmt::Display for DynError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.0.fmt(f)
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl core::error::Error for DynError {
     fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         self.0.source()
@@ -33,6 +37,7 @@ impl core::error::Error for DynError {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl embedded_io::Error for DynError {
     fn kind(&self) -> embedded_io::ErrorKind {
         self.0.kind()
@@ -55,6 +60,7 @@ where
     type Error = DynError;
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl<W> Write for WriterInstance<'_, W>
 where
     W: Write,
@@ -98,6 +104,7 @@ impl embedded_io::ErrorType for DynWriter<'_> {
     type Error = DynError;
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl Write for DynWriter<'_> {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         self.0.write(buf)

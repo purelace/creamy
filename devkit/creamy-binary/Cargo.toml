@@ -11,24 +11,26 @@ thiserror.workspace = true
 smallvec = "1.16.3"
 paste = "1.0.15"
 impl-trait-for-tuples = "0.2.3"
+hashbrown = { version = "0.17.1", default-features = false, features = ["alloc", "inline-more", "raw-entry", "core"] }
 
 smol_str = { workspace = true, optional = true}
 semver = { workspace = true, optional = true }
-hashbrown = { version = "0.17.1", default-features = false, optional = true, features = ["alloc", "inline-more", "raw-entry", "core"] }
 embedded-io-adapters = { version = "0.7.0" , optional = true, features = ["std"] }
 
 [lints]
 workspace = true
 
 [features]
-default = ["hash"]
-std = ["embedded-io/std", "embedded-io-adapters"]
+std = ["embedded-io/std", "embedded-io-adapters", "hashbrown/default-hasher"]
 smol_str = ["dep:smol_str"]
 semver = ["dep:semver", "smol_str"]
-hash = ["hashbrown"]
 
 [[test]]
 name = "vec"
+required-features = ["std"]
+
+[[test]]
+name = "hashmap"
 required-features = ["std"]
 
 [[test]]

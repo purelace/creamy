@@ -7,7 +7,6 @@ mod smol_str;
 #[cfg(feature = "semver")]
 mod semver;
 
-#[cfg(feature = "hash")]
 mod hash;
 
 #[cfg(feature = "std")]
