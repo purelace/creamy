@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use core::{fmt::Debug, num::NonZeroU8};
 
-use creamy_engine_core::devkit::model::{
+use creamy_engine_core::package::model::{
     Access,
     definition::ProtocolModel,
     strpool::{StringId, StringPool},

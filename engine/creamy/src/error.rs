@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 
-use creamy_engine_core::devkit::version::Version;
+use creamy_engine_core::package::version::Version;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PluginError {

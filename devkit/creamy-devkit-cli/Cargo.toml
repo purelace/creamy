@@ -9,7 +9,7 @@ workspace = true
 
 [dependencies]
 creamy-binary = { path = "../creamy-binary", features = ["std"] }
-creamy-devkit = { path = "../creamy-devkit", features = ["compile"]}
+creamy-plugin-package = { path = "../creamy-plugin-package", features = ["compile"]}
 creamy-xmlc.workspace = true
 
 creamy-protocol-tui.workspace = true

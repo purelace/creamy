@@ -15,7 +15,7 @@ mod utils;
 
 use std::{borrow::Cow, fmt::Write as FmtWrite, io::Write as IoWrite};
 
-use creamy_libgen::devkit::model::symbols::PrimitiveRepr;
+use creamy_libgen::package::model::symbols::PrimitiveRepr;
 use heck::ToSnakeCase;
 pub use libgen::Target;
 use libgen::{

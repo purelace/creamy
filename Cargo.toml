@@ -24,7 +24,7 @@ members = [
     "bus/cbus",
     "bus/cbus-core",
 
-    "devkit/creamy-devkit",
+    "devkit/creamy-plugin-package",
     "devkit/creamy-devkit-cli",
     "devkit/creamy-libgen",
     "devkit/creamy-libgen-rs",
@@ -55,7 +55,7 @@ members = [
 cbus = { path = "bus/cbus" }
 cbus-core = { path = "bus/cbus-core" }
 
-creamy-devkit = { path = "devkit/creamy-devkit" }
+creamy-plugin-package = { path = "devkit/creamy-plugin-package" }
 creamy-libgen = { path = "devkit/creamy-libgen" }
 creamy-libgen-rs = { path = "devkit/creamy-libgen-rs" }
 creamy-manifest = { path = "devkit/creamy-manifest" }

@@ -8,7 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-creamy-devkit.workspace = true
+creamy-plugin-package.workspace = true
 serde.workspace = true
 cbus.workspace = true
 creamy-phf.workspace = true

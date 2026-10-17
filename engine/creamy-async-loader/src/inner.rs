@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, atomic::AtomicUsize},
 };
 
-use creamy_engine_core::{PACKAGE_FILE_EXTENSION, devkit::BinaryPlugin};
+use creamy_engine_core::{PACKAGE_FILE_EXTENSION, package::BinaryPlugin};
 use inotify::{Event, EventMask};
 use tokio::{
     io::AsyncReadExt,

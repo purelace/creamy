@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::Context;
 use creamy_binary::BinaryWriter;
-use creamy_devkit::compilation::compile_to_binary;
+use creamy_plugin_package::compilation::compile_to_binary;
 use fs_err as fs;
 use serde::Deserialize;
 

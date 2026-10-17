@@ -1,4 +1,4 @@
-use creamy_devkit::compilation::compile_to_binary;
+use creamy_plugin_package::compilation::compile_to_binary;
 use creamy_template::{Id, Template};
 
 #[test]

@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use creamy_binary::{BinaryReader, BinaryWriter};
-use creamy_devkit::{BinaryPlugin, compilation::compile_to_binary};
+use creamy_plugin_package::{BinaryPlugin, compilation::compile_to_binary};
 use creamy_template::{Id, Template};
 use semver::Version;
 

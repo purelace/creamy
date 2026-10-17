@@ -11,7 +11,7 @@ use creamy_engine_core::{
             buffer::{IncBuf, OutBuf, SharedBuf},
         },
     },
-    devkit::{
+    package::{
         BinaryPlugin,
         manifest::{Package, RequestedProtocol},
         model::{

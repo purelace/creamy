@@ -8,7 +8,7 @@ mod watcher;
 use creamy_binary::{BinaryReader, ReadError};
 use creamy_engine_core::{
     PluginLoader,
-    devkit::{self, BinaryPlugin},
+    package::{self, BinaryPlugin},
 };
 use tokio::{sync::mpsc::UnboundedReceiver, task::JoinHandle};
 
@@ -20,7 +20,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
 
     #[error("{0}")]
-    Devkit(#[from] devkit::Error),
+    Devkit(#[from] package::Error),
 
     #[error("{0}")]
     Package(#[from] ReadError<core::convert::Infallible>),

@@ -3,16 +3,16 @@
 use core::{num::NonZeroU8, ptr::NonNull};
 
 use cbus::{config::BusConfig, core::Subscriber};
-use creamy_devkit::BinaryPlugin;
 use creamy_phf::get_hash;
+use creamy_plugin_package::BinaryPlugin;
 use serde::Deserialize;
 
 pub mod bus {
     pub use cbus::*;
 }
 
-pub mod devkit {
-    pub use creamy_devkit::*;
+pub mod package {
+    pub use creamy_plugin_package::*;
 }
 
 pub const PACKAGE_FILE_EXTENSION: &str = "cmy";

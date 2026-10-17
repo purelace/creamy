@@ -2,17 +2,17 @@
 #![allow(clippy::missing_panics_doc)]
 #![allow(clippy::cast_possible_truncation)]
 
-pub mod devkit {
-    pub use creamy_devkit::*;
+pub mod package {
+    pub use creamy_plugin_package::*;
 }
 
 pub mod proxy;
 mod utils;
 use std::{borrow::Cow, collections::HashMap, ffi::OsString, path::PathBuf, str::FromStr};
 
-use creamy_devkit::manifest::Manifest;
 pub use creamy_phf::PerfectHashTable;
 use creamy_phf::generate_perfect_hash_table;
+use creamy_plugin_package::manifest::Manifest;
 use creamy_xmlc::{
     compile,
     model::{
@@ -308,7 +308,8 @@ impl Codegen {
 
     fn generate_host_package<'s, G: CodeGenerator<'s>>(creamy_dir: PathBuf, generator: &mut G) {
         let binary =
-            creamy_devkit::compilation::compile_to_binary(creamy_dir, Box::default()).unwrap();
+            creamy_plugin_package::compilation::compile_to_binary(creamy_dir, Box::default())
+                .unwrap();
         let mut vec = vec![];
         binary.write_ne(&mut vec).unwrap();
 

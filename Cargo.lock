@@ -779,22 +779,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "creamy-devkit"
-version = "0.1.0"
-dependencies = [
- "creamy-binary",
- "creamy-manifest",
- "creamy-protocol-model",
- "creamy-template",
- "creamy-utils",
- "creamy-xmlc",
- "fs-err",
- "semver",
- "tempfile",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "creamy-devkit-cli"
 version = "0.1.0"
 dependencies = [
@@ -803,7 +787,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "creamy-binary",
- "creamy-devkit",
+ "creamy-plugin-package",
  "creamy-protocol-tui",
  "creamy-template",
  "creamy-xmlc",
@@ -820,8 +804,8 @@ name = "creamy-engine-core"
 version = "0.1.0"
 dependencies = [
  "cbus",
- "creamy-devkit",
  "creamy-phf",
+ "creamy-plugin-package",
  "serde",
 ]
 
@@ -830,8 +814,8 @@ name = "creamy-libgen"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "creamy-devkit",
  "creamy-phf",
+ "creamy-plugin-package",
  "creamy-xmlc",
 ]
 
@@ -871,6 +855,22 @@ name = "creamy-phf"
 version = "0.1.0"
 dependencies = [
  "seedable_hash",
+]
+
+[[package]]
+name = "creamy-plugin-package"
+version = "0.1.0"
+dependencies = [
+ "creamy-binary",
+ "creamy-manifest",
+ "creamy-protocol-model",
+ "creamy-template",
+ "creamy-utils",
+ "creamy-xmlc",
+ "fs-err",
+ "semver",
+ "tempfile",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -2682,8 +2682,8 @@ version = "0.1.0"
 dependencies = [
  "creamy",
  "creamy-async-loader",
- "creamy-devkit",
  "creamy-libgen-rs",
+ "creamy-plugin-package",
  "creamy-wasmtime",
  "tokio",
  "tracing-subscriber",

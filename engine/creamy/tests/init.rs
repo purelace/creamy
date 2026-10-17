@@ -1,10 +1,10 @@
 use std::{env, num::NonZeroU8};
 
 use creamy::{
-    core::{Constants, devkit::version::Version},
+    core::{Constants, package::version::Version},
     engine::PluginEngine,
 };
-use creamy_engine_core::{bus::define_bus_config, devkit::pool::StringPoolResolver};
+use creamy_engine_core::{bus::define_bus_config, package::pool::StringPoolResolver};
 use creamy_loader::Loader;
 use creamy_wasmtime::WasmtimeRuntime;
 use pathenv::to_absolute_path;

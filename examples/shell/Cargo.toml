@@ -17,4 +17,4 @@ tokio = "1.53.1"
 
 [build-dependencies]
 creamy-libgen-rs.workspace = true
-creamy-devkit.workspace = true
+creamy-plugin-package.workspace = true

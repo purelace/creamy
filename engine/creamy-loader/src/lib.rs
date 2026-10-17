@@ -3,7 +3,7 @@ mod watcher;
 use std::path::{Path, PathBuf};
 
 use creamy_binary::BinaryReader;
-use creamy_engine_core::{PluginLoader, devkit::BinaryPlugin};
+use creamy_engine_core::{PluginLoader, package::BinaryPlugin};
 
 use self::watcher::FileWatcher;
 
