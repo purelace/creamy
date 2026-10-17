@@ -1,11 +1,15 @@
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+#![no_std]
+
+extern crate alloc;
 
 mod error;
 
-use std::collections::HashMap;
+use alloc::{string::String, vec::Vec};
 
 use creamy_binary::{BinRead, BinWrite};
 pub use error::ManifestError;
+use hashbrown::HashMap;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 
@@ -126,8 +130,10 @@ impl Manifest {
 
 #[cfg(test)]
 mod test {
-    use std::{assert_matches, collections::HashMap};
+    use alloc::vec;
+    use core::assert_matches;
 
+    use hashbrown::HashMap;
     use semver::Version;
 
     use crate::{Manifest, ManifestError, Package, RequestedProtocol};

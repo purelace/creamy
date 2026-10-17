@@ -96,8 +96,9 @@ ptree = "0.5.2"
 console = "0.16.6"
 semver = { version = "1.0.28", default-features = false, features = ["serde"] }
 inotify = "0.11.5"
-hashbrown = "0.17.1"
 smol_str = { version = "0.3.6", default-features = false }
+
+hashbrown = { version = "0.17.1", features = ["serde"] }
 
 quote = "1.0.47"
 syn = { version = "3.0.9", features = ["full"] }
