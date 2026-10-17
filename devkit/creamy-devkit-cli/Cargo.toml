@@ -17,7 +17,7 @@ creamy-template.workspace = true
 clap.workspace = true
 serde.workspace = true
 toml.workspace = true
-rustyline = "18.0.1"
+rustyline = "19.0.0"
 anyhow.workspace = true
 fs-err = { version = "3.3.2", features = ["debug"] }
 
