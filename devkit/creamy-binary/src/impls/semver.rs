@@ -6,6 +6,34 @@ use smol_str::SmolStr;
 
 use crate::{BinaryReader, BinaryWriter, CustomError, Endianness, ReadError, WriteError};
 
+struct VersionError(semver::Error);
+
+impl core::fmt::Debug for VersionError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl core::fmt::Display for VersionError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl core::error::Error for VersionError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        None
+    }
+
+    fn description(&self) -> &'static str {
+        "description() is deprecated; use Display"
+    }
+
+    fn cause(&self) -> Option<&dyn core::error::Error> {
+        self.source()
+    }
+}
+
 impl BinaryReader for Version {
     fn read<R: Read, E: Endianness>(reader: &mut R) -> Result<Self, ReadError<R::Error>> {
         let major = u64::read::<R, E>(reader)?;
@@ -21,13 +49,13 @@ impl BinaryReader for Version {
             pre: Prerelease::new(pre.as_str()).map_err(|e| {
                 ReadError::Custom(CustomError {
                     message: "version error".into(),
-                    error: Some(Box::new(e)),
+                    error: Some(Box::new(VersionError(e))),
                 })
             })?,
             build: BuildMetadata::new(build.as_str()).map_err(|e| {
                 ReadError::Custom(CustomError {
                     message: "version error".into(),
-                    error: Some(Box::new(e)),
+                    error: Some(Box::new(VersionError(e))),
                 })
             })?,
         })

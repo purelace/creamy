@@ -98,7 +98,7 @@ pub fn compile_to_binary(
     };
 
     Ok(BinaryPlugin {
-        version: Version::from_str(env!("CARGO_PKG_VERSION"))?,
+        version: Version::from_str(env!("CARGO_PKG_VERSION")).expect("Unreachable"),
         manifest,
         pool,
         models,

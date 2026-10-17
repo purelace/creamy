@@ -855,6 +855,7 @@ version = "0.1.0"
 dependencies = [
  "creamy-binary",
  "creamy-utils",
+ "hashbrown 0.17.1",
  "semver",
  "serde",
  "thiserror 2.0.21",

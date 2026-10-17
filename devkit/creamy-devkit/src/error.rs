@@ -12,9 +12,6 @@ pub enum Error {
     Manifest(#[from] creamy_manifest::ManifestError),
 
     #[error("{0}")]
-    Version(#[from] semver::Error),
-
-    #[error("{0}")]
     Binary(Box<dyn core::error::Error + Send + Sync + 'static>),
 
     #[error("Too many files")]
