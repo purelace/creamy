@@ -41,9 +41,7 @@ impl<const S: usize, const M: usize> SystemPlugin<S, M> {
     #[must_use]
     pub fn new(inc: IncBuf<M>, out: OutBuf<M>) -> Self {
         let mut buffer: Box<[Option<SmolStr>; S]> = unsafe { Box::new_zeroed().assume_init() };
-        for element in buffer.iter_mut() {
-            *element = None;
-        }
+        buffer.fill(None);
 
         Self {
             inc,
