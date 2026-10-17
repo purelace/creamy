@@ -54,10 +54,15 @@ pub struct EnumSymbol {
 }
 
 impl EnumSymbol {
+    /// Returns the [`TypeMeta`] of the [`EnumSymbol`] instance.
+    ///
+    /// # Errors
+    ///
+    /// See [`TypeMeta`].
     pub const fn meta(&self) -> Result<TypeMeta, SemanticError> {
         let ty = self.repr.as_numberic_symbol();
         let size = ty.size();
         let align = ty.align();
-        TypeMeta::new(size, align)
+        TypeMeta::try_new(size, align)
     }
 }

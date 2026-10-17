@@ -49,20 +49,11 @@ impl<T: VectorElement> BoundedVec<T> {
         }
     }
 
-    #[must_use]
-    pub fn with_capacity(capacity: u32) -> Self {
-        assert!(
-            capacity as usize <= T::MAX_SIZE,
-            "Passed capacity: {capacity}, MAX_SIZE: {}",
-            T::MAX_SIZE
-        );
-        Self {
-            inner: Vec::with_capacity(capacity as usize),
-        }
-    }
-
+    /// Tries to add an item
+    ///
     /// # Returns
-    /// Возвращает ``true`` если элемент успешно добавлен, иначе ``false``
+    /// `true` if item added successfully
+    /// `false` if collection is full. The given item will be dropped.
     #[must_use]
     pub fn push(&mut self, item: T) -> bool {
         if self.inner.len() >= T::MAX_SIZE {

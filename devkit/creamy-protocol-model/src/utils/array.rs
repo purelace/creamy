@@ -14,7 +14,7 @@ pub struct Array<T> {
 impl<T> Array<T> {
     /// # Panics
     ///
-    /// Panics if ``count`` argument is more than array length.
+    /// Panics if `count` argument is more than array length.
     pub fn trim(&mut self, count: usize) {
         let len = self.inner.len();
         if len == count {
@@ -33,6 +33,11 @@ impl<T> Array<T> {
                 count,                   // Количество элементов для перемещения
             );
         }
+    }
+
+    #[must_use]
+    pub const fn as_slice(&self) -> &[T] {
+        &self.inner
     }
 }
 
@@ -71,24 +76,6 @@ impl<T> Array<MaybeUninit<T>> {
         let ptr = Box::into_raw(self.inner) as *mut [T];
         let inner = unsafe { Box::from_raw(ptr) };
         Array { inner }
-    }
-
-    /// Returns a reference to the underlying data as a slice of initialized elements.
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure that:
-    /// 1. All elements in the array have been fully initialized.
-    /// 2. The memory layout of `T` is compatible with the initialized data.
-    ///
-    /// Accessing uninitialized elements through the resulting slice is Undefined Behavior.
-    /// Since this returns a reference, the original `Array` must outlive the slice,
-    /// and the data must not be modified in a way that invalidates `T` while the slice exists.
-    #[must_use]
-    pub unsafe fn assume_init_ref_slice(&self) -> &[T] {
-        let ptr = self.inner.as_ptr().cast::<T>();
-        let len = self.inner.len();
-        unsafe { core::slice::from_raw_parts(ptr, len) }
     }
 }
 

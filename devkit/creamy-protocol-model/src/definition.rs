@@ -11,9 +11,8 @@ use super::{
 use crate::{
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     error::SemanticError,
-    symbols::{
-        BitsetValueSymbol, FieldSymbol, FieldType, GroupSymbol, OptionSymbol, Type, VariantSymbol,
-    },
+    layout::compute_layout,
+    symbols::{BitsetValueSymbol, FieldSymbol, GroupSymbol, OptionSymbol, Type, VariantSymbol},
     table::{FinishedTypeTable, TypeMeta},
     utils::{BitsetValuesRange, FieldsRange, MessagesRange, OptionsRange, VariantsRange},
 };
@@ -122,24 +121,19 @@ impl ProtocolModel {
     #[must_use]
     pub fn get_struct_paddings(fields: &[FieldSymbol]) -> u8 {
         let mut paddings = 0;
-        compute_layout::<()>(HEADER_BYTES, fields, |_, l| {
+        compute_layout(HEADER_BYTES, fields, |_, l| {
             paddings += l.padding;
-            Ok(())
-        })
-        .unwrap();
+        });
         paddings
     }
 
     fn get_meta(fields: &[FieldSymbol], reserved: u8) -> Result<TypeMeta, SemanticError> {
         let mut max_align = 1usize;
-        let mut total_size = compute_layout::<()>(reserved, fields, |_, l| {
+        let mut total_size = compute_layout(reserved, fields, |_, l| {
             if l.align as usize > max_align {
                 max_align = l.align as usize;
             }
-
-            Ok(())
-        })
-        .unwrap() as usize;
+        }) as usize;
 
         let tail_padding = (max_align - (total_size % max_align)) % max_align;
         total_size += tail_padding;
@@ -151,7 +145,7 @@ impl ProtocolModel {
 
         assert!(u8::try_from(max_align).is_ok());
 
-        TypeMeta::new(total_size.safe_as::<u8>(), max_align.safe_as::<u8>())
+        TypeMeta::try_new(total_size.safe_as::<u8>(), max_align.safe_as::<u8>())
     }
 
     pub fn get_message_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
@@ -160,22 +154,6 @@ impl ProtocolModel {
 
     pub fn get_struct_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
         Self::get_meta(fields, 0)
-    }
-
-    pub fn group_iter<E>(
-        &self,
-        mut f: impl FnMut(GroupSymbol, &[MessageSymbolType], &[Type]) -> Result<(), E>,
-    ) -> Result<(), E> {
-        self.groups()
-            .iter()
-            .map(|g| {
-                (
-                    g,
-                    self.message_range(g.messages()),
-                    self.types_for_group(*g),
-                )
-            })
-            .try_for_each(|(g, m, t)| f(*g, m, t))
     }
 
     pub fn replace_identifiers(&mut self, from: &StringPool, to: &mut StringPool) {
@@ -196,7 +174,6 @@ impl ProtocolModel {
         }
 
         replace!(self.name);
-        //replace_symbol!(&mut self.global);
 
         for symbol in self.storage.get_symbol_slice_mut::<GroupSymbol>() {
             replace_symbol!(symbol);
@@ -231,108 +208,4 @@ impl ProtocolModel {
 
         self.table.replace_identifiers(from, to);
     }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct LayoutStep {
-    pub size: u8,
-    pub align: u8,
-    pub padding: u8,
-    pub offset: u8,
-}
-
-#[derive(Clone)]
-pub struct LayoutCalculator<I: Iterator<Item = FieldSymbol>> {
-    total_size: u8,
-    fields: I,
-}
-
-impl<I: Iterator<Item = FieldSymbol>> LayoutCalculator<I> {
-    #[must_use]
-    pub const fn new(reserved: u8, fields: I) -> Self {
-        Self {
-            total_size: reserved,
-            fields,
-        }
-    }
-
-    #[must_use]
-    pub const fn total_size(&self) -> u8 {
-        self.total_size
-    }
-}
-
-impl<I: Iterator<Item = FieldSymbol>> Iterator for LayoutCalculator<I> {
-    type Item = (FieldSymbol, LayoutStep);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(field) = self.fields.next() {
-            let type_id = field.type_id();
-            let align = type_id.align().value();
-
-            let size = match field.kind() {
-                FieldType::Type(sym) => sym.size().value(),
-                FieldType::Array(array) => {
-                    let kind_size = array.kind().size().value();
-                    let array_len = array.len().value();
-                    kind_size * array_len
-                }
-            };
-
-            let padding = (align - (self.total_size % align)) % align;
-
-            let step = LayoutStep {
-                size,
-                align,
-                padding,
-                offset: self.total_size + padding,
-            };
-
-            //TODO: overflow
-            self.total_size += padding + size;
-
-            Some((field, step))
-        } else {
-            None
-        }
-    }
-}
-
-pub fn compute_layout<E>(
-    reserved: u8,
-    fields: &[FieldSymbol],
-    mut f: impl FnMut(&FieldSymbol, LayoutStep) -> Result<(), E>,
-) -> Result<u8, E> {
-    let mut total_size = reserved;
-
-    for field in fields {
-        let type_id = field.type_id();
-        let align = type_id.align().value();
-
-        let size = match field.kind() {
-            FieldType::Type(sym) => sym.size().value(),
-            FieldType::Array(array) => {
-                let kind_size = array.kind().size().value();
-                let array_len = array.len().value();
-                kind_size * array_len
-            }
-        };
-
-        let padding = (align - (total_size % align)) % align;
-
-        f(
-            field,
-            LayoutStep {
-                size,
-                align,
-                padding,
-                offset: total_size + padding,
-            },
-        )?;
-
-        //TODO: overflow
-        total_size += padding + size;
-    }
-
-    Ok(total_size)
 }

@@ -2,14 +2,14 @@ mod access;
 mod align;
 mod array;
 mod direction;
-mod macros;
+pub mod layout;
 mod ranges;
 mod size;
 mod vec;
 
 pub use access::Access;
 pub use align::Align;
-pub use array::Array;
+pub(crate) use array::Array;
 pub use creamy_utils::*;
 pub use direction::Direction;
 pub use ranges::*;

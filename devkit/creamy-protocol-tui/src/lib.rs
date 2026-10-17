@@ -117,7 +117,7 @@ pub fn show_memory_layout(
     let meta = ProtocolModel::get_struct_meta(fields).unwrap();
     let finished_report = report.finish(
         meta.size().value() as usize,
-        meta.align().value() as usize,
+        meta.align().size() as usize,
         ProtocolModel::get_struct_paddings(fields) as usize,
     );
     finished_report.print_tree();
@@ -136,7 +136,7 @@ fn make_flat_report(
     for field in fields {
         let tid = field.type_id();
         let size = tid.size().value();
-        let align = tid.align().value();
+        let align = tid.align().size();
 
         let padding = (align - (total_size % align)) % align;
         total_size += padding + size;
@@ -196,7 +196,7 @@ fn make_report(
     for field in fields {
         let tid = field.type_id();
         let size = tid.size().value();
-        let align = tid.align().value();
+        let align = tid.align().size();
 
         let padding = (align - (total_size % align)) % align;
         total_size += padding + size;

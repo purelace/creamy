@@ -21,6 +21,7 @@ macro_rules! define_readonly_range {
                 self.start
             }
 
+            #[allow(clippy::len_without_is_empty)]
             pub const fn len(&self) -> $len_type {
                 self.len
             }

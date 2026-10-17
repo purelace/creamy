@@ -17,7 +17,7 @@ pub enum Align {
 
 impl Align {
     #[must_use]
-    pub const fn value(self) -> u8 {
+    pub const fn size(self) -> u8 {
         match self {
             Align::B1 => 1,
             Align::B2 => 2,
@@ -28,19 +28,20 @@ impl Align {
     }
 
     #[must_use]
-    pub const fn to_raw(value: u8) -> u8 {
+    //TODO: make infallible
+    pub const fn discriminant_from_size(value: u8) -> u8 {
         match value {
             1 => 0,
             2 => 1,
             4 => 2,
             8 => 3,
             16 => 4,
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
     }
 
     #[must_use]
-    pub const fn raw_value(self) -> u8 {
+    pub const fn discriminant(self) -> u8 {
         unsafe { core::mem::transmute(self) }
     }
 }

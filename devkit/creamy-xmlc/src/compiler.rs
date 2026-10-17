@@ -240,7 +240,7 @@ impl<'a> Resolver<'a> {
             FieldTypeNode::Type(name) => FieldType::Type(self.tt.get_type_by_name(name).unwrap()),
             FieldTypeNode::Array(array) => {
                 let kind = self.tt.get_type_by_name(array.kind()).unwrap();
-                let size = Size::new(array.size());
+                let size = Size::try_new(array.size());
                 FieldType::Array(ArraySymbol::new(kind, size.or_recover(self.diag)))
             }
         };
@@ -558,7 +558,7 @@ impl<'a> Resolver<'a> {
             }
 
             let bytes = total_bits.div_ceil(8);
-            let meta = TypeMeta::new(bytes as u8, 1).or_recover(self.diag);
+            let meta = TypeMeta::try_new(bytes as u8, 1).or_recover(self.diag);
 
             let symbol = if has_errors {
                 BitsetSymbol::new(f.ident(), BitsetValuesRange::new(0, 0))

@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use creamy_xmlc::model::{
     FinishedTypeTable, Size,
-    definition::LayoutCalculator,
+    layout::LayoutCalculator,
     strpool::{StringPool, StringPoolResolver},
     symbols::{
         ArraySymbol, FieldSymbol, FieldType, T_U8_ID, get_builtin_type_name, is_builtin_type,
@@ -153,7 +153,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
                         //TODO: use get_padding_kind function
                         kind: self.get_field_kind(FieldType::Array(ArraySymbol::new(
                             T_U8_ID,
-                            Size::new(diff).expect("Unreachable!"),
+                            Size::try_new(diff).expect("Unreachable!"),
                         ))),
                         is_padding: true,
                     })

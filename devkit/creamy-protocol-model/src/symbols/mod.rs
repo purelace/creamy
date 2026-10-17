@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, coverage(off))]
+
 mod enumeration;
 mod field;
 mod message;

@@ -192,7 +192,7 @@ impl BinaryReader for SymbolStorage {
     ) -> Result<Self, creamy_binary::ReadError<R::Error>> {
         let mut map = create_storage();
         let length = u32::read::<R, E>(reader)?;
-        assert!(length as usize == map.len());
+        assert_eq!(length as usize, map.len());
 
         for _ in 0..length {
             let key = SymbolKey::read::<R, E>(reader)?;

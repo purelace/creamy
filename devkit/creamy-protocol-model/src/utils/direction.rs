@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, coverage(off))]
+
 use core::str::FromStr;
 
 use creamy_binary::{BinRead, BinWrite};

@@ -25,7 +25,7 @@ impl Debug for TypeMeta {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TypeMeta")
             .field("size", &self.size().value())
-            .field("align", &self.align().value())
+            .field("align", &self.align().size())
             .finish()
     }
 }
@@ -57,10 +57,20 @@ impl TypeMeta {
     /// * Align: 16 byte
     pub const S16B_A16B: Self = TypeMeta::new_raw_with_assert(16, 4);
 
+    /// Tries to wrap raw size and alignment values into a safe object.
+    ///
+    /// Allowed values:
     /// * Size: 0 < ``size`` <= 28
     /// * Align: ``[1, 2, 4, 8, 16]``
-    #[cfg_attr(coverage_nightly, coverage(off))]
-    pub const fn new(size: u8, align: u8) -> Result<Self, SemanticError> {
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if
+    /// * size == 0
+    /// * size > [`Size::MAX_VALUE`]
+    /// * align != 2^k
+    /// * align > 16
+    pub const fn try_new(size: u8, align: u8) -> Result<Self, SemanticError> {
         if size == 0 || size > Size::MAX_VALUE {
             return Err(SemanticError::InvalidSize {
                 actual: size as usize,
@@ -76,32 +86,10 @@ impl TypeMeta {
         }
 
         let size = size << 3;
-        let value = size | Align::to_raw(align);
+        let value = size | Align::discriminant_from_size(align);
         Ok(Self { value })
     }
 
-    /*
-       /// * Size: 0 < ``size`` <= 28
-       /// * Align: ``[0, 1, 2, 3, 4]``
-       const fn new_raw(size: u8, align: u8) -> Result<Self, ProtocolError> {
-           if size == 0 || size > Size::MAX_VALUE {
-               return Err(ProtocolError::InvalidSize(size as usize));
-           }
-           if align > 3 {
-               return Err(ProtocolError::ForbiddenRawAlign(align));
-           }
-
-           let size = size << 3;
-           let value = size | align;
-           Ok(Self { value })
-       }
-
-       pub const fn new_typed(size: Size, align: Align) -> Result<Self, ProtocolError> {
-           let size = size.value();
-           let align = align.raw_value();
-           Self::new_raw(size, align)
-       }
-    */
     const fn new_raw_with_assert(size: u8, align: u8) -> Self {
         assert!(size <= Size::MAX_VALUE);
         assert!(align <= 4);
@@ -112,14 +100,27 @@ impl TypeMeta {
 
     pub(crate) const fn new_with_assert(size: Size, align: Align) -> Self {
         let size = size.value();
-        let align = align.raw_value();
+        let align = align.discriminant();
         Self::new_raw_with_assert(size, align)
     }
 
+    #[must_use]
+    // TODO: const
     pub fn size(self) -> Size {
-        Size::new(self.value >> 3).expect("unreachable!")
+        cfg_select! {
+            debug_assertions => {
+                #[allow(clippy::missing_panics_doc)]
+                Size::try_new(self.value >> 3).expect("Unreachable!")
+            }
+            _ => {
+                unsafe {
+                    Size::new_unchecked(self.value >> 3)
+                }
+            }
+        }
     }
 
+    #[must_use]
     pub const fn align(self) -> Align {
         let value = self.value & 0b0000_0111;
         unsafe { core::mem::transmute(value) }
@@ -251,6 +252,7 @@ impl TypeTable {
         instance
     }
 
+    #[must_use]
     pub fn get_type_by_name(&self, name: StringId) -> Option<TypeId> {
         self.inner.get(&name).copied()
     }
@@ -271,14 +273,17 @@ impl TypeTable {
         self.meta.inner[group_usize] += 1;
     }
 
+    #[must_use]
     pub fn contains_name(&self, name: StringId) -> bool {
         self.inner.contains_key(&name)
     }
 
+    #[must_use]
     pub fn finish(mut self) -> FinishedTypeTable {
         assert_eq!(self.meta.total_used(), self.types.len());
         let types = unsafe { self.types.assume_init() };
         self.meta.inner.trim(self.meta.count as usize + 1);
+
         FinishedTypeTable {
             meta: self.meta,
             types,
@@ -305,8 +310,8 @@ impl FinishedTypeTable {
     }
 
     #[must_use]
-    pub fn types(&self) -> &[Type] {
-        &self.types
+    pub const fn types(&self) -> &[Type] {
+        self.types.as_slice()
     }
 
     #[must_use]
