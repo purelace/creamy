@@ -43,6 +43,7 @@ pub fn compile_to_binary(
     };
 
     Ok(BinaryPlugin {
+        #[allow(clippy::missing_panics_doc)]
         version: Version::from_str(env!("CARGO_PKG_VERSION")).expect("Unreachable"),
         manifest,
         pool,
