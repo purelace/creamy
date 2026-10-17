@@ -148,10 +148,22 @@ impl ProtocolModel {
         TypeMeta::try_new(total_size.safe_as::<u8>(), max_align.safe_as::<u8>())
     }
 
+    /// Calculates [`TypeMeta`] for the given slice of fields, reserving [`HEADER_BYTES`] for the message header.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// * calculated size > [`MAX_PAYLOAD`]
     pub fn get_message_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
         Self::get_meta(fields, HEADER_BYTES)
     }
 
+    /// Calculates [`TypeMeta`] for the given slice of fields with no bytes reservation.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// * calculated size > [`MAX_PAYLOAD`]
     pub fn get_struct_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
         Self::get_meta(fields, 0)
     }

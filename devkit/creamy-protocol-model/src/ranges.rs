@@ -21,6 +21,13 @@ impl Display for RangePackedU32 {
 }
 
 impl RangePackedU32 {
+    /// Creates a new [`RangePackedU32`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    /// * `start` > 2^27
+    /// * `len` > 28
     #[must_use]
     pub const fn new(start: u32, len: u8) -> Self {
         assert!(start <= 2u32.pow(27));
