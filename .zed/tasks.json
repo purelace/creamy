@@ -16,12 +16,9 @@
     ],
   },
   {
-    "label": "Code coverage",
+    "label": "[Workspace] Code coverage",
     "command": "cargo",
-    "env": {
-      "RUSTFLAGS": "-C instrument-coverage",
-    },
-    "args": ["llvm-cov", "--html", "--open"],
+    "args": ["+nightly", "llvm-cov", "--all-features", "--doctests", "--html", "--open"],
   },
   {
     "label": "Install Creamy Devkit CLI",
