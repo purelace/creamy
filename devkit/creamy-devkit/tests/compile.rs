@@ -34,7 +34,7 @@ fn compile_write_read() -> Result<(), Box<dyn core::error::Error + Send + Sync>>
     write!(file, "{PROTOCOL}")?;
 
     let package0 = compile_to_binary(dir.path().join("example"), Box::default())?;
-    assert_eq!(package0.version(), &Version::new(0, 1, 0));
+    assert_eq!(&package0.version, &Version::new(0, 1, 0));
     assert_eq!(package0.models.len(), 1);
     assert_eq!(package0.core(), &[] as &[u8]);
 

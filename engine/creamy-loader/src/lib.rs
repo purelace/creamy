@@ -15,8 +15,8 @@ fn load_file(path: PathBuf) -> Result<BinaryPlugin, std::io::Error> {
     let package = BinaryPlugin::read_ne(&mut file).unwrap();
     tracing::info!(
         "[Loader] Plugin '{name}@{version}' loaded",
-        name = package.manifest().name(),
-        version = package.version()
+        name = package.manifest.name(),
+        version = package.version
     );
     Ok(package)
 }

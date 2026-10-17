@@ -67,7 +67,7 @@ pub fn build(workdir: Option<String>) -> anyhow::Result<()> {
 
     let binary = compile_to_binary(workdir, fs::read(&output_file)?.into_boxed_slice())?;
     let out = output_path
-        .join(binary.manifest().name())
+        .join(binary.manifest.name())
         .with_extension("cmy");
 
     let file = std::fs::File::create(out.clone())?;

@@ -32,8 +32,8 @@ fn load_package(mut data: &[u8]) -> Result<BinaryPlugin> {
     let package = BinaryPlugin::read_ne(&mut data)?;
     tracing::info!(
         "[Loader] Plugin '{name}@{version}' loaded",
-        name = package.manifest().name(),
-        version = package.version()
+        name = package.manifest.name(),
+        version = package.version
     );
     Ok(package)
 }

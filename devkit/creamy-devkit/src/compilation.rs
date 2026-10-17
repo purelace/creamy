@@ -52,6 +52,11 @@ pub fn compile_to_binary(
     })
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
+fn get_files_len(files_count: usize) -> Result<u32, Error> {
+    u32::try_from(files_count).map_err(|_| Error::TooManyFiles)
+}
+
 fn compile_protocols(dir: fs::ReadDir, pool: &mut StringPool) -> Result<Vec<ProtocolModel>, Error> {
     let files = dir
         .flatten()
@@ -59,9 +64,7 @@ fn compile_protocols(dir: fs::ReadDir, pool: &mut StringPool) -> Result<Vec<Prot
         .map(|e| e.path())
         .collect::<Vec<_>>();
 
-    let Ok(len) = u32::try_from(files.len()) else {
-        return Err(Error::TooManyFiles);
-    };
+    let len = get_files_len(files.len())?;
 
     let mut protocols = Vec::with_capacity(len as usize);
     for path in files {

@@ -1,3 +1,4 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(not(feature = "compile"), no_std)]
 
 extern crate alloc;
@@ -50,21 +51,6 @@ pub struct BinaryPlugin {
 }
 
 impl BinaryPlugin {
-    #[must_use]
-    pub const fn version(&self) -> &Version {
-        &self.version
-    }
-
-    #[must_use]
-    pub const fn manifest(&self) -> &Manifest {
-        &self.manifest
-    }
-
-    #[must_use]
-    pub const fn string_pool(&self) -> &StringPool {
-        &self.pool
-    }
-
     #[must_use]
     pub const fn core(&self) -> &[u8] {
         &self.core
