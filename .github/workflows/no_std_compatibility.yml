@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "bus/core/**"
+      - "core/**"
   pull_request:
     branches: [main]
     paths:
-      - "bus/core/**"
+      - "core/**"
 
 env:
   CARGO_TERM_COLOR: always
