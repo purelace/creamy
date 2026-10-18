@@ -2,7 +2,7 @@
 
 set -eo pipefail
 
-TARGET="thumbv7m-none-eabi"
+TARGET="wasm32-unknown-unknown"
 
 packages=$(cargo metadata --format-version 1 --no-deps | jq -r '
   .packages[]
