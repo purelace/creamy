@@ -36,6 +36,10 @@ fn run_custom_builder() -> anyhow::Result<()> {
         cmd.env("RUSTUP_HOME", rustup_home);
     }
 
+    if let Some(toolchain) = env::var_os("RUSTUP_TOOLCHAIN") {
+        cmd.env("RUSTUP_TOOLCHAIN", toolchain);
+    }
+
     if cfg!(windows) {
         if let Some(userprofile) = env::var_os("USERPROFILE") {
             cmd.env("USERPROFILE", userprofile);
