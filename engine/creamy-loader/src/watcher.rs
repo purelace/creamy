@@ -66,7 +66,7 @@ impl FileWatcher {
         })
     }
 
-    pub fn try_read_events<'a>(&'a mut self) -> Result<FileIterator<'a>, std::io::Error> {
+    pub fn try_read_events(&mut self) -> Result<FileIterator<'_>, std::io::Error> {
         Ok(FileIterator {
             directory: self.directory.clone(),
             iter: self.inotify.read_events(&mut self.buffer)?,

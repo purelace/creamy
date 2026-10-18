@@ -13,8 +13,10 @@ crate-type = ["rlib", "staticlib"]
 [dependencies]
 cbus-core.workspace = true
 thiserror.workspace = true
-rlsf = "0.2.3"
 spin = "0.12.3"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+rlsf = "0.2.3"
 
 [build-dependencies]
 creamy-libgen-rs.workspace = true

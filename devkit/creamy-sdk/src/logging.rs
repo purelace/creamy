@@ -161,7 +161,7 @@ macro_rules! debug {
         $crate::logging::send_log(
             format_args!($($arg)*),
             $crate::generated::system::builtin::LogType::Debug
-        );
+        )
     };
 }
 
@@ -171,7 +171,7 @@ macro_rules! info {
         $crate::logging::send_log(
             format_args!($($arg)*),
             $crate::logging::LogType::Info
-        );
+        )
     };
 }
 
@@ -181,7 +181,7 @@ macro_rules! warn {
         $crate::logging::send_log(
             format_args!($($arg)*),
             $crate::logging::LogType::Warning
-        );
+        )
     };
 }
 
@@ -191,6 +191,6 @@ macro_rules! error {
         $crate::logging::send_log(
             format_args!($($arg)*),
             $crate::logging::LogType::Error
-        );
+        )
     };
 }
