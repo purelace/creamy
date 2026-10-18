@@ -89,7 +89,6 @@ anyhow = "1.0.104"
 as-guard = "0.1.0"
 idmint = { version = "0.2.2", features = ["stack"] }
 static_assertions = "1.1.0"
-cfg-if = "1.0.5"
 criterion = { version = "0.8.2", features = ["html_reports"] }
 bitflags = "2.13.2"
 tempfile = "3.27.0"

@@ -1,5 +1,5 @@
-cfg_if::cfg_if! {
-    if #[cfg(target_feature = "avx512f")] {
+cfg_select! {
+    target_feature = "avx512f" => {
         mod avx512;
         mod avx2;
         mod sse41;
@@ -17,7 +17,8 @@ cfg_if::cfg_if! {
             4..8  => [sse41   | Sse41InstructionSet],
             1..4  => [scalar  | ScalarInstructionSet]
         }
-    } else if #[cfg(target_feature = "avx2")] {
+    }
+    target_feature = "avx2" => {
         mod avx2;
         mod sse41;
 
@@ -33,7 +34,8 @@ cfg_if::cfg_if! {
             4..8   => [sse41    | Sse41InstructionSet],
             1..4   => [scalar | ScalarInstructionSet]
         }
-    } else if #[cfg(target_feature = "sse4.1")] {
+    }
+    target_feature = "sse4.1" => {
         mod sse41;
 
         use sse41::Sse41InstructionSet;
@@ -46,7 +48,8 @@ cfg_if::cfg_if! {
             4..128 => [sse41    | Sse41InstructionSet],
             1..4   => [scalar | ScalarInstructionSet],
         }
-    } else {
+    }
+    _ => {
         use super::generic::ScalarInstructionSet;
         define_strategy! {
             Fallback,

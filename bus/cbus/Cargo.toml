@@ -12,5 +12,4 @@ cbus-core.workspace = true
 as-guard.workspace = true
 idmint.workspace = true
 thiserror.workspace = true
-cfg-if.workspace = true
 tracing.workspace = true

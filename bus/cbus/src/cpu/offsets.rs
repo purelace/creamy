@@ -1,5 +1,5 @@
-cfg_if::cfg_if! {
-    if #[cfg(target_feature = "avx512f")] {
+cfg_select! {
+    target_feature = "avx512f" => {
         pub const MAX_SLICE_SIZE: usize = 5;
         #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct Offsets {
@@ -9,7 +9,8 @@ cfg_if::cfg_if! {
             pub scalar: u8,
             pub ignore: u8,
         }
-    } else if #[cfg(target_feature = "avx2")] {
+    }
+    target_feature = "avx2" => {
         pub const MAX_SLICE_SIZE: usize = 5;
         #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct Offsets {
@@ -19,7 +20,8 @@ cfg_if::cfg_if! {
             pub scalar: u8,
             pub ignore: u8,
         }
-    } else if #[cfg(target_feature = "sse4.1")] {
+    }
+    target_feature = "sse4.1" => {
         pub const MAX_SLICE_SIZE: usize = 4;
         #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct Offsets {
@@ -28,7 +30,8 @@ cfg_if::cfg_if! {
             pub scalar: u8,
             pub ignore: u8,
         }
-    } else {
+    }
+    _ => {
         pub const MAX_SLICE_SIZE: usize = 3;
         #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct Offsets {
