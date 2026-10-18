@@ -1,0 +1,33 @@
+name: No std compatibility check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "bus/core/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "bus/core/**"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  Tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Install Rust
+        run: rustup update stable
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Run script
+        run: "chmod +x ./.github/workflows/scripts/check.sh && ./.github/workflows/scripts/check.sh"
