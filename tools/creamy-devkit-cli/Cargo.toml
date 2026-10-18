@@ -8,8 +8,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-creamy-binary = { path = "../creamy-binary", features = ["std"] }
-creamy-plugin-package = { path = "../creamy-plugin-package", features = ["compile"]}
+creamy-binary = { path = "../../core/creamy-binary", features = ["std"] }
+creamy-plugin-package = { path = "../../core/creamy-plugin-package", features = ["compile"]}
 creamy-xmlc.workspace = true
 
 creamy-protocol-tui.workspace = true

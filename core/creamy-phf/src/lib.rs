@@ -4,14 +4,12 @@
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
-use core::hash::Hasher;
-
-use seedable_hash::{BuildDefaultSeededHasher, BuildSeededHasher};
+use core::hash::{BuildHasher, Hasher};
 
 #[must_use]
 pub fn get_hash(seed: u64, value: &[u8]) -> u64 {
-    let builder = BuildDefaultSeededHasher::default();
-    let mut hasher = builder.build_hasher(seed);
+    let builder = wyhash::WyHasherBuilder::new(seed);
+    let mut hasher = builder.build_hasher();
     core::hash::Hasher::write(&mut hasher, value);
     hasher.finish()
 }

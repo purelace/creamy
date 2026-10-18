@@ -1,21 +1,5 @@
 [
   {
-    "label": "DevKit tests",
-    "command": "cargo",
-    "env": {
-      "RUSTFLAGS": "-C instrument-coverage -Z coverage-options=condition",
-    },
-    "args": [
-      "+nightly",
-      "llvm-cov",
-      "--html",
-      "--package",
-      "creamy-compiler",
-      "--package",
-      "compiler-utils",
-    ],
-  },
-  {
     "label": "[Workspace] Code coverage",
     "command": "cargo",
     "args": ["+nightly", "llvm-cov", "--all-features", "--doctests", "--html", "--open"],
@@ -28,7 +12,7 @@
       "install",
       "creamy-devkit-cli",
       "--path",
-      "devkit/creamy-devkit-cli",
+      "tools/creamy-devkit-cli",
     ],
   },
 ]

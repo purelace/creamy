@@ -24,18 +24,23 @@ members = [
     "bus/cbus",
     "bus/cbus-core",
 
-    "devkit/creamy-plugin-package",
-    "devkit/creamy-devkit-cli",
-    "devkit/creamy-libgen",
-    "devkit/creamy-libgen-rs",
-    "devkit/creamy-manifest",
-    "devkit/creamy-protocol-tui",
-    "devkit/creamy-phf",
-    "devkit/creamy-sdk",
-    "devkit/creamy-template",
-    "devkit/creamy-utils",
-    "devkit/creamy-xmlc",
-    "devkit/creamy-phf",
+    "core/creamy-protocol-model-macros",
+    "core/creamy-protocol-model",
+    "core/creamy-binary",
+    "core/creamy-binary-derive",
+    "core/creamy-plugin-package",
+    "core/creamy-manifest",
+    "core/creamy-phf",
+    "core/creamy-sdk",
+    "core/creamy-utils",
+    "core/creamy-phf",
+
+    "tools/creamy-devkit-cli",
+    "tools/creamy-protocol-tui",
+    "tools/creamy-libgen",
+    "tools/creamy-libgen-rs",
+    "tools/creamy-template",
+    "tools/creamy-xmlc",
 
     "engine/creamy",
     "engine/creamy-cbus-driver",
@@ -48,27 +53,28 @@ members = [
     "examples/ping",
     "examples/pong",
     "examples/shell",
-    "examples/shell/commands/*", "devkit/creamy-protocol-model-macros", "devkit/creamy-protocol-model", "devkit/creamy-binary", "devkit/creamy-binary-derive",
+    "examples/shell/commands/*",
 ]
 
 [workspace.dependencies]
 cbus = { path = "bus/cbus" }
 cbus-core = { path = "bus/cbus-core" }
 
-creamy-plugin-package = { path = "devkit/creamy-plugin-package" }
-creamy-libgen = { path = "devkit/creamy-libgen" }
-creamy-libgen-rs = { path = "devkit/creamy-libgen-rs" }
-creamy-manifest = { path = "devkit/creamy-manifest" }
-creamy-protocol-tui = { path = "devkit/creamy-protocol-tui" }
-creamy-utils = { path = "devkit/creamy-utils" }
-creamy-xmlc = { path = "devkit/creamy-xmlc" }
-creamy-phf = { path = "devkit/creamy-phf" }
-creamy-sdk = { path = "devkit/creamy-sdk" }
-creamy-template = { path = "devkit/creamy-template" }
-creamy-protocol-model = { path = "devkit/creamy-protocol-model" }
-creamy-protocol-model-macros = { path = "devkit/creamy-protocol-model-macros"}
-#creamy-binary = { path = "devkit/creamy-binary" }
-#creamy-binary-derive = { path = "devkit/creamy-binary-derive" }
+# Tools (std)
+creamy-protocol-tui = { path = "tools/creamy-protocol-tui" }
+creamy-libgen = { path = "tools/creamy-libgen" }
+creamy-libgen-rs = { path = "tools/creamy-libgen-rs" }
+creamy-xmlc = { path = "tools/creamy-xmlc" }
+creamy-template = { path = "tools/creamy-template" }
+
+# Core (no_std)
+creamy-plugin-package = { path = "core/creamy-plugin-package" }
+creamy-manifest = { path = "core/creamy-manifest" }
+creamy-utils = { path = "core/creamy-utils" }
+creamy-phf = { path = "core/creamy-phf" }
+creamy-sdk = { path = "core/creamy-sdk" }
+creamy-protocol-model = { path = "core/creamy-protocol-model" }
+creamy-protocol-model-macros = { path = "core/creamy-protocol-model-macros"}
 
 # Engine
 creamy = { path = "engine/creamy" }
@@ -83,10 +89,11 @@ thiserror = { version = "2.0.21", default-features = false }
 downcast-rs = { version = "2.0.2", default-features = false }
 semver = { version = "1.0.28", default-features = false, features = ["serde"] }
 smol_str = { version = "0.3.6", default-features = false }
+strum = { version = "0.28.0", default-features = false, features = ["derive"] }
+as-guard = "0.1.0"
 
 
 anyhow = "1.0.104"
-as-guard = "0.1.0"
 idmint = { version = "0.2.2", features = ["stack"] }
 static_assertions = "1.1.0"
 criterion = { version = "0.8.2", features = ["html_reports"] }
@@ -95,7 +102,6 @@ tempfile = "3.27.0"
 tracing = { version = "0.1.44", default-features = false, features = ["attributes"] }
 tracing-subscriber = "0.3.23"
 roxmltree = "0.21.1"
-strum = { version = "0.28.0", features = ["derive"] }
 ptree = "0.5.2"
 console = "0.16.6"
 inotify = "0.11.5"

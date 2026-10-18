@@ -8,7 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-creamy-plugin-package = { path = "../creamy-plugin-package", features = ["compile"]}
+creamy-plugin-package = { path = "../../core/creamy-plugin-package", features = ["compile"]}
 creamy-phf.workspace = true
 creamy-xmlc.workspace = true
 anyhow.workspace = true

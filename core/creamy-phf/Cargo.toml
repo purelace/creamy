@@ -8,4 +8,5 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-seedable_hash = { version = "0.2.3" }
+#seedable_hash = { version = "0.2.3" }
+wyhash = "0.6.0"
