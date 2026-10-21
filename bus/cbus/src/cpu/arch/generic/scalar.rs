@@ -115,7 +115,6 @@ where
         _src: usize,
         _chunk: &mut [UntypedMessage; 1],
     ) {
-        unreachable!()
     }
 
     //#[tracing::instrument(skip_all)]

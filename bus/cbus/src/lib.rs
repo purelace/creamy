@@ -2,11 +2,12 @@
 #![no_std]
 #![deny(warnings)]
 #![deny(clippy::all)]
+#![deny(clippy::todo)]
 #![deny(clippy::pedantic)]
 #![deny(clippy::panic)]
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
-//#![deny(clippy::unreachable)]
+#![deny(clippy::unreachable)]
 #![allow(clippy::inline_always)]
 #![allow(clippy::cast_ptr_alignment)]
 
