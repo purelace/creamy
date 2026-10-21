@@ -1,317 +1,67 @@
+mod content;
+mod lightweight;
+mod stream_message;
+
 use std::{borrow::Cow, io::Write};
 
 use creamy_libgen::{
     EnrichedStreamMessageSymbol, SymbolIterator,
-    proxy::{EnrichedFieldSymbol, EnrichedFieldType},
+    proxy::{EnrichedFieldSymbol, EnrichedStreamFieldSymbol},
 };
 use heck::ToSnakeCase;
 
+use self::{content::generate_stream_content, stream_message::generate_stream_trait_impl};
 use crate::{
-    Args, extend_derive, generate_message_trait_impl, generate_typed_message_trait_impl,
+    Args, ExternCrateAlloc, extend_derive, generate_message_trait_impl,
+    generate_typed_message_trait_impl,
     generator::{
-        Access, Argument, Body, BodyLine, Const, Field, Function, Impl, Module, Pass, Repr, Struct,
-        StructContent, TraitImpl, TraitImplAssociatedType,
+        Access, Argument, Body, BodyLine, Field, Function, Impl, Module, Pass, Repr, Struct,
+        StructContent,
     },
-    message_header, path_to_string,
-    utils::{generate_const_size_assert, generate_message_consts},
+    message_header,
+    utils::generate_message_consts,
 };
 
-fn generate_stream_trait_impl<'s>(
+fn generate_stream_module<'s, F, C, W: Write + 's>(
     args: &Args,
-    timeout: u8,
-    target: impl Into<Cow<'s, str>>,
-) -> TraitImpl<'s> {
-    TraitImpl {
-        trait_name: args.stream_message_trait_path().into(),
-        target: target.into(),
-        associated_types: vec![],
-        functions: vec![
-            Function {
-                access: Access::None,
-                is_const: false,
-                is_extern: false,
-                name: Cow::Borrowed("with_data"),
-                self_pass: Some(Pass::Mut),
-                args: vec![Argument {
-                    name: Cow::Borrowed("value"),
-                    kind: "[u8; 27]".into(),
-                    pass: Pass::Move,
-                }],
-                ret: Some("&mut Self".into()),
-                body: Body {
-                    lines: vec![BodyLine {
-                        content: Cow::Borrowed("self.data = value; self"),
-                        depth: 0,
-                    }],
-                },
-                inline: false,
-            },
-            Function {
-                access: Access::None,
-                is_const: false,
-                is_extern: false,
-                name: Cow::Borrowed("with_discriminant"),
-                self_pass: Some(Pass::Mut),
-                args: vec![Argument {
-                    name: Cow::Borrowed("value"),
-                    kind: args.stream_chunk_type_path().into(),
-                    pass: Pass::Move,
-                }],
-                ret: Some("&mut Self".into()),
-                body: Body {
-                    lines: vec![BodyLine {
-                        content: Cow::Borrowed("self.with_discriminant(value)"),
-                        depth: 0,
-                    }],
-                },
-                inline: false,
-            },
-            Function {
-                access: Access::None,
-                is_const: false,
-                is_extern: false,
-                name: Cow::Borrowed("discriminant"),
-                self_pass: Some(Pass::Ref),
-                args: vec![],
-                ret: Some(Cow::Owned(args.stream_chunk_type_path())),
-                body: Body {
-                    lines: vec![
-                        BodyLine {
-                            content: Cow::Borrowed("unsafe {"),
-                            depth: 0,
-                        },
-                        BodyLine {
-                            content: Cow::Borrowed("let val = self.meta & 0b_0000_0011;"),
-                            depth: 1,
-                        },
-                        BodyLine {
-                            content: Cow::Owned(format!(
-                                "core::mem::transmute::<u8, {}>(val)",
-                                args.stream_chunk_type_path()
-                            )),
-                            depth: 1,
-                        },
-                        BodyLine {
-                            content: Cow::Borrowed("}"),
-                            depth: 0,
-                        },
-                    ],
-                },
-                inline: false,
-            },
-            Function {
-                access: Access::None,
-                is_const: false,
-                is_extern: false,
-                name: Cow::Borrowed("with_stream_id"),
-                self_pass: Some(Pass::Mut),
-                args: vec![Argument {
-                    name: Cow::Borrowed("value"),
-                    kind: args.stream_id_path().into(),
-                    pass: Pass::Move,
-                }],
-                ret: Some("&mut Self".into()),
-                body: Body {
-                    lines: vec![BodyLine {
-                        content: Cow::Borrowed("self.with_stream_id(value)"),
-                        depth: 0,
-                    }],
-                },
-                inline: false,
-            },
-            Function {
-                access: Access::None,
-                is_const: false,
-                is_extern: false,
-                name: Cow::Borrowed("stream_id"),
-                self_pass: Some(Pass::Ref),
-                args: vec![],
-                ret: Some(Cow::Owned(args.stream_id_path())),
-                body: Body {
-                    lines: vec![BodyLine {
-                        content: Cow::Owned(format!(
-                            "{}::new((self.meta & 0b_1111_1100) >> 2)",
-                            args.stream_id_path(),
-                        )),
-                        depth: 0,
-                    }],
-                },
-                inline: false,
-            },
-        ],
-        constants: vec![
-            Const {
-                access: Access::None,
-                ident: "PREPARED".into(),
-                kind: "Self".into(),
-                value: "Self::PREPARED".into(),
-            },
-            Const {
-                access: Access::None,
-                ident: "TIMEOUT".into(),
-                kind: "u8".into(),
-                value: timeout.to_string().into(),
-            },
-        ],
-    }
-}
-
-fn generate_stream_data_trait_impl<'s>(
-    args: &Args,
-    target: impl Into<Cow<'s, str>>,
-) -> TraitImpl<'s> {
-    TraitImpl {
-        trait_name: args.stream_data_trait_path().into(),
-        target: target.into(),
-        associated_types: vec![],
-        constants: vec![],
-        functions: vec![Function {
-            access: Access::None,
-            is_const: false,
-            is_extern: false,
-            name: "cast_to_array".into(),
-            self_pass: Some(Pass::Move),
-            args: vec![],
-            ret: Some("[u8; 28]".into()),
-            body: Body {
-                lines: vec![BodyLine {
-                    content: "unsafe { core::mem::transmute(self) }".into(),
-                    depth: 0,
-                }],
-            },
-            inline: true,
-        }],
-    }
-}
-
-fn generate_part<'s, I, W: Write + 's>(
-    args: &Args,
-    part_name: String,
-    trait_marker: String,
-    fields: I,
-) -> Struct<'s, W>
-where
-    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
-{
-    let mut part = Struct::new(part_name.clone());
-    part.access = Access::Pub;
-    part.repr = Repr::C { align: None };
-
-    let fields = fields
-        .map(|field| Field {
-            access: Access::Pub,
-            name: field.name,
-            kind: match field.kind {
-                EnrichedFieldType::Type { name } => path_to_string(&name).into(),
-                EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]").into(),
-            },
-            comment: None,
-        })
-        .collect();
-
-    part.content = StructContent::Fields(fields);
-    part.trait_impls = vec![
-        TraitImpl {
-            trait_name: trait_marker.into(),
-            //TODO нет смысла хранить target
-            target: part_name.clone().into(),
-            associated_types: vec![],
-            functions: vec![],
-            constants: vec![],
-        },
-        generate_stream_data_trait_impl(args, part_name),
-    ];
-
-    part
-}
-
-fn generate_stream_module<'s, F, P, I, W: Write + 's>(
-    args: &Args,
-    symbol: &EnrichedStreamMessageSymbol<'s, F, P, I>,
-) -> (Module<'s, W>, TraitImpl<'s>)
+    symbol: &EnrichedStreamMessageSymbol<'s, F, C>,
+) -> (Module<'s, W>, String)
 where
     F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    P: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
 {
     let mut module = Module::new(symbol.name.to_snake_case());
     module.access = Access::Pub;
 
-    let mut stream_trait = generate_stream_trait_impl(args, symbol.timeout, symbol.name);
-
-    if let Some(head) = symbol.head.clone() {
-        let name = format!("{}Head", symbol.name);
-        stream_trait.associated_types.push(TraitImplAssociatedType {
-            name: "Head",
-            kind: format!("{}::{}", symbol.name.to_snake_case(), name.clone()).into(),
-        });
-        module.other.push(generate_const_size_assert(
-            args.stream_max_payload_size_path(),
-            name.clone(),
-        ));
-        module.structs.push(generate_part(
-            args,
-            name,
-            args.stream_head_trait_path(),
-            head,
-        ));
-    } else {
-        stream_trait.associated_types.push(TraitImplAssociatedType {
-            name: "Head",
-            kind: "()".into(),
-        });
-    }
-
-    let payload_name = format!("{}Payload", symbol.name);
-    stream_trait.associated_types.push(TraitImplAssociatedType {
-        name: "Payload",
-        kind: format!("{}::{}", symbol.name.to_snake_case(), payload_name.clone()).into(),
-    });
-    module.other.push(generate_const_size_assert(
-        args.stream_max_payload_size_path(),
-        payload_name.clone(),
-    ));
-    module.structs.push(generate_part(
+    let stream_trait = generate_stream_trait_impl(
         args,
-        payload_name,
-        args.stream_payload_trait_path(),
-        symbol.payload.clone(),
+        symbol.timeout,
+        symbol.name,
+        format!("{}::{}Content", module.name.clone(), symbol.name),
+        &format!("{}::{}Lightweight", module.name.clone(), symbol.name),
+    );
+
+    module.other.push(Box::new(ExternCrateAlloc));
+    module.other.push(Box::new(
+        generate_stream_content(args, symbol.name, symbol.content_fields.clone())
+            .to_string()
+            .unwrap(),
     ));
 
-    if let Some(tail) = symbol.tail.clone() {
-        let name = format!("{}Tail", symbol.name);
-        stream_trait.associated_types.push(TraitImplAssociatedType {
-            name: "Tail",
-            kind: format!("{}::{}", symbol.name.to_snake_case(), name.clone()).into(),
-        });
-        module.other.push(generate_const_size_assert(
-            args.stream_max_payload_size_path(),
-            name.clone(),
-        ));
-        module.structs.push(generate_part(
-            args,
-            name,
-            args.stream_tail_trait_path(),
-            tail,
-        ));
-    } else {
-        stream_trait.associated_types.push(TraitImplAssociatedType {
-            name: "Tail",
-            kind: "()".into(),
-        });
-    }
+    let tokens =
+        lightweight::generate_lightweight_content(args, symbol.name, symbol.content_fields.clone());
+    module.other.push(Box::new(tokens.to_string().unwrap()));
 
     (module, stream_trait)
 }
 
-pub(super) fn generate_stream_message<'s, W: Write + 's, F, P, I>(
-    symbol: &EnrichedStreamMessageSymbol<'s, F, P, I>,
+pub(super) fn generate_stream_message<'s, W: Write + 's, F, C>(
+    symbol: &EnrichedStreamMessageSymbol<'s, F, C>,
     args: &Args,
 ) -> (Struct<'s, W>, Module<'s, W>)
 where
     F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    P: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
 {
     let mut struct_ = Struct::new(symbol.name);
     struct_.access = Access::Pub;
@@ -343,17 +93,14 @@ where
                 is_const: true,
                 is_extern: false,
                 name: Cow::Borrowed("with_discriminant"),
+                generics: vec![],
                 self_pass: Some(Pass::Mut),
-                args: vec![Argument::new(
-                    "value",
-                    args.stream_chunk_type_path(),
-                    Pass::Move,
-                )],
+                args: vec![Argument::new("value", args.stream_type_path(), Pass::Move)],
                 ret: Some(Cow::Borrowed("&mut Self")),
                 body: Body {
                     lines: vec![
                         BodyLine {
-                            content: Cow::Borrowed("self.meta &= 0b_1111_1100;"),
+                            content: Cow::Borrowed("self.meta &= 0b_1111_1110;"),
                             depth: 0,
                         },
                         BodyLine {
@@ -363,7 +110,7 @@ where
                         BodyLine {
                             content: Cow::Owned(format!(
                                 "core::mem::transmute::<{}, u8>(value)",
-                                args.stream_chunk_type_path(),
+                                args.stream_type_path(),
                             )),
                             depth: 1,
                         },
@@ -388,17 +135,18 @@ where
                 is_const: true,
                 is_extern: false,
                 name: Cow::Borrowed("with_stream_id"),
+                generics: vec![],
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument::new("value", args.stream_id_path(), Pass::Move)],
                 ret: Some(Cow::Borrowed("&mut Self")),
                 body: Body {
                     lines: vec![
                         BodyLine {
-                            content: Cow::Borrowed("self.meta &= 0b_0000_0011;"),
+                            content: Cow::Borrowed("self.meta &= 0b_0000_0001;"),
                             depth: 0,
                         },
                         BodyLine {
-                            content: Cow::Borrowed("self.meta |= value.value() << 2;"),
+                            content: Cow::Borrowed("self.meta |= value.value() << 1;"),
                             depth: 0,
                         },
                         BodyLine {
@@ -424,6 +172,6 @@ where
         .push(generate_message_trait_impl(args, symbol.name));
 
     let (module, stream_trait) = generate_stream_module(args, symbol);
-    struct_.trait_impls.push(stream_trait);
+    struct_.custom.push(Box::new(stream_trait));
     (struct_, module)
 }

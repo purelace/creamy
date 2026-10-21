@@ -17,6 +17,7 @@ pub struct Function<'a> {
     pub is_const: bool,
     pub is_extern: bool,
     pub name: Cow<'a, str>,
+    pub generics: Vec<Cow<'a, str>>,
     pub self_pass: Option<Pass>,
     pub args: Vec<Argument<'a>>,
     pub ret: Option<Cow<'a, str>>,
@@ -39,7 +40,19 @@ impl<'a, W: Write + 'a> CodeBlock<W> for Function<'a> {
         if self.is_extern {
             write!(writer, r#" extern "C" "#)?;
         }
-        write!(writer, " fn {}(", self.name)?;
+
+        if self.generics.is_empty() {
+            write!(writer, " fn {}(", self.name)?;
+        } else {
+            let generics_str = self
+                .generics
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            write!(writer, " fn {}<{}> (", self.name, generics_str)?;
+        }
 
         if let Some(pass) = self.self_pass {
             let arg = match pass {

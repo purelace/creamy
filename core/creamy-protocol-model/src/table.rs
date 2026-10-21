@@ -32,7 +32,7 @@ impl Debug for TypeMeta {
 
 impl Fallback for TypeMeta {
     fn fallback() -> Self {
-        Self::new_with_assert(Size::B1, Align::B1)
+        Self::new(Size::B1, Align::B1)
     }
 }
 
@@ -98,7 +98,7 @@ impl TypeMeta {
         Self { value }
     }
 
-    pub(crate) const fn new_with_assert(size: Size, align: Align) -> Self {
+    pub(crate) const fn new(size: Size, align: Align) -> Self {
         let size = size.value();
         let align = align.discriminant();
         Self::new_raw_with_assert(size, align)
@@ -108,15 +108,12 @@ impl TypeMeta {
     // TODO: const
     pub fn size(self) -> Size {
         cfg_select! {
-            debug_assertions => {
+            debug_assertions =>
+            {
                 #[allow(clippy::missing_panics_doc)]
                 Size::try_new(self.value >> 3).expect("Unreachable!")
             }
-            _ => {
-                unsafe {
-                    Size::new_unchecked(self.value >> 3)
-                }
-            }
+            _ => unsafe { Size::new_unchecked(self.value >> 3) },
         }
     }
 
@@ -142,6 +139,14 @@ impl TypeId {
             index: id.value(),
             meta,
         }
+    }
+
+    pub(crate) const fn index(self) -> u16 {
+        self.index
+    }
+
+    pub(crate) const fn group(self) -> NonZeroU8 {
+        self.group
     }
 
     #[must_use]

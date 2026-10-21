@@ -1,7 +1,6 @@
 use creamy_protocol_model::{
     Access, BitsetValuesRange, BitsetsRange, Direction, EnumsRange, FieldsRange, FlagsRange,
-    GroupsRange, MessagesRange, OptionsRange, StreamsFieldsRange, StructsRange, VariantsRange,
-    VectorElement,
+    GroupsRange, MessagesRange, OptionsRange, StructsRange, VariantsRange, VectorElement,
     constraints::{
         MAX_BITSET_VALUES, MAX_BITSETS, MAX_ENUMS, MAX_FIELDS, MAX_FLAGS, MAX_GROUPS, MAX_MESSAGES,
         MAX_OPTIONS, MAX_STRUCTS, MAX_VARIANTS,
@@ -12,6 +11,7 @@ use creamy_utils::strpool::{StringId, StringPool};
 
 use crate::{define_readonly_struct, tokenizer::IdentifierOrArray};
 
+#[macro_export]
 macro_rules! define_node {
     ($key:expr, $name:ident, $is_type: expr) => {
         impl $crate::tree::storage::Node for $name {
@@ -119,7 +119,6 @@ define_readonly_struct! {
     }
 }
 
-//define_node!("array.node", ArrayNode, false);
 define_readonly_struct! {
     [no_brw]
     struct ArrayNode {
@@ -203,7 +202,6 @@ define_readonly_struct! {
     }
 }
 
-//define_node!("stream.node", StreamNode, false);
 define_readonly_struct! {
     [no_brw]
     struct StreamNode {
@@ -211,30 +209,6 @@ define_readonly_struct! {
         direction: Direction,
         timeout: u8,
         kind: u8,
-        head: Option<FieldsRange>,
-        payload: FieldsRange,
-        tail: Option<FieldsRange>,
+        fields: FieldsRange,
     }
 }
-
-define_node!("stream.payload.node", StreamPayloadFieldNode, false);
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StreamPayloadFieldNode {
-    Field(FieldNode),
-    //Array(ArrayFieldNode),
-}
-
-impl VectorElement for StreamPayloadFieldNode {
-    const MAX_SIZE: usize = MAX_FIELDS;
-    type RangeType = StreamsFieldsRange;
-}
-
-//define_node!("array.field.node", ArrayFieldNode, false);
-//define_readonly_struct! {
-//    [no_brw]
-//    struct ArrayFieldNode {
-//        name: StringId,
-//        kind: StringId,
-//        len: StringId,
-//    }
-//}

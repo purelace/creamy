@@ -3,26 +3,18 @@
 include!(concat!(env!("OUT_DIR"), "/Math.rs"));
 
 extern crate alloc;
-mod reader;
-mod writer;
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 
-use creamy_sdk::{
-    Sender,
-    api::Plugin,
-    declare_plugin, error, info,
-    stream::{StreamId, StreamMessage, StreamReader, StreamWriter},
-};
+use creamy_sdk::{Sender, api::Plugin, declare_plugin, error, info, stream::StreamReader};
 use smol_str::SmolStr;
 
-use self::{
-    generated::{
-        dispatcher::{GroupLifecycleHook, MessageHandler},
-        shell::setup::{AddCommandArgument, ExecuteCommand, SetCommandName},
+use self::generated::{
+    dispatcher::{GroupLifecycleHook, MessageHandler},
+    shell::setup::{
+        AddCommandArgument, ExecuteCommand, RegisterCommand, SetCommandName,
+        register_command::RegisterCommandContent,
     },
-    reader::{ArgumentReader, NameReader},
-    writer::StringWriter,
 };
 
 declare_plugin!(MathPlugin, generated);
@@ -32,8 +24,8 @@ struct MathPlugin {
     name: SmolStr,
     arguments: Vec<SmolStr>,
 
-    name_stream: Option<StreamReader<NameReader>>,
-    arg_stream: Option<StreamReader<ArgumentReader>>,
+    name_stream: Option<StreamReader<SetCommandName>>,
+    arg_stream: Option<StreamReader<AddCommandArgument>>,
 }
 
 impl Plugin for MathPlugin {
@@ -50,10 +42,10 @@ impl Plugin for MathPlugin {
 
 impl GroupLifecycleHook for MathPlugin {
     fn on_setup_group_enabled(&mut self) {
-        self.sender.send_stream(
-            StreamWriter::new(StringWriter::default(), StreamId::new(10)),
-            "print",
-        );
+        self.sender
+            .send_stream::<RegisterCommand>(&RegisterCommandContent::new(Box::from(
+                "print".as_bytes(),
+            )));
     }
 
     fn on_setup_group_disabled(&mut self) {}
@@ -63,40 +55,37 @@ impl MathPlugin {
     pub fn read_name_command(
         &mut self,
         message: SetCommandName,
-        mut reader: StreamReader<NameReader>,
+        mut reader: StreamReader<SetCommandName>,
     ) {
-        match reader.read(message) {
-            Ok(result) => {
-                if result {
-                    match reader.into_reader().into_string() {
-                        Ok(str) => self.name = str,
-                        Err(err) => error!("{err}"),
-                    }
-                } else {
-                    self.name_stream = Some(reader);
+        if let Some(result) = reader.accept_message(&message) {
+            match result {
+                Ok(mut c) => {
+                    let bytes = c.read().read_name();
+                    self.name = SmolStr::from(str::from_utf8(bytes).unwrap());
                 }
+                Err(err) => error!("{err}"),
             }
-            Err(err) => error!("{err}"),
+        } else {
+            self.name_stream = Some(reader);
         }
     }
 
     pub fn read_add_argument_command(
         &mut self,
         message: AddCommandArgument,
-        mut reader: StreamReader<ArgumentReader>,
+        mut reader: StreamReader<AddCommandArgument>,
     ) {
-        match reader.read(message) {
-            Ok(result) => {
-                if result {
-                    match reader.into_reader().into_string() {
-                        Ok(str) => self.arguments.push(str),
-                        Err(err) => error!("{err}"),
-                    }
-                } else {
-                    self.arg_stream = Some(reader);
+        if let Some(result) = reader.accept_message(&message) {
+            match result {
+                Ok(mut c) => {
+                    let bytes = c.read().read_name();
+                    let str = SmolStr::from(str::from_utf8(bytes).unwrap());
+                    self.arguments.push(str);
                 }
+                Err(err) => error!("{err}"),
             }
-            Err(err) => error!("{err}"),
+        } else {
+            self.arg_stream = Some(reader);
         }
     }
 }
@@ -106,7 +95,7 @@ impl MessageHandler for MathPlugin {
         if let Some(reader) = self.name_stream.take() {
             self.read_name_command(message, reader);
         } else {
-            let reader = StreamReader::new(message.stream_id(), NameReader::default());
+            let reader = StreamReader::<SetCommandName>::default();
             self.read_name_command(message, reader);
         }
     }
@@ -115,7 +104,7 @@ impl MessageHandler for MathPlugin {
         if let Some(reader) = self.arg_stream.take() {
             self.read_add_argument_command(message, reader);
         } else {
-            let reader = StreamReader::new(message.stream_id(), ArgumentReader::default());
+            let reader = StreamReader::<AddCommandArgument>::default();
             self.read_add_argument_command(message, reader);
         }
     }

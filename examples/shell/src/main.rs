@@ -1,7 +1,5 @@
 include!(concat!(env!("OUT_DIR"), "/shell.rs"));
 
-mod reader;
-
 use std::{collections::HashMap, num::NonZeroU8};
 
 use creamy::{
@@ -25,19 +23,16 @@ use creamy::{
 use creamy_async_loader::{AsyncLoader, config::LoaderConfig};
 use creamy_wasmtime::WasmtimeRuntime;
 
-use self::{
-    generated::{
-        dispatcher::MessageHandler,
-        metadata::{PACKAGE, SPECIAL, TABLE},
-        shell::setup::{ExecuteCommand, RegisterCommand},
-    },
-    reader::RegisterCommandReader,
+use self::generated::{
+    dispatcher::MessageHandler,
+    metadata::{PACKAGE, SPECIAL, TABLE},
+    shell::setup::{ExecuteCommand, RegisterCommand},
 };
 
 pub struct ShellPlugin {
     inc: IncBuf<M>,
     out: OutBuf<M>,
-    streams: HashMap<StreamId, StreamReader<RegisterCommandReader>>,
+    streams: HashMap<StreamId, StreamReader<RegisterCommand>>,
 }
 
 impl Subscriber for ShellPlugin {
@@ -62,34 +57,27 @@ impl CustomHandler for ShellPlugin {
 
 impl MessageHandler for ShellPlugin {
     fn handle_register_command(&mut self, message: RegisterCommand) {
-        let stream = self
-            .streams
-            .entry(message.stream_id())
-            .or_insert(StreamReader::new(
-                message.stream_id(),
-                RegisterCommandReader::default(),
-            ));
+        let stream = self.streams.entry(message.stream_id()).or_default();
+        if let Some(result) = stream.accept_message(&message) {
+            match result {
+                Ok(mut c) => {
+                    self.streams.remove(&message.stream_id()).unwrap();
+                    let bytes = c.read().read_name();
+                    let command = str::from_utf8(bytes).unwrap();
 
-        let result = match stream.read(message) {
-            Ok(value) => value,
-            Err(e) => panic!("{e}"),
-        };
-
-        if !result {
-            return;
+                    println!("registered: {command}");
+                }
+                Err(err) => println!("{err}"),
+            }
         }
-
-        let stream = self.streams.remove(&message.stream_id()).unwrap();
-        let reader = stream.into_reader();
-        let command = reader.into_string().unwrap();
-
-        println!("registered: {command}");
 
         self.out
             .send_many_iter_exact(std::iter::once(ExecuteCommand::PREPARED.with_dst(3)));
     }
 
-    fn handle_unknown_message(&mut self, _: u32, _: UntypedMessage) {}
+    fn handle_unknown_message(&mut self, v: u32, _: UntypedMessage) {
+        println!("{v}");
+    }
 }
 
 impl HostSubscriber for ShellPlugin {
@@ -122,8 +110,8 @@ impl Shell {
             AsyncLoader::new(
                 LoaderConfig {
                     parallel_downloads: 10,
-                    plugin_directory: "examples/shell/plugins".into(),
-                    //plugin_directory: "plugins".into(),
+                    //plugin_directory: "examples/shell/plugins".into(),
+                    plugin_directory: "plugins".into(),
                 }
                 .into_valid()?,
                 handle,

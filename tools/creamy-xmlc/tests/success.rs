@@ -10,7 +10,14 @@ const SUCCESS_TEST: &str = include_str!("success.xml");
 #[test]
 fn success() {
     let mut pool = StringPool::default();
-    let protocol = compile(&mut pool, SUCCESS_TEST).unwrap();
+    let result = compile(&mut pool, SUCCESS_TEST);
+    let protocol = match result {
+        Ok(protocol) => protocol,
+        Err(d) => {
+            d.print(SUCCESS_TEST);
+            panic!();
+        }
+    };
     assert_eq!(protocol.name().resolve(&pool), "test");
     assert_eq!(protocol.version(), &Version::new(0, 0, 1));
     assert_eq!(protocol.table().type_count(), 19); //Builtin (12) + Custom (7)

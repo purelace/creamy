@@ -13,6 +13,7 @@ const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 
 fn run_custom_builder() -> anyhow::Result<()> {
     let mut cmd = std::process::Command::new("creamy");
+    //cmd.current_dir("/run/media/selrisu/SSD/fusionwm/creamy/examples/ping");
     cmd.current_dir("../../examples/ping");
     cmd.arg("build");
     cmd.env_clear();

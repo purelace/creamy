@@ -10,7 +10,7 @@ mod impls;
 
 pub use creamy_binary_derive::{BinRead, BinWrite};
 pub use dyn_support::*;
-pub use embedded_io::{Read, Write};
+pub use embedded_io::{ErrorType, Read, Write};
 
 pub use self::endianness::{BigEndian, Endianness, LittleEndian, NativeEndian};
 

@@ -6,6 +6,7 @@ pub mod libgen {
     pub use creamy_libgen::*;
 }
 
+mod binary_utils;
 mod bit_trait_impls;
 mod builder;
 mod generator;
@@ -15,7 +16,7 @@ mod utils;
 
 use std::{borrow::Cow, fmt::Write as FmtWrite, io::Write as IoWrite};
 
-use creamy_libgen::package::model::symbols::PrimitiveRepr;
+use creamy_libgen::{package::model::symbols::PrimitiveRepr, proxy::EnrichedStreamFieldSymbol};
 use heck::ToSnakeCase;
 pub use libgen::Target;
 use libgen::{
@@ -28,6 +29,7 @@ use libgen::{
 };
 
 use self::{
+    binary_utils::generate_binary_writer_trait_impl,
     builder::generate_builder_pattern,
     generator::{FunctionDefinition, Static, Trait, UnsafeNoMangleAttribute},
     utils::{generate_const_size_assert, generate_message_consts},
@@ -127,48 +129,83 @@ impl Args {
         format!("{}::stream::StreamId", self.creamy_sdk_path)
     }
 
-    pub(crate) fn stream_chunk_type_path(&self) -> String {
-        format!("{}::stream::StreamChunkType", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn stream_head_trait_path(&self) -> String {
-        format!("{}::stream::StreamHead", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn stream_payload_trait_path(&self) -> String {
-        format!("{}::stream::StreamPayload", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn stream_tail_trait_path(&self) -> String {
-        format!("{}::stream::StreamTail", self.creamy_sdk_path)
+    pub(crate) fn stream_type_path(&self) -> String {
+        format!("{}::stream::StreamType", self.creamy_sdk_path)
     }
 
     pub(crate) fn stream_message_trait_path(&self) -> String {
         format!("{}::stream::StreamMessage", self.creamy_sdk_path)
     }
 
+    pub(crate) fn stream_content_trait(&self) -> String {
+        format!("{}::stream::StreamContent", self.creamy_sdk_path)
+    }
+
     pub(crate) fn stream_max_payload_size_path(&self) -> String {
         format!("{}::stream::MAX_STREAM_PAYLOAD", self.creamy_sdk_path)
     }
 
-    pub(crate) fn stream_data_trait_path(&self) -> String {
-        format!("{}::stream::StreamData", self.creamy_sdk_path)
+    pub(crate) fn array_path(&self) -> String {
+        format!("{}::stream::Array", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn stream_lightweight_content_path(&self) -> String {
+        format!("{}::stream::StreamLightweightContent", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn binary_writer_trait_path(&self) -> String {
+        format!("{}::binary::BinaryWriter", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn binary_reader_trait_path(&self) -> String {
+        format!("{}::binary::BinaryReader", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn binary_write_error_path(&self) -> String {
+        format!("{}::binary::WriteError", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn binary_read_error_path(&self) -> String {
+        format!("{}::binary::ReadError", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn binary_write_trait_path(&self) -> String {
+        format!("{}::binary::Write", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn binary_endianness_trait_path(&self) -> String {
+        format!("{}::binary::Endianness", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn binary_read_trait_path(&self) -> String {
+        format!("{}::binary::Read", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn binary_read_derive_path(&self) -> String {
+        format!("{}::binary::BinRead", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn binary_write_derive_path(&self) -> String {
+        format!("{}::binary::BinWrite", self.creamy_sdk_path)
     }
 }
 
 fn extend_derive(list: &mut DeriveList, args: &Args) {
-    list.inner.extend_from_slice(&["Debug", "Copy", "Clone"]);
+    list.inner
+        .extend_from_slice(&["Debug".into(), "Copy".into(), "Clone".into()]);
 
     if args.eq {
-        list.inner.extend_from_slice(&["PartialEq", "Eq"]);
+        list.inner
+            .extend_from_slice(&["PartialEq".into(), "Eq".into()]);
     }
 
     if args.ord {
-        list.inner.extend_from_slice(&["PartialOrd", "Ord"]);
+        list.inner
+            .extend_from_slice(&["PartialOrd".into(), "Ord".into()]);
     }
 
     if args.hash {
-        list.inner.push("Hash");
+        list.inner.push("Hash".into());
     }
 }
 
@@ -440,6 +477,7 @@ fn generate_typed_message_trait_impl<'a>(args: &Args, message: &'a str) -> Trait
                 is_const: false,
                 is_extern: false,
                 name: Cow::Borrowed("with_dst"),
+                generics: vec![],
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument {
                     name: "value".into(),
@@ -486,6 +524,7 @@ fn generate_typed_message_trait_impl<'a>(args: &Args, message: &'a str) -> Trait
                 is_const: false,
                 is_extern: false,
                 name: Cow::Borrowed("with_group"),
+                generics: vec![],
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument {
                     name: "value".into(),
@@ -512,6 +551,7 @@ fn generate_typed_message_trait_impl<'a>(args: &Args, message: &'a str) -> Trait
                 is_const: false,
                 is_extern: false,
                 name: Cow::Borrowed("kind"),
+                generics: vec![],
                 self_pass: Some(Pass::Ref),
                 args: vec![],
                 ret: Some(Cow::Borrowed("u8")),
@@ -528,6 +568,7 @@ fn generate_typed_message_trait_impl<'a>(args: &Args, message: &'a str) -> Trait
                 is_const: false,
                 is_extern: false,
                 name: Cow::Borrowed("with_kind"),
+                generics: vec![],
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument {
                     name: "value".into(),
@@ -604,11 +645,19 @@ impl<'s, W: IoWrite> RustGen<'s, W> {
     }
 }
 
+struct ExternCrateAlloc;
+impl<W: std::io::Write> CodeBlock<W> for ExternCrateAlloc {
+    fn write_to(&self, writer: &mut W, _depth: usize) -> Result<(), std::io::Error> {
+        write!(writer, "extern crate alloc;")
+    }
+}
+
 impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
     fn start_group(&mut self, group: &'s str, id: Option<u8>) {
         let mut module = Module::new(group);
         if self.modules.is_empty() {
             module.access = Access::Crate;
+            module.other = vec![Box::new(ExternCrateAlloc)];
         } else {
             module.access = Access::Pub;
         }
@@ -673,14 +722,12 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         self.push_struct(struct_);
     }
 
-    fn generate_stream_message<F, P, I>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, P, I>)
+    fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
     where
         F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-        P: SymbolIterator<EnrichedFieldSymbol<'s>>,
-        I: SymbolIterator<EnrichedFieldSymbol<'s>>,
+        C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
     {
-        let (stream, io_module) =
-            stream::generate_stream_message::<W, F, P, I>(&symbol, &self.args);
+        let (stream, io_module) = stream::generate_stream_message::<W, F, C>(&symbol, &self.args);
 
         self.push_other(generate_const_size_assert(
             self.args.message_size_path(),
@@ -696,6 +743,14 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
     {
         let mut bitset = Struct::new(symbol.name);
         bitset.access = Access::Pub;
+        bitset
+            .derives
+            .inner
+            .push(self.args.binary_write_derive_path().into());
+        bitset
+            .derives
+            .inner
+            .push(self.args.binary_read_derive_path().into());
         extend_derive(&mut bitset.derives, &self.args);
 
         let mut impl_block = Impl {
@@ -713,6 +768,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
                 is_const: true,
                 is_extern: false,
                 name: Cow::Borrowed(symbol.name),
+                generics: vec![],
                 self_pass: Some(Pass::Ref),
                 args: vec![],
                 ret: Some(repr_to_string(symbol.repr)),
@@ -725,6 +781,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
                 is_const: true,
                 is_extern: false,
                 name: Cow::Owned(format!("set_{}", symbol.name)),
+                generics: vec![],
                 self_pass: Some(Pass::Mut),
                 args: vec![Argument {
                     name: "value".into(),
@@ -741,6 +798,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
                 is_const: true,
                 is_extern: false,
                 name: Cow::Owned(format!("with_{}", symbol.name)),
+                generics: vec![],
                 self_pass: Some(Pass::MutMove),
                 args: vec![Argument {
                     name: "value".into(),
@@ -784,6 +842,14 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         let mut flags = Struct::new(symbol.name);
         flags.access = Access::Pub;
         flags.repr = Repr::Transparent;
+        flags
+            .derives
+            .inner
+            .push(self.args.binary_write_derive_path().into());
+        flags
+            .derives
+            .inner
+            .push(self.args.binary_read_derive_path().into());
         extend_derive(&mut flags.derives, &self.args);
 
         let kind = match symbol.underlying_type {
@@ -831,6 +897,15 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         I: Iterator<Item = EnrichedVariantSymbol<'s>>,
     {
         let mut enum_ = Enum::new(symbol.name);
+        enum_
+            .derives
+            .inner
+            .push(self.args.binary_write_derive_path().into());
+        enum_
+            .derives
+            .inner
+            .push(self.args.binary_read_derive_path().into());
+
         extend_derive(&mut enum_.derives, &self.args);
         enum_.access = Access::Pub;
         enum_.variants = symbol
@@ -869,6 +944,12 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
                 })
                 .collect(),
         );
+
+        struct_.custom.push(Box::new(
+            generate_binary_writer_trait_impl(&self.args, symbol.name)
+                .to_string()
+                .unwrap(),
+        ));
 
         self.push_struct(struct_);
     }
@@ -939,6 +1020,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             is_const: false,
             is_extern: false,
             name: "dispatch_message".into(),
+            generics: vec![],
             self_pass: None,
             args: vec![
                 Argument::new("dispatch_value", "u32", Pass::Move),
@@ -1014,6 +1096,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             is_const: false,
             is_extern: false,
             name: "handle_on_group_enabled_event".into(),
+            generics: vec![],
             self_pass: None,
             args: vec![
                 Argument::new("group_id", "u8", Pass::Move),
@@ -1036,6 +1119,7 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             is_const: false,
             is_extern: false,
             name: "handle_on_group_disabled_event".into(),
+            generics: vec![],
             self_pass: None,
             args: vec![
                 Argument::new("group_id", "u8", Pass::Move),

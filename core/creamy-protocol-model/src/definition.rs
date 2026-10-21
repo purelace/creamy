@@ -6,13 +6,16 @@ use semver::Version;
 
 use super::{
     storage::SymbolStorage,
-    symbols::{GlobalTypesSymbol, MessageSymbolType, StreamPayloadFieldSymbol},
+    symbols::{GlobalTypesSymbol, MessageSymbolType},
 };
 use crate::{
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     error::SemanticError,
     layout::compute_layout,
-    symbols::{BitsetValueSymbol, FieldSymbol, GroupSymbol, OptionSymbol, Type, VariantSymbol},
+    symbols::{
+        BitsetValueSymbol, FieldSymbol, GroupSymbol, OptionSymbol, StreamFieldSymbol, Type,
+        VariantSymbol,
+    },
     table::{FinishedTypeTable, TypeMeta},
     utils::{BitsetValuesRange, FieldsRange, MessagesRange, OptionsRange, VariantsRange},
 };
@@ -96,9 +99,8 @@ impl ProtocolModel {
     }
 
     #[must_use]
-    pub fn payload_slice(&self, range: FieldsRange) -> &[StreamPayloadFieldSymbol] {
-        self.storage
-            .get_symbol_range::<StreamPayloadFieldSymbol>(range)
+    pub fn stream_fields_range(&self, range: FieldsRange) -> &[StreamFieldSymbol] {
+        self.storage.get_symbol_range::<StreamFieldSymbol>(range)
     }
 
     #[must_use]
@@ -208,13 +210,6 @@ impl ProtocolModel {
         }
 
         for symbol in self.storage.get_symbol_slice_mut::<FieldSymbol>() {
-            replace_symbol!(symbol);
-        }
-
-        for symbol in self
-            .storage
-            .get_symbol_slice_mut::<StreamPayloadFieldSymbol>()
-        {
             replace_symbol!(symbol);
         }
 

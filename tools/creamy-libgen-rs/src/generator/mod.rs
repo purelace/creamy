@@ -53,7 +53,7 @@ pub fn add_depth<W: std::io::Write>(writer: &mut W, depth: usize) -> Result<(), 
 
 #[derive(Default)]
 pub struct DeriveList<'a> {
-    pub inner: Vec<&'a str>,
+    pub inner: Vec<Cow<'a, str>>,
 }
 
 impl DeriveList<'_> {
@@ -94,6 +94,13 @@ pub enum Repr {
 
 pub trait CodeBlock<W: std::io::Write> {
     fn write_to(&self, writer: &mut W, depth: usize) -> Result<(), std::io::Error>;
+}
+
+impl<W: std::io::Write> CodeBlock<W> for String {
+    fn write_to(&self, writer: &mut W, depth: usize) -> Result<(), std::io::Error> {
+        add_depth(writer, depth)?;
+        write!(writer, "{self}")
+    }
 }
 
 pub struct Const<'a> {

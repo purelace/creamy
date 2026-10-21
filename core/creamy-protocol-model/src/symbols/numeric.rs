@@ -26,11 +26,11 @@ pub const F32_ID: StringId = StringId::new(10);
 pub const F64_ID: StringId = StringId::new(11);
 
 pub const BUILTIN_GROUP: NonZeroU8 = NonZeroU8::new(1).unwrap();
-pub const U8_META: TypeMeta = TypeMeta::new_with_assert(Size::B1, Align::B1);
-pub const U16_META: TypeMeta = TypeMeta::new_with_assert(Size::B2, Align::B2);
-pub const U32_META: TypeMeta = TypeMeta::new_with_assert(Size::B4, Align::B4);
-pub const U64_META: TypeMeta = TypeMeta::new_with_assert(Size::B8, Align::B8);
-pub const U128_META: TypeMeta = TypeMeta::new_with_assert(Size::B16, Align::B8);
+pub const U8_META: TypeMeta = TypeMeta::new(Size::B1, Align::B1);
+pub const U16_META: TypeMeta = TypeMeta::new(Size::B2, Align::B2);
+pub const U32_META: TypeMeta = TypeMeta::new(Size::B4, Align::B4);
+pub const U64_META: TypeMeta = TypeMeta::new(Size::B8, Align::B8);
+pub const U128_META: TypeMeta = TypeMeta::new(Size::B16, Align::B8);
 
 pub const T_U8_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(0), U8_META);
 pub const T_U16_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(1), U16_META);

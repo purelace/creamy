@@ -32,17 +32,8 @@
         </enum>
 
         <stream kind="4" name="Log" timeout="4" direction="Outgoing">
-            <head>
-                <field name="log_type" type="LogType" />
-                <field name="length" type="u32" />
-                <field name="data" type="[u8; 20]" />
-            </head>
-            <payload>
-                <field name="data" type="[u8; 27]" />
-            </payload>
-            <tail>
-                <field name="data" type="[u8; 27]" />
-            </tail>
+            <field name="log_type" type="LogType" />
+            <field name="content" type="Array[u8]" />
         </stream>
 
         <!--

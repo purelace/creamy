@@ -7,7 +7,7 @@ use creamy_engine_core::bus::core::{
 };
 use creamy_sdk::{
     api::{CustomHandler, handle_incoming},
-    logging::{LogReader, LogType},
+    logging::LogType,
     stream::{StreamId, StreamMessage, StreamReader},
 };
 use hashbrown::HashMap;
@@ -21,7 +21,7 @@ use crate::generated::{
 pub struct SystemPlugin<const S: usize, const M: usize> {
     inc: IncBuf<M>,
     out: OutBuf<M>,
-    logs: HashMap<StreamId, StreamReader<LogReader>, rustc_hash::FxBuildHasher>,
+    logs: HashMap<StreamId, StreamReader<creamy_sdk::logging::Log>, rustc_hash::FxBuildHasher>,
 
     names: Box<[Option<SmolStr>; S]>,
     plugins: u8,
@@ -111,37 +111,31 @@ impl<const S: usize, const M: usize> MessageHandler for SystemPlugin<S, M> {
     fn handle_stream_cancel(&mut self, _: StreamCancel) {}
 
     fn handle_log(&mut self, message: Log) {
-        let stream = self
-            .logs
-            .entry(message.stream_id())
-            .or_insert(StreamReader::new(message.stream_id(), LogReader::default()));
+        let stream = self.logs.entry(message.stream_id()).or_default();
 
         // конвертируем наш тип в тип creamy_sdk. они одинаковые
         let message = unsafe { core::mem::transmute::<Log, creamy_sdk::logging::Log>(message) };
 
-        let result = match stream.read(message) {
-            Ok(value) => value,
-            Err(e) => panic!("{e}"),
-        };
+        if let Some(result) = stream.accept_message(&message) {
+            match result {
+                Ok(mut converter) => {
+                    self.logs.remove(&message.stream_id()).unwrap();
+                    let data = converter.read();
+                    let content = str::from_utf8(data.read_content()).unwrap();
+                    let target = self.names[message.src as usize - Self::ARRAY_OFFSET]
+                        .as_ref()
+                        .unwrap();
 
-        if !result {
-            return;
-        }
-
-        let stream = self.logs.remove(&message.stream_id()).unwrap();
-        let reader = stream.into_reader();
-        let log_type = reader.log_type();
-        let content = reader.into_string().unwrap();
-
-        let target = self.names[message.src as usize - Self::ARRAY_OFFSET]
-            .as_ref()
-            .unwrap();
-
-        match log_type {
-            LogType::Debug => log::debug!(target: target, "{content}"),
-            LogType::Info => log::info!(target: target, "{content}"),
-            LogType::Warning => log::warn!(target:target, "{content}"),
-            LogType::Error => log::error!(target: target, "{content}"),
+                    match data.log_type {
+                        LogType::Debug => log::debug!(target: target, "{content}"),
+                        LogType::Info => log::info!(target: target, "{content}"),
+                        LogType::Warning => log::warn!(target:target, "{content}"),
+                        LogType::Error => log::error!(target: target, "{content}"),
+                    }
+                }
+                //TODO: don't tick the stream if an error is happened
+                Err(err) => log::error!("{err}"),
+            }
         }
     }
 

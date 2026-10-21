@@ -823,6 +823,7 @@ name = "creamy-libgen-rs"
 version = "0.1.0"
 dependencies = [
  "creamy-libgen",
+ "genco",
  "heck",
 ]
 
@@ -910,6 +911,7 @@ name = "creamy-sdk"
 version = "0.1.0"
 dependencies = [
  "cbus-core",
+ "creamy-binary",
  "creamy-libgen-rs",
  "rlsf",
  "spin",
@@ -1358,6 +1360,28 @@ name = "garde_derive"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b0252cacdca8e6f30a900e6d436fbf294e23f674b9288ca4a5bd35976bef87c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "genco"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b9baa0af01aa73e334f1d5533ddd013a27d5451ea2bc2551fb84bd710cf9a95"
+dependencies = [
+ "genco-macros",
+ "relative-path",
+ "smallvec",
+]
+
+[[package]]
+name = "genco-macros"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfc2f50e990ca43e548926a9b52545a21a2510ddda41d2422fab6e293784e200"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2437,6 +2461,15 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+
+[[package]]
+name = "relative-path"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2a073568cd8b9c4825429d3e9fc5f52851b4f97cc1348800689408921e6b8f8"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "rlsf"

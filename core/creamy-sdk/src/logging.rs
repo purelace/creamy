@@ -1,158 +1,19 @@
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::{boxed::Box, string::ToString};
 use core::fmt::Arguments;
 
+use crate::generated::system::builtin;
 pub use crate::generated::system::builtin::{Log, LogType};
-use crate::{
-    generated::system::builtin::log::{LogHead, LogPayload, LogTail},
-    stream::{StreamMessage, StreamReaderFunctions, StreamWriterFunctions},
-};
-
-pub struct LogReader {
-    buffer: Vec<u8>,
-    kind: LogType,
-}
-
-impl Default for LogReader {
-    fn default() -> Self {
-        Self {
-            buffer: Vec::new(),
-            kind: LogType::Debug,
-        }
-    }
-}
-
-impl LogReader {
-    pub fn into_string(self) -> Result<String, alloc::string::FromUtf8Error> {
-        String::from_utf8(self.buffer)
-    }
-
-    #[must_use]
-    pub const fn log_type(&self) -> LogType {
-        self.kind
-    }
-}
-
-impl StreamReaderFunctions for LogReader {
-    type Stream = Log;
-
-    fn read_single(&mut self, _single: <Self::Stream as StreamMessage>::Payload) {}
-
-    fn read_head(&mut self, head: <Self::Stream as StreamMessage>::Head) {
-        if self.buffer.len() < head.length as usize {
-            self.buffer = Vec::with_capacity(head.length as usize);
-        }
-
-        self.buffer.extend(head.data);
-        self.kind = head.log_type;
-    }
-
-    fn read_payload(&mut self, payload: <Self::Stream as StreamMessage>::Payload) {
-        self.buffer.extend(payload.data);
-    }
-
-    fn read_tail(&mut self, tail: <Self::Stream as StreamMessage>::Tail) {
-        self.buffer.extend(tail.data);
-    }
-}
-
-pub struct LogWriter {
-    size: usize,
-    sent: usize,
-    kind: LogType,
-}
-
-impl LogWriter {
-    #[must_use]
-    pub const fn new(kind: LogType) -> Self {
-        Self {
-            size: 0,
-            sent: 0,
-            kind,
-        }
-    }
-}
-
-impl StreamWriterFunctions for LogWriter {
-    type Stream = Log;
-    type Object<'a> = str;
-
-    fn start<'a>(&mut self, object: &'a Self::Object<'a>) {
-        self.size = object.len();
-    }
-
-    fn write_head<'a>(
-        &mut self,
-        object: &'a Self::Object<'a>,
-    ) -> <Self::Stream as StreamMessage>::Head {
-        let mut data = [0u8; 20];
-
-        let to_read = object.len().min(20);
-        data[..to_read].copy_from_slice(&object.as_bytes()[..to_read]);
-
-        self.sent = to_read;
-
-        LogHead {
-            __unused: 0,
-            log_type: self.kind,
-            __padding0: [0, 0],
-            length: self.sent as u32,
-            data,
-        }
-    }
-
-    fn write_payload<'a>(
-        &mut self,
-        object: &'a Self::Object<'a>,
-    ) -> Option<<Self::Stream as StreamMessage>::Payload> {
-        const DATA_SIZE: usize = 27;
-
-        if self.sent == object.len() {
-            return None;
-        }
-
-        if object.len() - self.sent <= DATA_SIZE {
-            // We will send a remainder in tail part
-            return None;
-        }
-
-        let mut data = [0; DATA_SIZE];
-        let slice = &object.as_bytes()[self.sent..];
-        let to_read = slice.len().min(DATA_SIZE);
-        self.sent += to_read;
-
-        data[..to_read].copy_from_slice(&slice[..to_read]);
-
-        Some(LogPayload { __unused: 0, data })
-    }
-
-    fn write_tail<'a>(
-        &mut self,
-        object: &'a Self::Object<'a>,
-    ) -> <Self::Stream as StreamMessage>::Tail {
-        let mut data = [0; 27];
-        let slice = &object.as_bytes()[self.sent..];
-        let to_read = slice.len().min(27);
-        data[..to_read].copy_from_slice(&slice[..to_read]);
-
-        LogTail { __unused: 0, data }
-    }
-
-    fn remaining_length(&self) -> usize {
-        self.size - self.sent
-    }
-}
 
 pub fn send_log(string: Arguments, log_type: LogType) {
-    let writer = LogWriter::new(log_type);
-    let mut stream = crate::stream::StreamWriter::new(writer, crate::stream::StreamId::new(0));
-    if let Some(string) = string.as_str() {
-        stream.write(string, 1);
+    // TODO: use const
+    // TODO: fix allocations
+    let mut stream = crate::stream::StreamWriter::<Log>::new(1, crate::stream::StreamId::new(0));
+    let content = if let Some(string) = string.as_str() {
+        Box::from(string.as_bytes())
     } else {
-        stream.write(&string.to_string(), 1);
-    }
+        Box::from(string.to_string().as_bytes())
+    };
+    stream.send(&builtin::log::LogContent::new(log_type, content));
 }
 
 #[macro_export]

@@ -3,6 +3,12 @@
 
 include!(concat!(env!("OUT_DIR"), "/system.rs"));
 
+// TODO: возможное переполнениие additional data
+// сделать выравнивание данных
+// проверка на общую длину
+// проверка на пересечения
+// сравнение длины в байтах с размером типа
+
 use cbus_core::buffer::runtime::{DynIncBuf, DynOutBuf};
 
 extern crate alloc;
@@ -17,6 +23,10 @@ mod wasm;
 
 pub mod spin {
     pub use spin::*;
+}
+
+pub mod binary {
+    pub use creamy_binary::*;
 }
 
 pub use cbus_core::SubscriberId;

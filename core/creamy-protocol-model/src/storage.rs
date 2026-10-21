@@ -8,10 +8,12 @@ use creamy_binary::{
 use strum::{EnumIter, IntoEnumIterator};
 
 use super::symbols::{
-    BitsetValueSymbol, FieldSymbol, GroupSymbol, MessageSymbolType, OptionSymbol,
-    StreamPayloadFieldSymbol, VariantSymbol,
+    BitsetValueSymbol, FieldSymbol, GroupSymbol, MessageSymbolType, OptionSymbol, VariantSymbol,
 };
-use crate::utils::{BoundedVec, Range, VectorElement};
+use crate::{
+    symbols::StreamFieldSymbol,
+    utils::{BoundedVec, Range, VectorElement},
+};
 
 #[repr(u8)]
 #[derive(BinRead, BinWrite, EnumIter, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -22,7 +24,7 @@ pub enum SymbolKey {
     Option = 3,
     Variant = 4,
     Field = 5,
-    StreamPayloadField = 6,
+    StreamField = 6,
 }
 
 fn create_storage() -> Vec<Box<dyn UntypedStorage>> {
@@ -35,7 +37,7 @@ fn create_storage() -> Vec<Box<dyn UntypedStorage>> {
             SymbolKey::Option => TypedStorage::<OptionSymbol>::boxed(),
             SymbolKey::Variant => TypedStorage::<VariantSymbol>::boxed(),
             SymbolKey::Field => TypedStorage::<FieldSymbol>::boxed(),
-            SymbolKey::StreamPayloadField => TypedStorage::<StreamPayloadFieldSymbol>::boxed(),
+            SymbolKey::StreamField => TypedStorage::<StreamFieldSymbol>::boxed(),
         };
 
         vec.push(storage);
@@ -54,9 +56,7 @@ fn read_storage<R: creamy_binary::Read>(
         SymbolKey::Option => TypedStorage::<OptionSymbol>::read_boxed(reader)?,
         SymbolKey::Variant => TypedStorage::<VariantSymbol>::read_boxed(reader)?,
         SymbolKey::Field => TypedStorage::<FieldSymbol>::read_boxed(reader)?,
-        SymbolKey::StreamPayloadField => {
-            TypedStorage::<StreamPayloadFieldSymbol>::read_boxed(reader)?
-        }
+        SymbolKey::StreamField => TypedStorage::<StreamFieldSymbol>::read_boxed(reader)?,
     };
 
     Ok(storage)
@@ -142,37 +142,8 @@ impl<S: Symbol> UntypedStorage for TypedStorage<S> {
             false
         }
     }
-
-    //fn bin_write_dyn(
-    //    &self,
-    //    writer: &mut dyn WriteSeek,
-    //) -> Result<(), WriteError<<Writer<'_> as ErrorType>::Error>> {
-    //    let mut writer = Writer { object: writer };
-    //    let xd: Result<(), WriteError<<Writer<'_> as ErrorType>::Error>> = self.write(&mut writer);
-    //}
 }
 
-/*
-struct Writer<'a> {
-    object: &'a mut dyn WriteSeek,
-}
-
-impl Write for Writer<'_> {
-    fn write(&mut self, buf: &[u8]) -> binrw::io::Result<usize> {
-        self.object.write(buf)
-    }
-
-    fn flush(&mut self) -> binrw::io::Result<()> {
-        self.object.flush()
-    }
-}
-
-impl Seek for Writer<'_> {
-    fn seek(&mut self, pos: binrw::io::SeekFrom) -> binrw::io::Result<u64> {
-        self.object.seek(pos)
-    }
-}
-*/
 #[derive(Debug, PartialEq, Eq)]
 pub struct SymbolStorage {
     inner: Vec<Box<dyn UntypedStorage>>,

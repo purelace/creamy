@@ -7,6 +7,11 @@ use creamy_utils::strpool::StringId;
 use super::ArraySymbol;
 use crate::{constraints::MAX_FIELDS, storage::SymbolKey, table::TypeId, utils::FieldsRange};
 
+pub trait Field {
+    fn type_id(&self) -> TypeId;
+    fn size(&self) -> u8;
+}
+
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum FieldType {
@@ -21,6 +26,19 @@ pub struct FieldSymbol {
     #[token(ident)]
     ident: StringId,
     kind: FieldType,
+}
+
+impl Field for FieldSymbol {
+    fn type_id(&self) -> TypeId {
+        self.type_id()
+    }
+
+    fn size(&self) -> u8 {
+        match self.kind() {
+            FieldType::Type(sym) => sym.size().value(),
+            FieldType::Array(array) => array.total_size(),
+        }
+    }
 }
 
 impl FieldSymbol {

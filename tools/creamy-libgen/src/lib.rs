@@ -20,7 +20,7 @@ use creamy_xmlc::{
         constraints::{HEADER_BYTES, MAX_PAYLOAD},
         definition::{BinaryWriter, ProtocolModel},
         strpool::{StringId, StringPool, StringPoolResolver},
-        symbols::{MessageSymbolType, StreamPayloadFieldSymbol, Type},
+        symbols::{MessageSymbolType, Type},
     },
 };
 pub use utils::Path;
@@ -28,8 +28,8 @@ pub use utils::Path;
 use self::{
     proxy::{
         BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
-        EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedVariantSymbol,
-        FieldList, FlagUnderlyingType, OptionList,
+        EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStreamFieldSymbol,
+        EnrichedVariantSymbol, FieldList, FlagUnderlyingType, OptionList, StreamFieldList,
     },
     utils::AbsolutePath,
 };
@@ -64,13 +64,10 @@ pub trait CodeGenerator<'s> {
     where
         I: SymbolIterator<EnrichedFieldSymbol<'s>>;
 
-    fn generate_stream_message<F, P, I>(
-        &mut self,
-        symbol: EnrichedStreamMessageSymbol<'s, F, P, I>,
-    ) where
+    fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
+    where
         F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-        P: SymbolIterator<EnrichedFieldSymbol<'s>>,
-        I: SymbolIterator<EnrichedFieldSymbol<'s>>;
+        C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>;
 
     fn generate_bitset<I>(&mut self, symbol: EnrichedBitsetSymbol<'s, I>)
     where
@@ -144,7 +141,13 @@ impl ProtocolLibrary {
             None
         }) {
             let content = std::fs::read_to_string(entry.path())?;
-            let definition = compile(&mut self.pool, &content).unwrap();
+            let definition = match compile(&mut self.pool, &content) {
+                Ok(v) => v,
+                Err(d) => {
+                    d.print(&content);
+                    panic!();
+                }
+            };
             self.inner.insert(
                 definition.name().resolve(&self.pool).to_string(),
                 definition,
@@ -232,7 +235,7 @@ impl Codegen {
         group_paths: &mut Vec<Path>,
         generator: &mut G,
     ) {
-        let mut group_id = u8::from(!matches!(target, Target::Sdk)) + 1;
+        let mut group_id = u8::from(!matches!(target, Target::Sdk | Target::Engine)) + 1;
 
         for (protocol, groups) in manifest.requested_groups() {
             let definition = library.get(protocol.as_str()).unwrap();
@@ -460,15 +463,6 @@ impl Codegen {
                     generator.generate_single_message(symbol);
                 }
                 MessageSymbolType::Stream(symbol) => {
-                    let payload_slice = model
-                        .payload_slice(symbol.payload())
-                        .iter()
-                        .map(|p| match p {
-                            StreamPayloadFieldSymbol::Field(symbol) => *symbol,
-                            StreamPayloadFieldSymbol::Array(_) => todo!("enrich array"),
-                        })
-                        .collect::<Vec<_>>();
-
                     let symbol = EnrichedStreamMessageSymbol {
                         name: symbol.ident().resolve(pool),
                         timeout: symbol.timeout(),
@@ -477,33 +471,17 @@ impl Codegen {
                         kind: symbol.kind(),
                         dispatch_value,
 
-                        fields: std::iter::chain(message_header(), std::iter::once(data_array())),
-                        head: symbol.head().map(|fields| {
-                            FieldList::new(
-                                module_path.clone(),
-                                pool,
-                                model.table(),
-                                model.fields_range(fields).iter().copied(),
-                                HEADER_BYTES,
-                            )
-                        }),
-                        payload: FieldList::new(
+                        message_fields: std::iter::chain(
+                            message_header(),
+                            std::iter::once(data_array()),
+                        ),
+                        content_fields: StreamFieldList::new(
                             module_path.clone(),
                             pool,
                             model.table(),
-                            //TODO: allow arrays
-                            payload_slice.into_iter(),
-                            HEADER_BYTES,
+                            model.stream_fields_range(symbol.content()).iter().copied(),
+                            0,
                         ),
-                        tail: symbol.tail().map(|fields| {
-                            FieldList::new(
-                                module_path.clone(),
-                                pool,
-                                model.table(),
-                                model.fields_range(fields).iter().copied(),
-                                HEADER_BYTES,
-                            )
-                        }),
                     };
                     generator.generate_stream_message(symbol);
                 }
@@ -525,11 +503,10 @@ where
     pub fields: I,
 }
 
-pub struct EnrichedStreamMessageSymbol<'s, F, P, I>
+pub struct EnrichedStreamMessageSymbol<'s, F, C>
 where
     F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    P: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
 {
     pub name: &'s str,
 
@@ -540,10 +517,8 @@ where
 
     pub timeout: u8,
 
-    pub fields: F,
-    pub head: Option<I>,
-    pub payload: P,
-    pub tail: Option<I>,
+    pub message_fields: F,
+    pub content_fields: C,
 }
 
 fn message_header() -> [EnrichedFieldSymbol<'static>; 4] {

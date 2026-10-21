@@ -45,6 +45,19 @@ impl Fallback for IdentifierOrArray<'_> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum IdentifierOrArrayOrDynArray<'src> {
+    Identifier(Identifier<'src>),
+    Array(&'src str, u8),
+    DynArray(&'src str),
+}
+
+impl Fallback for IdentifierOrArrayOrDynArray<'_> {
+    fn fallback() -> Self {
+        Self::Identifier(Identifier::fallback())
+    }
+}
+
 #[derive(Debug)]
 pub struct Number<'a>(&'a str);
 impl Fallback for Number<'_> {
@@ -129,14 +142,12 @@ pub enum Token<'src> {
         direction: Direction,
         span: SourceSpan,
     },
-    #[strum(to_string = "<head>")]
-    StreamHead { span: SourceSpan },
-    #[strum(to_string = "<payload>")]
-    StreamPayload { span: SourceSpan },
-    #[strum(to_string = "<tail>")]
-    StreamTail { span: SourceSpan },
-    #[strum(to_string = "<result>")]
-    StreamResult { span: SourceSpan },
+    #[strum(to_string = "<field>")]
+    StreamField {
+        name: Identifier<'src>,
+        kind: IdentifierOrArrayOrDynArray<'src>,
+        span: SourceSpan,
+    },
 }
 
 const ERROR_IDENT: &str = "Error";
@@ -179,10 +190,6 @@ impl<'src> Context<'_, 'src> {
             "bitset" => "bitset",
             "value" => "value",
             "stream" => "stream",
-            "head" => "head",
-            "payload" => "payload",
-            "tail" => "tail",
-            "array" => "array",
             _ => unreachable!(),
         }
     }
@@ -421,6 +428,43 @@ impl<'src> Context<'_, 'src> {
             IdentifierOrArray::Identifier(self.parse_ident(s, attr, ERROR_IDENT))
         }
     }
+
+    fn try_parse_dyn_array(
+        &self,
+        s: &'src str,
+        attr: &'static str,
+    ) -> Option<IdentifierOrArrayOrDynArray<'src>> {
+        let s = s.trim();
+
+        //TODO errors
+
+        if let Some(without_prefix) = s.strip_prefix("Array[") {
+            if let Some(inner_type) = without_prefix.strip_suffix("]") {
+                let inner_type = inner_type.trim();
+                return Some(IdentifierOrArrayOrDynArray::DynArray(inner_type));
+            }
+        }
+
+        None
+    }
+
+    fn read_identifier_or_array_or_dyn_array(
+        &self,
+        attr: &'static str,
+    ) -> IdentifierOrArrayOrDynArray<'src> {
+        let s = self.read_attr(attr, ERROR_IDENT);
+
+        if let Some(result) = self.try_parse_dyn_array(s, attr) {
+            result
+        } else if let Some(result) = self.try_parse_array(s, attr) {
+            match result {
+                IdentifierOrArray::Identifier(i) => IdentifierOrArrayOrDynArray::Identifier(i),
+                IdentifierOrArray::Array(i, s) => IdentifierOrArrayOrDynArray::Array(i, s),
+            }
+        } else {
+            IdentifierOrArrayOrDynArray::Identifier(self.parse_ident(s, attr, ERROR_IDENT))
+        }
+    }
 }
 
 impl<'a, 'src: 'a> Token<'src> {
@@ -526,20 +570,10 @@ impl<'a, 'src: 'a> Token<'src> {
         }
     }
 
-    fn new_stream_head(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::StreamHead {
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_stream_payload(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::StreamPayload {
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_stream_tail(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::StreamTail {
+    fn new_stream_field(ctx: &Context<'a, 'src>) -> Token<'src> {
+        Token::StreamField {
+            name: ctx.read_ident("name"),
+            kind: ctx.read_identifier_or_array_or_dyn_array("type"),
             span: span_for(ctx.node),
         }
     }
@@ -560,10 +594,7 @@ impl<'a, 'src: 'a> Token<'src> {
             | Token::Variant { span, .. }
             | Token::Field { span, .. }
             | Token::Stream { span, .. }
-            | Token::StreamHead { span }
-            | Token::StreamPayload { span }
-            | Token::StreamTail { span }
-            | Token::StreamResult { span } => span,
+            | Token::StreamField { span, .. } => span,
         }
     }
 }
@@ -602,6 +633,7 @@ pub fn tokenize<'a, 'src: 'a>(
             return vec![];
         }
     };
+    let mut is_stream = false;
 
     for node in document
         .root()
@@ -612,20 +644,38 @@ pub fn tokenize<'a, 'src: 'a>(
         match node.tag_name().name() {
             "protocol" => tokens.push(Token::new_protocol(&ctx)),
             "global" => tokens.push(Token::new_global(&ctx)),
-            "group" => tokens.push(Token::new_group(&ctx)),
-            "message" => tokens.push(Token::new_message(&ctx)),
-            "struct" => tokens.push(Token::new_struct(&ctx)),
-            "enum" => tokens.push(Token::new_enum(&ctx)),
-            "field" => tokens.push(Token::new_field(&ctx)),
+            "group" => {
+                tokens.push(Token::new_group(&ctx));
+                is_stream = false;
+            }
+            "message" => {
+                tokens.push(Token::new_message(&ctx));
+                is_stream = false;
+            }
+            "struct" => {
+                tokens.push(Token::new_struct(&ctx));
+                is_stream = false;
+            }
+            "enum" => {
+                tokens.push(Token::new_enum(&ctx));
+                is_stream = false;
+            }
+            "field" => {
+                if is_stream {
+                    tokens.push(Token::new_stream_field(&ctx));
+                } else {
+                    tokens.push(Token::new_field(&ctx));
+                }
+            }
             "variant" => tokens.push(Token::new_variant(&ctx)),
             "flags" => tokens.push(Token::new_flags(&ctx)),
             "option" => tokens.push(Token::new_option(&ctx)),
             "bitset" => tokens.push(Token::new_bitset(&ctx)),
             "value" => tokens.push(Token::new_value(&ctx)),
-            "stream" => tokens.push(Token::new_stream(&ctx)),
-            "head" => tokens.push(Token::new_stream_head(&ctx)),
-            "payload" => tokens.push(Token::new_stream_payload(&ctx)),
-            "tail" => tokens.push(Token::new_stream_tail(&ctx)),
+            "stream" => {
+                tokens.push(Token::new_stream(&ctx));
+                is_stream = true;
+            }
 
             _ => diagnostics
                 .borrow_mut()

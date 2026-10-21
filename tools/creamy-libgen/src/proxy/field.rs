@@ -61,7 +61,7 @@ pub struct FieldList<'s, I: Iterator<Item = FieldSymbol> + Clone> {
     module_path: AbsolutePath,
     pool: &'s StringPool,
     tt: &'s FinishedTypeTable,
-    layout: LayoutCalculator<I>,
+    layout: LayoutCalculator<I::Item, I>,
     padding_index: u8,
     prev: Option<FieldSymbol>,
     remainder: bool,
@@ -126,7 +126,13 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
 
         match self.layout.next() {
             Some((field, step)) => {
-                if step.padding != 0 {
+                if step.padding == 0 {
+                    Some(EnrichedFieldSymbol {
+                        name: Cow::Borrowed(field.ident().resolve(self.pool)),
+                        kind: self.get_field_kind(field.kind()),
+                        is_padding: false,
+                    })
+                } else {
                     self.prev = Some(field);
                     let field = EnrichedFieldSymbol {
                         name: Cow::Owned(format!("__padding{}", self.padding_index)),
@@ -135,12 +141,6 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
                     };
                     self.padding_index += 1;
                     Some(field)
-                } else {
-                    Some(EnrichedFieldSymbol {
-                        name: Cow::Borrowed(field.ident().resolve(self.pool)),
-                        kind: self.get_field_kind(field.kind()),
-                        is_padding: false,
-                    })
                 }
             }
             None if !self.remainder => {

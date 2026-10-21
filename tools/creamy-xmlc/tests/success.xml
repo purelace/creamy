@@ -27,23 +27,14 @@
 
     <group name="first" access="Public">
         <stream kind="0" name="PlayerList" timeout="8" direction="Incoming">
-            <head>
-                <field name="count" type="u32" />
-            </head>
-            <payload></payload>
-            <tail>
-                <field name="checksum" type="u32" />
-            </tail>
+            <field name="count" type="u32" />
+            <field name="checksum" type="u32" />
         </stream>
 
         <stream kind="1" name="Log" timeout="3" direction="Duplex">
-            <head>
-                <field name="kind" type="LogType" />
-                <field name="length" type="u32"/>
-            </head>
-            <payload>
-                <field name="data" type="[u8; 27]"/>
-            </payload>
+            <field name="kind" type="LogType" />
+            <field name="length" type="u32"/>
+            <field name="data" type="Array[u8]"/>
         </stream>
 
         <message kind="0" name="Snapshot" direction="Outgoing">

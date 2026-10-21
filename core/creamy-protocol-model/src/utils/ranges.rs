@@ -76,13 +76,6 @@ define_readonly_range! {
     }
 }
 
-define_readonly_range! {
-    struct StreamsFieldsRange {
-        start: u16,
-        len: u16,
-    }
-}
-
 //TODO: pack range
 define_readonly_range! {
     struct FieldsRange {

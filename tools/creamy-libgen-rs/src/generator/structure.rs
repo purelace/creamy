@@ -16,6 +16,7 @@ pub struct Struct<'a, W: std::io::Write> {
     pub content: StructContent<'a>,
     pub trait_impls: Vec<TraitImpl<'a>>,
     pub impls: Vec<Impl<'a, W>>,
+    pub custom: Vec<Box<dyn CodeBlock<W>>>,
 }
 
 impl<'a, W: std::io::Write> Struct<'a, W> {
@@ -29,6 +30,7 @@ impl<'a, W: std::io::Write> Struct<'a, W> {
             content: StructContent::Fields(vec![]),
             trait_impls: vec![],
             impls: vec![],
+            custom: vec![],
         }
     }
 
@@ -79,6 +81,10 @@ impl<'a, W: std::io::Write> Struct<'a, W> {
         }
 
         for block in &self.impls {
+            block.write_to(writer, depth)?;
+        }
+
+        for block in &self.custom {
             block.write_to(writer, depth)?;
         }
 

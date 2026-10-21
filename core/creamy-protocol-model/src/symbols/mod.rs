@@ -10,7 +10,7 @@ use creamy_binary::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 pub use enumeration::{EnumSymbol, VariantSymbol, VariantValue};
-pub use field::{FieldSymbol, FieldType};
+pub use field::{Field, FieldSymbol, FieldType};
 pub use message::*;
 pub use numeric::*;
 pub use repr::PrimitiveRepr;
@@ -85,6 +85,13 @@ impl ArraySymbol {
     #[must_use]
     pub const fn len(&self) -> Size {
         self.len
+    }
+
+    #[must_use]
+    pub fn total_size(&self) -> u8 {
+        let kind_size = self.kind.size().value();
+        let array_len = self.len.value();
+        kind_size * array_len
     }
 }
 

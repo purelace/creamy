@@ -104,7 +104,7 @@ pub fn show_memory_layout(
     let message = messages[msg as usize];
     let field_range = match message {
         MessageSymbolType::Single(s) => s.fields(),
-        MessageSymbolType::Stream(s) => s.payload(), //TODO: support stream messages in memory report
+        MessageSymbolType::Stream(s) => todo!(), //TODO: support stream messages in memory report
     };
     let fields = def.fields_range(field_range);
 

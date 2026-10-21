@@ -5,42 +5,15 @@
     <group name="setup" access="Public">
 
         <stream kind="8" name="RegisterCommand" timeout="4" direction="Outgoing">
-            <head>
-                <field name="length" type="u32"/>
-                <field name="data" type="[u8; 20]"/>
-            </head>
-            <payload>
-                <field name="data" type="[u8; 27]"/>
-            </payload>
-            <tail>
-                <field name="data" type="[u8; 27]"/>
-            </tail>
+            <field name="name" type="Array[u8]"/>
         </stream>
 
         <stream kind="9" name="SetCommandName" timeout="4" direction="Incoming">
-            <head>
-                <field name="length" type="u32"/>
-                <field name="data" type="[u8; 20]"/>
-            </head>
-            <payload>
-                <field name="data" type="[u8; 27]"/>
-            </payload>
-            <tail>
-                <field name="data" type="[u8; 27]"/>
-            </tail>
+            <field name="name" type="Array[u8]"/>
         </stream>
 
         <stream kind="10" name="AddCommandArgument" timeout="4" direction="Incoming">
-            <head>
-                <field name="length" type="u32"/>
-                <field name="data" type="[u8; 20]"/>
-            </head>
-            <payload>
-                <field name="data" type="[u8; 27]"/>
-            </payload>
-            <tail>
-                <field name="data" type="[u8; 27]"/>
-            </tail>
+            <field name="name" type="Array[u8]"/>
         </stream>
 
         <message kind="11" name="ExecuteCommand" direction="Incoming">

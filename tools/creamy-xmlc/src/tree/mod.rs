@@ -11,10 +11,11 @@ use creamy_protocol_model::{
     OptionsRange, StructsRange, VariantsRange, Version, error::Fallback,
 };
 use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern};
+pub use message::{StreamFieldNode, StreamFieldTypeNode};
 
 use self::nodes::{
     BitsetNode, BitsetValueNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, GlobalTypesNode,
-    GroupNode, MessageNodeType, OptionNode, StreamPayloadFieldNode, StructNode, VariantNode,
+    GroupNode, MessageNodeType, OptionNode, StructNode, VariantNode,
 };
 use crate::{
     Diagnostics,
@@ -24,7 +25,7 @@ use crate::{
         bitset::{BValueParser, BitsetParser},
         enums::{EnumParser, VariantParser},
         flags::{FlagsParser, OptionParser},
-        message::{MessageParser, StreamPayloadFieldParser},
+        message::MessageParser,
         storage::NodeStorage,
         structs::StructParser,
     },
@@ -109,12 +110,12 @@ fn get_node_storage() -> NodeStorage {
     storage.register_node::<BitsetValueNode>();
     storage.register_node::<FieldNode>();
     storage.register_node::<VariantNode>();
-    storage.register_node::<StreamPayloadFieldNode>();
     storage.register_node::<MessageNodeType>();
     storage.register_node::<StructNode>();
     storage.register_node::<EnumNode>();
     storage.register_node::<FlagsNode>();
     storage.register_node::<BitsetNode>();
+    storage.register_node::<StreamFieldNode>();
     storage
 }
 
@@ -124,11 +125,6 @@ pub struct ProtocolTree {
     pub version: Version,
     pub global: GlobalTypesNode,
     pub storage: NodeStorage,
-}
-
-#[inline]
-const fn token_field(t: &Token) -> bool {
-    matches!(t, Token::Field { .. })
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -201,6 +197,7 @@ impl ProtocolTree {
                         state = AnalysisState::Global;
                     }
                     Some(other) => {
+                        dbg!(other);
                         let span = other.span();
                         let _ = iter.next().unwrap();
                         ctx.diag.report_err(AstError::UnexpectedToken { span });
@@ -398,7 +395,7 @@ macro_rules! define_toplevel_parser {
         error:      $error_type:path,
         top_parse:  $t_parse_method:ident,
         misc_parse: $misc:ident.$m_parse:ident,
-        args:       [ $($arg:ident : $arg_type:ty),* $(,)? ], // Исправлено на :ty
+        args:       [ $($arg:ident : $arg_type:ty),* $(,)? ],
         ctor:       |$ctx_name:ident, $range_name:ident, $($c_arg:ident),*| $closure:expr
     ) => {
         #[derive(Default)]
@@ -447,11 +444,11 @@ macro_rules! define_toplevel_parser {
 pub(super) struct ParserContext<'a> {
     pool: &'a mut StringPool,
     diag: &'a mut Diagnostics,
+    stream_field: StreamFieldParser,
     field: FieldParser,
     variant: VariantParser,
     option: OptionParser,
     bvalue: BValueParser,
-    payload: StreamPayloadFieldParser,
 }
 
 impl<'a> ParserContext<'a> {
@@ -459,13 +456,18 @@ impl<'a> ParserContext<'a> {
         Self {
             pool,
             diag,
+            stream_field: StreamFieldParser::default(),
             field: FieldParser::default(),
             variant: VariantParser::default(),
             option: OptionParser::default(),
             bvalue: BValueParser::default(),
-            payload: StreamPayloadFieldParser::default(),
         }
     }
+}
+
+#[inline]
+const fn token_field(t: &Token) -> bool {
+    matches!(t, Token::Field { .. })
 }
 
 define_misc_parser! {
@@ -480,5 +482,25 @@ define_misc_parser! {
     predicate: token_field,
     ctor:      |pool, name, kind, span| {
         FieldNode::new(name.intern(pool), FieldTypeNode::new(kind, pool))
+    }
+}
+
+#[inline]
+const fn token_stream_field(t: &Token) -> bool {
+    matches!(t, Token::StreamField { .. })
+}
+
+define_misc_parser! {
+    name:      StreamFieldParser,
+    type:      StreamFieldNode,
+    return:    FieldsRange,
+    error:     AstError::TooManyFields,
+    fn:        parse_fields,
+    builder:   build_fields,
+    token:     Token::StreamField,
+    fields:    [ name, kind, span ],
+    predicate: token_stream_field,
+    ctor:      |pool, name, kind, span| {
+        StreamFieldNode::new(name.intern(pool), StreamFieldTypeNode::new(kind, pool))
     }
 }

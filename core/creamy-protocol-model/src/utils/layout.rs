@@ -1,4 +1,4 @@
-use crate::symbols::{FieldSymbol, FieldType};
+use crate::symbols::{Field, FieldSymbol, FieldType};
 
 #[derive(Debug, Copy, Clone)]
 pub struct LayoutStep {
@@ -10,18 +10,11 @@ pub struct LayoutStep {
 
 impl LayoutStep {
     // TODO: const
-    fn new(symbol: &FieldSymbol, total_size: u8) -> Self {
+    fn new<F: Field>(symbol: &F, total_size: u8) -> Self {
         let type_id = symbol.type_id();
         let align = type_id.align().size();
 
-        let size = match symbol.kind() {
-            FieldType::Type(sym) => sym.size().value(),
-            FieldType::Array(array) => {
-                let kind_size = array.kind().size().value();
-                let array_len = array.len().value();
-                kind_size * array_len
-            }
-        };
+        let size = symbol.size();
 
         let padding = (align - (total_size % align)) % align;
         Self {
@@ -34,12 +27,12 @@ impl LayoutStep {
 }
 
 #[derive(Clone)]
-pub struct LayoutCalculator<I: Iterator<Item = FieldSymbol>> {
+pub struct LayoutCalculator<F: Field, I: Iterator<Item = F>> {
     total_size: u8,
     fields: I,
 }
 
-impl<I: Iterator<Item = FieldSymbol>> LayoutCalculator<I> {
+impl<F: Field, I: Iterator<Item = F>> LayoutCalculator<F, I> {
     #[must_use]
     pub const fn new(reserved: u8, fields: I) -> Self {
         Self {
@@ -54,8 +47,8 @@ impl<I: Iterator<Item = FieldSymbol>> LayoutCalculator<I> {
     }
 }
 
-impl<I: Iterator<Item = FieldSymbol>> Iterator for LayoutCalculator<I> {
-    type Item = (FieldSymbol, LayoutStep);
+impl<F: Field, I: Iterator<Item = F>> Iterator for LayoutCalculator<F, I> {
+    type Item = (F, LayoutStep);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(field) = self.fields.next() {

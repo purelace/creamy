@@ -2,7 +2,7 @@ use cbus_core::{SubscriberId, buffer::runtime::DynOutBuf};
 
 use crate::{
     message::Message,
-    stream::{StreamWriter, StreamWriterFunctions},
+    stream::{StreamId, StreamMessage, StreamWriter},
 };
 
 pub struct Sender {
@@ -38,15 +38,13 @@ impl Sender {
         self.buffer.send(message)
     }
 
-    pub fn send_stream<'a, T: StreamWriterFunctions>(
-        &mut self,
-        mut writer: StreamWriter<T>,
-        object: &'a T::Object<'a>,
-    ) -> bool {
-        let Some(dst) = self.table[T::Stream::GROUP.get() as usize] else {
+    pub fn send_stream<T: StreamMessage>(&mut self, content: &T::Content) -> bool {
+        let Some(dst) = self.table[T::GROUP.get() as usize] else {
             return false;
         };
-        writer.write(object, dst.get());
+
+        let mut writer = StreamWriter::<T>::new(dst.get(), StreamId::new(10));
+        writer.send(content);
         true
     }
 }
