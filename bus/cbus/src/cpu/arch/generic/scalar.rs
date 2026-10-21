@@ -20,7 +20,7 @@ impl ScalarInstructionSet {
         message: &mut UntypedMessage,
     ) {
         // Проверяем, не находится ли dst за пределами допустимого диапазона
-        let is_dst_in_valid_range = message.dst <= C::MAX_SUBSCRIBERS.get();
+        let is_dst_in_valid_range = message.dst < C::MAX_SUBSCRIBERS.get();
 
         // Устанавливаем актуальное значение
         message.src = src.safe_as();

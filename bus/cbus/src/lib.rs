@@ -40,3 +40,7 @@ pub use bus::MessageBus;
 pub use driver::{BusDriver, DataIterator};
 pub use error::BusError;
 pub use lookup::SubscriberLookupData;
+
+/*
+ * TODO: Проблема диапазона
+ */

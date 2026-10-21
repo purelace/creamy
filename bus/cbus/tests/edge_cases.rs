@@ -1,6 +1,6 @@
 use std::num::NonZeroU8;
 
-use cbus::{BusDriver, DataIterator, MessageBus, SubscriberLookupData, define_bus_config};
+use cbus::{BusDriver, DataIterator, SubscriberLookupData, define_bus_config};
 use cbus_core::{
     Subscriber, SubscriberId, UntypedMessage,
     buffer::{IncBuf, OutBuf},
@@ -50,11 +50,12 @@ impl Subscriber for Reader {
     }
 }
 
-#[test]
-fn dst_is_more_than_max_possible() {
-    let mut bus = MessageBus::<Config, Driver, M>::new(Driver);
+type MessageBus = cbus::MessageBus<Config, Driver, M>;
+
+fn init() -> (MessageBus, OutBuf<M>) {
+    let mut bus = MessageBus::new(Driver);
     let inc = IncBuf::default();
-    let mut out = OutBuf::default();
+    let out = OutBuf::default();
     bus.add_subscriber_with(
         inc.clone(),
         out.clone(),
@@ -68,12 +69,27 @@ fn dst_is_more_than_max_possible() {
     bus.add_subscriber(|inc, out| Box::new(Reader { inc, _out: out }) as Box<dyn Subscriber>)
         .unwrap();
 
-    out.send(UntypedMessage {
-        dst: 238,
-        group: 1,
-        src: 17,
-        kind: 0,
-        payload: [0; 28],
-    });
+    (bus, out)
+}
+
+#[test]
+fn dst_is_more_than_max_possible() {
+    let (mut bus, mut out) = init();
+    assert!(out.send_many_iter_exact([
+        UntypedMessage {
+            dst: 238,
+            group: 1,
+            src: 17,
+            kind: 0,
+            payload: [0; 28],
+        },
+        UntypedMessage {
+            dst: 128,
+            group: 1,
+            src: 0,
+            kind: 0,
+            payload: [0; 28],
+        },
+    ]));
     bus.full_tick();
 }
