@@ -2,6 +2,7 @@ use as_guard::AsGuard;
 use cbus_core::Subscriber;
 
 use crate::{
+    bus::SubscriberRange,
     config::BusConfig,
     core::UntypedMessage,
     cpu::{PipelineData, runner::InstructionRunner, set::InstructionSet},
@@ -16,11 +17,13 @@ impl ScalarInstructionSet {
     #[inline(always)]
     fn prepare_single_message<C: BusConfig>(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         message: &mut UntypedMessage,
     ) {
-        // Проверяем, не находится ли dst за пределами допустимого диапазона
-        let is_dst_in_valid_range = message.dst < C::MAX_SUBSCRIBERS.get();
+        // Проверяем, находится ли dst в пределах допустимого диапазона
+        let is_dst_in_valid_range = range.contains(message.dst);
+        //let is_dst_in_valid_range = message.dst < C::MAX_SUBSCRIBERS.get();
 
         // Устанавливаем актуальное значение
         message.src = src.safe_as();
@@ -52,6 +55,7 @@ impl ScalarInstructionSet {
     #[inline(always)]
     pub fn prepare_and_send_to<C: BusConfig>(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
@@ -63,7 +67,7 @@ impl ScalarInstructionSet {
         for i in 0..len {
             unsafe {
                 *write.get_unchecked_mut(i) = *read.get_unchecked(i);
-                Self::prepare_single_message(lut, src, write.get_unchecked_mut(i));
+                Self::prepare_single_message(lut, range, src, write.get_unchecked_mut(i));
             }
         }
     }
@@ -87,23 +91,25 @@ where
     #[inline(always)]
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage; 1],
         write: &mut [UntypedMessage; 1],
     ) {
         tracing::info!("got message from: {src}");
-        Self::prepare_and_send_to(lut, src, read, write);
+        Self::prepare_and_send_to(lut, range, src, read, write);
     }
 
     #[inline(always)]
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
         tracing::info!("got message from: {src}");
-        Self::prepare_and_send_to(lut, src, read, write);
+        Self::prepare_and_send_to(lut, range, src, read, write);
     }
 }
 
@@ -128,7 +134,7 @@ where
         messages: &mut [UntypedMessage],
     ) {
         for message in messages {
-            Self::prepare_single_message(data.lookup_table, src, message);
+            Self::prepare_single_message(data.lookup_table, data.subscriber_range, src, message);
             let mut buffer = data.memory.get_mut_inc_buf(message.dst as usize);
 
             let write_ptr = buffer.write_slice_mut(1).as_mut_ptr();

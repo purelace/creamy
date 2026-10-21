@@ -1,6 +1,7 @@
-use core::{marker::PhantomData, ops::RangeInclusive};
+use core::marker::PhantomData;
 
 use crate::{
+    bus::SubscriberRange,
     config::BusConfig,
     core::{Subscriber, SubscriberId},
     cpu::{MemoryPools, MessagePipeline, PipelineData},
@@ -53,7 +54,7 @@ where
         self.lookup_table.zeroize(id);
     }
 
-    pub fn process_messages(&mut self, memory: MemoryPools<C, S, M>, range: RangeInclusive<u8>) {
+    pub fn process_messages(&mut self, memory: MemoryPools<C, S, M>, range: SubscriberRange) {
         let mut data = PipelineData {
             lookup_table: &self.lookup_table,
             memory,

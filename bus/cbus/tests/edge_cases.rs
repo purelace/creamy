@@ -93,3 +93,26 @@ fn dst_is_more_than_max_possible() {
     ]));
     bus.full_tick();
 }
+
+#[test]
+fn inactive_buffer_overflow() {
+    let (mut bus, mut out) = init();
+
+    for _ in 0..3 {
+        let messages = core::iter::repeat_n(
+            UntypedMessage {
+                dst: 100, // несуществующий подписчких будет хранить данные без очистки.
+                group: 1,
+                src: 1,
+                kind: 0,
+                payload: [0; 28],
+            },
+            1024,
+        )
+        .collect::<Vec<_>>();
+        for message in messages {
+            out.send(message);
+        }
+        bus.full_tick();
+    }
+}

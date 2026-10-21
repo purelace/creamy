@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use core::{marker::PhantomData, ops::RangeInclusive};
+use core::marker::PhantomData;
 
 use as_guard::AsGuard;
 use cbus_core::{
@@ -8,7 +8,7 @@ use cbus_core::{
 };
 
 use crate::{
-    bus::SubscriberData,
+    bus::{SubscriberData, SubscriberRange},
     config::BusConfig,
     cpu::{
         arch::AvailableStrategy,
@@ -152,7 +152,7 @@ impl PipelinePlan {
         self.offsets.reset();
         self.indices = [0; 256];
 
-        for src in data.subscriber_range.clone() {
+        for src in data.subscriber_range {
             let sub_data = &data.memory.subscribers[src as usize];
             let count = sub_data.outgoing_ref().count();
             S::add_offset(&mut self.offsets, count as usize);
@@ -162,7 +162,7 @@ impl PipelinePlan {
         let mut write_ptr = S::get_write_ptr(self.offsets);
 
         // 3. Заполняем массив indices, используя смещения
-        for src in data.subscriber_range.clone() {
+        for src in data.subscriber_range {
             let sub_data = &data.memory.subscribers[src as usize];
             let count = sub_data.outgoing_ref().count();
 
@@ -246,7 +246,7 @@ where
 pub struct PipelineData<'a, C: BusConfig, S: Subscriber, const M: usize> {
     pub(crate) lookup_table: &'a LookupTable<C>,
     pub(crate) memory: MemoryPools<'a, C, S, M>,
-    pub(crate) subscriber_range: RangeInclusive<u8>,
+    pub(crate) subscriber_range: SubscriberRange,
     pub(crate) _phantom: PhantomData<C>,
 }
 

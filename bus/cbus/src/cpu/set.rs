@@ -1,6 +1,7 @@
 use cbus_core::Subscriber;
 
 use crate::{
+    bus::SubscriberRange,
     config::BusConfig,
     core::UntypedMessage,
     cpu::{MessagePipeline, PipelineData},
@@ -23,6 +24,7 @@ where
     /// Подготавливает сообщения и пишет в слайс с заданным размером
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage; CHUNK_SIZE],
         write: &mut [UntypedMessage; CHUNK_SIZE],
@@ -31,6 +33,7 @@ where
     /// Подготавливает и пишет остаток сообщений в указанный слайс
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
@@ -49,7 +52,13 @@ where
             let write = data.memory.message.reserve_slice(buffer.count() as usize);
             let read = buffer.read_slice();
 
-            Self::slices_prepare_and_send(data.lookup_table, src, read, write);
+            Self::slices_prepare_and_send(
+                data.lookup_table,
+                data.subscriber_range,
+                src,
+                read,
+                write,
+            );
 
             buffer.set_count(0);
         }
@@ -97,6 +106,7 @@ where
     #[inline(always)]
     fn slices_prepare_and_send(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
@@ -107,9 +117,9 @@ where
         let (write_chunks, write_remainder) = write.as_chunks_mut::<CHUNK_SIZE>();
 
         for (read_chunk, write_chunk) in read_chunks.iter().zip(write_chunks) {
-            Self::prepare_and_send_exactly(lut, src, read_chunk, write_chunk);
+            Self::prepare_and_send_exactly(lut, range, src, read_chunk, write_chunk);
         }
 
-        Self::prepare_and_send_remainder(lut, src, read_remainder, write_remainder);
+        Self::prepare_and_send_remainder(lut, range, src, read_remainder, write_remainder);
     }
 }

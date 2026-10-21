@@ -1,5 +1,4 @@
 use alloc::boxed::Box;
-use core::ops::RangeInclusive;
 
 use cbus_core::{
     SubscriberId,
@@ -11,6 +10,52 @@ use crate::{
     BusDriver, BusError, config::BusConfig, core::Subscriber, cpu::MemoryPools, driver::Driver,
     sys::MessagePool,
 };
+
+//TODO: NonZeroU8
+/// Inclusive range of almost all valid subscriber ids
+#[derive(Clone, Copy)]
+pub(crate) struct SubscriberRange {
+    start: u8,
+    end: u8,
+}
+
+impl SubscriberRange {
+    pub const fn contains(self, value: u8) -> bool {
+        value >= self.start && value <= self.end
+    }
+}
+
+impl IntoIterator for SubscriberRange {
+    type Item = u8;
+
+    type IntoIter = RangeIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        RangeIterator {
+            end: self.end,
+            current: self.start,
+        }
+    }
+}
+
+pub(crate) struct RangeIterator {
+    end: u8,
+    current: u8,
+}
+
+impl Iterator for RangeIterator {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current == self.end {
+            return None;
+        }
+
+        let result = self.current;
+        self.current += 1;
+        Some(result)
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct SubscriberData<S: Subscriber, const M: usize> {
@@ -191,8 +236,11 @@ where
     // Попробовать подготовить данные так, чтобы можно было одной операцией их отправить
     // Обрабатывать возможное переполнение
 
-    const fn subscriber_range(&self) -> RangeInclusive<u8> {
-        0..=self.mint.last()
+    const fn subscriber_range(&self) -> SubscriberRange {
+        SubscriberRange {
+            start: 0,
+            end: self.mint.last(),
+        }
     }
 
     #[tracing::instrument(skip_all)]
