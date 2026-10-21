@@ -4,7 +4,8 @@ edition = "2024"
 license = "Apache-2.0"
 
 [profile.release]
-lto = "fat"
+lto = false
+#lto = "fat"
 opt-level = 3
 codegen-units = 1
 incremental = false
@@ -22,6 +23,7 @@ cast_possible_truncation = "allow"
 resolver = "2"
 members = [
     "bus/cbus",
+    "bus/cbus/fuzz",
     "bus/cbus-core",
 
     "core/creamy-protocol-model-macros",

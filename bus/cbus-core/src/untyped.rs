@@ -8,7 +8,7 @@ assert_eq_size!(UntypedMessage, [u8; MESSAGE_SIZE]);
 
 #[repr(C, align(32))]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[allow(unused)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct UntypedMessage {
     pub dst: u8,
     pub group: u8,
