@@ -35,9 +35,6 @@ impl BusDriver for Driver {
     fn on_unsubscribe(&mut self, _: SubscriberId) {}
 }
 
-//max_subscribers: $subs:expr,
-//max_messages: $messages:expr,
-//max_groups: $groups:expr $(,)?
 const M: usize = 2048;
 define_bus_config! {
     Config,

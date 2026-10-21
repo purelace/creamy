@@ -19,17 +19,20 @@ impl ScalarInstructionSet {
         src: usize,
         message: &mut UntypedMessage,
     ) {
+        // Проверяем, не находится ли dst за пределами допустимого диапазона
+        let is_dst_in_valid_range = message.dst <= C::MAX_SUBSCRIBERS.get();
+
         // Устанавливаем актуальное значение
         message.src = src.safe_as();
 
-        let in_idx = src * LookupTable::<C>::MAX_GROUPS + message.group as usize;
-        let relative_to_dst_group = unsafe { *lut.get_input().get_unchecked(in_idx) };
+        let src_index = src * LookupTable::<C>::MAX_GROUPS + message.group as usize;
+        let consumer_group = unsafe { *lut.get_input().get_unchecked(src_index) };
 
-        let is_valid = u8::from(relative_to_dst_group != 0);
+        let is_valid = u8::from(consumer_group != 0 && is_dst_in_valid_range);
         let final_dst = is_valid * message.dst;
 
         message.dst = final_dst;
-        message.group = relative_to_dst_group;
+        message.group = consumer_group;
     }
 
     #[inline(always)]
