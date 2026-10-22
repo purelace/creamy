@@ -1,7 +1,13 @@
 pub mod runtime;
 
 use alloc::alloc::alloc_zeroed;
-use core::{alloc::Layout, fmt::Debug, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
+use core::{
+    alloc::Layout,
+    fmt::{Debug, NumBuffer},
+    marker::PhantomData,
+    num::NonZeroUsize,
+    ptr::NonNull,
+};
 
 use as_guard::AsGuard;
 
@@ -154,16 +160,11 @@ impl<const M: usize> IncBuf<M> {
         Some(buffer.data[start])
     }
 
-    pub fn pop_all(&mut self) -> &[UntypedMessage] {
+    pub fn pop_all(&mut self) -> core::iter::Rev<core::slice::Iter<'_, UntypedMessage>> {
         let count = self.buf.count() as usize;
-        if count == 0 {
-            return &[];
-        }
-
         let mut buffer = self.buf.as_mut_buf();
         buffer.set_count(0);
-
-        &buffer.data[..count]
+        buffer.data[..count].iter().rev()
     }
 }
 
