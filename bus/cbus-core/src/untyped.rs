@@ -17,6 +17,7 @@ pub struct UntypedMessage {
     pub payload: [u8; 28],
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl TypedMessage for UntypedMessage {
     fn dst(&self) -> u8 {
         self.dst

@@ -1,4 +1,3 @@
-/*
 mod general;
 
 use std::collections::HashMap;
@@ -62,12 +61,13 @@ impl BusDriver for Dns {
             return std::iter::once(SubscriberLookupData {
                 consumer_group_id: 1,
                 provider_group_id: 1,
+                provider_id: SubscriberId::new_u8(1).unwrap(),
             });
         }
 
         let mut message = UntypedMessage {
             dst: id.get(),
-            group: id.get(),
+            group: 1,
             src: 0,
             kind: 0,
             payload: [0; 28],
@@ -88,6 +88,7 @@ impl BusDriver for Dns {
         std::iter::once(SubscriberLookupData {
             consumer_group_id: 1,
             provider_group_id: 1,
+            provider_id: SubscriberId::new_u8(1).unwrap(),
         })
     }
 
@@ -119,13 +120,10 @@ impl Resolver {
 
 impl Subscriber for Resolver {
     fn notify(&mut self) {
-        let slice = self.inc.pop_all();
-
-        if slice.is_empty() {
+        let Some(message) = self.inc.pop() else {
             return;
-        }
+        };
 
-        let message = slice[0];
         let ident = str::from_utf8(&message.payload[..7]).unwrap();
         assert_eq!(ident, self.ident);
 
@@ -274,4 +272,3 @@ fn remove_subscriber_with_incorrect_id() {
     );
     assert_eq!(result, Err(BusError::SubscriberNotRegistered));
 }
-*/

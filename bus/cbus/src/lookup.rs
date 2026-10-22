@@ -26,7 +26,6 @@ impl<C: BusConfig> LookupTable<C> {
 
         Self {
             input: vec![0u8; max_subscribers * Self::MAX_GROUPS].into(),
-            //output: vec![0u8; max_subscribers * Self::MAX_GROUPS].into(),
             _phantom: PhantomData,
         }
     }

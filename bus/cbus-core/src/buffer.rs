@@ -144,6 +144,11 @@ impl<const M: usize> IncBuf<M> {
         self.buf.count()
     }
 
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.count() == 0
+    }
+
     pub const fn clear(&mut self) {
         self.buf.set_count(0);
     }
