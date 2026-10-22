@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 
 use cbus_core::{
     SubscriberId,
-    buffer::{IncBuf, OutBuf, RawBuf, RefBuf, RefMutBuf},
+    buffer::{IncBuf, OutBuf, RefBuf, RefMutBuf},
 };
 use idmint::StackMint;
 
@@ -100,7 +100,8 @@ impl<S: Subscriber, const M: usize> SubscriberData<S, M> {
         self.outgoing.as_inner_ref().as_ref_buf()
     }
 
-    pub const unsafe fn incoming_raw_ptr(&mut self) -> RawBuf {
+    #[cfg(target_feature = "sse4.1")]
+    pub const unsafe fn incoming_raw_ptr(&mut self) -> cbus_core::buffer::RawBuf {
         unsafe { self.incoming.as_inner_mut().as_raw_buf() }
     }
 }

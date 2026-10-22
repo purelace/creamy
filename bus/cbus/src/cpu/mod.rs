@@ -2,10 +2,7 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use as_guard::AsGuard;
-use cbus_core::{
-    Subscriber,
-    buffer::{RawBuf, RefMutBuf},
-};
+use cbus_core::{Subscriber, buffer::RefMutBuf};
 
 use crate::{
     bus::{SubscriberData, SubscriberRange},
@@ -256,8 +253,8 @@ pub struct MemoryPools<'a, C: BusConfig, S: Subscriber, const M: usize> {
 }
 
 impl<C: BusConfig, S: Subscriber, const M: usize> MemoryPools<'_, C, S, M> {
-    #[allow(unused)]
-    pub const fn get_inc_raw_buf(&mut self, index: u8) -> RawBuf {
+    #[cfg(target_feature = "sse4.1")]
+    pub const fn get_inc_raw_buf(&mut self, index: u8) -> cbus_core::buffer::RawBuf {
         let data = &mut self.subscribers[index as usize];
         unsafe { data.incoming_raw_ptr() }
     }
