@@ -20,6 +20,16 @@ pub(crate) struct SubscriberRange {
 }
 
 impl SubscriberRange {
+    #[cfg(target_feature = "sse4.1")]
+    pub const fn start(self) -> u8 {
+        self.start
+    }
+
+    #[cfg(target_feature = "sse4.1")]
+    pub const fn end(self) -> u8 {
+        self.end
+    }
+
     pub const fn contains(self, value: u8) -> bool {
         value >= self.start && value <= self.end
     }

@@ -204,6 +204,11 @@ impl<const M: usize> OutBuf<M> {
         self.buf.count()
     }
 
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.count() == 0
+    }
+
     const fn reserve(&mut self, count: u32) {
         self.buf.set_count(self.buf.count() + count);
     }

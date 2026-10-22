@@ -4,5 +4,8 @@
 #[target.'cfg(all())']
 #rustflags = ["-C", "target-cpu=native"]
 
+#[target.'cfg(all())']
+#rustflags = ["-C", "target-feature=+sse4.1"]
+
 [env]
 RUST_BACKTRACE="1"

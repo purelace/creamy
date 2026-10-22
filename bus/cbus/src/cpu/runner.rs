@@ -32,8 +32,6 @@ where
             let mut buffer = data.memory.get_mut_out_buf(src);
             let messages = buffer.read_slice_mut();
 
-            //let header_ptr = data.memory.read.header_mut_ptr_for(src);
-            //let messages = Header::read_slice_mut_test(header_ptr, capacity);
             Self::prepare_and_send_direct_slice(data, src, messages);
 
             buffer.set_count(0);

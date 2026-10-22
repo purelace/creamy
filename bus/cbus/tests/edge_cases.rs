@@ -30,12 +30,13 @@ define_bus_config! {
 
 struct Fuzzer {
     inc: IncBuf<M>,
-    _out: OutBuf<M>,
+    out: OutBuf<M>,
 }
 
 impl Subscriber for Fuzzer {
     fn notify(&mut self) {
         self.inc.clear();
+        assert!(self.out.is_empty());
     }
 }
 
@@ -61,7 +62,7 @@ fn init() -> (MessageBus, OutBuf<M>) {
         out.clone(),
         Box::new(Fuzzer {
             inc,
-            _out: out.clone(),
+            out: out.clone(),
         }) as Box<dyn Subscriber>,
     )
     .unwrap();

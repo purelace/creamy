@@ -23,7 +23,6 @@ impl ScalarInstructionSet {
     ) {
         // Проверяем, находится ли dst в пределах допустимого диапазона
         let is_dst_in_valid_range = range.contains(message.dst);
-        //let is_dst_in_valid_range = message.dst < C::MAX_SUBSCRIBERS.get();
 
         // Устанавливаем актуальное значение
         message.src = src.safe_as();
