@@ -278,6 +278,7 @@ where
                         let span = tracing::span!(tracing::Level::INFO, "subscriber::notify()");
                         let _enter = span.enter();
                     }
+                    _ => {}
                 }
                 sub.notify();
             });
