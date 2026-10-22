@@ -137,9 +137,9 @@ subscribers! {
 }
 
 subscribers! {
-    TSubs10,
-    Sender => TestSender::<10>,
-    Listener => TestListener::<10>,
+    TSubs13,
+    Sender => TestSender::<13>,
+    Listener => TestListener::<13>,
 }
 
 subscribers! {
@@ -172,8 +172,8 @@ pub fn send_1_message() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-pub fn send_10_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs10>::new(Driver);
+pub fn send_13_messages() -> Result<(), Box<dyn std::error::Error>> {
+    let mut bus = MessageBus::<TSubs13>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();

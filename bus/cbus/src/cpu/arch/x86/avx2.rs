@@ -292,14 +292,14 @@ where
             let msg6 = msg0.add(6);
             let msg7 = msg0.add(7);
 
-            let dst0 = msg0.cast::<u8>().add(1).read();
-            let dst1 = msg1.cast::<u8>().add(1).read();
-            let dst2 = msg2.cast::<u8>().add(1).read();
-            let dst3 = msg3.cast::<u8>().add(1).read();
-            let dst4 = msg4.cast::<u8>().add(1).read();
-            let dst5 = msg5.cast::<u8>().add(1).read();
-            let dst6 = msg6.cast::<u8>().add(1).read();
-            let dst7 = msg7.cast::<u8>().add(1).read();
+            let dst0 = msg0.cast::<u8>().read();
+            let dst1 = msg1.cast::<u8>().read();
+            let dst2 = msg2.cast::<u8>().read();
+            let dst3 = msg3.cast::<u8>().read();
+            let dst4 = msg4.cast::<u8>().read();
+            let dst5 = msg5.cast::<u8>().read();
+            let dst6 = msg6.cast::<u8>().read();
+            let dst7 = msg7.cast::<u8>().read();
 
             let dst0 = validate_dst(data.subscriber_range, src, dst0);
             let dst1 = validate_dst(data.subscriber_range, src, dst1);
@@ -320,13 +320,21 @@ where
             let mut h7 = data.memory.get_inc_raw_buf(dst7);
 
             let dst0_ptr = h0.write_raw_mut_ptr().cast::<__m256i>();
+            h0.set_count((h0.count() + 1) * u32::from(dst0 != 0));
             let dst1_ptr = h1.write_raw_mut_ptr().cast::<__m256i>();
+            h1.set_count((h1.count() + 1) * u32::from(dst1 != 0));
             let dst2_ptr = h2.write_raw_mut_ptr().cast::<__m256i>();
+            h2.set_count((h2.count() + 1) * u32::from(dst2 != 0));
             let dst3_ptr = h3.write_raw_mut_ptr().cast::<__m256i>();
+            h3.set_count((h3.count() + 1) * u32::from(dst3 != 0));
             let dst4_ptr = h4.write_raw_mut_ptr().cast::<__m256i>();
+            h4.set_count((h4.count() + 1) * u32::from(dst4 != 0));
             let dst5_ptr = h5.write_raw_mut_ptr().cast::<__m256i>();
+            h5.set_count((h5.count() + 1) * u32::from(dst5 != 0));
             let dst6_ptr = h6.write_raw_mut_ptr().cast::<__m256i>();
+            h6.set_count((h6.count() + 1) * u32::from(dst6 != 0));
             let dst7_ptr = h7.write_raw_mut_ptr().cast::<__m256i>();
+            h7.set_count((h7.count() + 1) * u32::from(dst7 != 0));
 
             Self::validate_and_write_messages(
                 data.lookup_table,
@@ -337,15 +345,6 @@ where
                 ],
                 &[msg0, msg1, msg2, msg3, msg4, msg5, msg6, msg7],
             );
-
-            h0.set_count((h0.count() + 1) * u32::from(dst0 != 0));
-            h1.set_count((h1.count() + 1) * u32::from(dst1 != 0));
-            h2.set_count((h2.count() + 1) * u32::from(dst2 != 0));
-            h3.set_count((h3.count() + 1) * u32::from(dst3 != 0));
-            h4.set_count((h4.count() + 1) * u32::from(dst4 != 0));
-            h5.set_count((h5.count() + 1) * u32::from(dst5 != 0));
-            h6.set_count((h6.count() + 1) * u32::from(dst6 != 0));
-            h7.set_count((h7.count() + 1) * u32::from(dst7 != 0));
         }
     }
 
@@ -355,12 +354,11 @@ where
         src: usize,
         messages: &mut [UntypedMessage],
     ) {
-        //TODO: send remainder
-        let chunks = messages.as_chunks_mut::<CHUNK_SIZE>();
-        for chunk in chunks.0 {
+        let (chunks, remainder) = messages.as_chunks_mut::<CHUNK_SIZE>();
+        for chunk in chunks {
             Self::prepare_and_send_chunk_to_unknown(data, src, chunk);
         }
 
-        Sse41InstructionSet::prepare_and_send_direct_slice(data, src, messages);
+        Sse41InstructionSet::prepare_and_send_direct_slice(data, src, remainder);
     }
 }

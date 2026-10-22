@@ -114,12 +114,26 @@ where
     C: BusConfig,
     S: Subscriber,
 {
-    #[cfg_attr(coverage_nightly, coverage(off))]
+    #[inline(always)]
     fn prepare_and_send_chunk_to_unknown(
-        _data: &mut PipelineData<C, S, M>,
-        _src: usize,
-        _chunk: &mut [UntypedMessage; 1],
+        data: &mut PipelineData<C, S, M>,
+        src: usize,
+        chunk: &mut [UntypedMessage; 1],
     ) {
+        let message = &mut chunk[0];
+        Self::prepare_single_message(data.lookup_table, data.subscriber_range, src, message);
+        let mut buffer = data.memory.get_mut_inc_buf(message.dst as usize);
+
+        let write_ptr = buffer.write_slice_mut(1).as_mut_ptr();
+        let read_ptr = core::ptr::from_ref(message);
+
+        unsafe {
+            core::ptr::copy_nonoverlapping(read_ptr, write_ptr, 1);
+
+            // Инкрементируем count если dst не равен 0
+            // Это нужно чтобы все сообщения с dst == 0 отправлялись в мусорку (/dev/null)
+            buffer.set_count((buffer.count() + 1) * u32::from(message.dst != 0));
+        }
     }
 
     #[inline(always)]
@@ -128,20 +142,8 @@ where
         src: usize,
         messages: &mut [UntypedMessage],
     ) {
-        for message in messages {
-            Self::prepare_single_message(data.lookup_table, data.subscriber_range, src, message);
-            let mut buffer = data.memory.get_mut_inc_buf(message.dst as usize);
-
-            let write_ptr = buffer.write_slice_mut(1).as_mut_ptr();
-            let read_ptr = core::ptr::from_ref(message);
-
-            unsafe {
-                core::ptr::copy_nonoverlapping(read_ptr, write_ptr, 1);
-
-                // Инкрементируем count если dst не равен 0
-                // Это нужно чтобы все сообщения с dst == 0 отправлялись в мусорку (/dev/null)
-                buffer.set_count((buffer.count() + 1) * u32::from(message.dst != 0));
-            }
+        for message in messages.as_chunks_mut::<1>().0 {
+            Self::prepare_and_send_chunk_to_unknown(data, src, message);
         }
     }
 }

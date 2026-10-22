@@ -12,7 +12,6 @@ where
     C: BusConfig,
     S: Subscriber,
 {
-    #[allow(unused)]
     fn prepare_and_send_chunk_to_unknown(
         data: &mut PipelineData<C, S, M>,
         src: usize,

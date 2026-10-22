@@ -33,6 +33,8 @@ use crate::{
     lookup::LookupTable,
 };
 
+const CHUNK_SIZE: usize = 4;
+
 pub struct Sse41InstructionSet;
 impl Sse41InstructionSet {
     // Проверяем, находится ли dst в допустимом диапазоне
@@ -221,15 +223,18 @@ impl Sse41InstructionSet {
 /// * Part1: \[Header 4 Bytes\] \[Payload 12 Bytes\]
 /// * Part2: \[Payload 16 Bytes\]
 struct XmmMessages {
-    messages_part1: [*const __m128i; 4],
-    messages_part2: [*const __m128i; 4],
-    dst_part1: [*mut __m128i; 4],
-    dst_part2: [*mut __m128i; 4],
+    messages_part1: [*const __m128i; CHUNK_SIZE],
+    messages_part2: [*const __m128i; CHUNK_SIZE],
+    dst_part1: [*mut __m128i; CHUNK_SIZE],
+    dst_part2: [*mut __m128i; CHUNK_SIZE],
 }
 
 impl XmmMessages {
     #[inline(always)]
-    const fn new(read: &[UntypedMessage; 4], write: &mut [UntypedMessage; 4]) -> Self {
+    const fn new(
+        read: &[UntypedMessage; CHUNK_SIZE],
+        write: &mut [UntypedMessage; CHUNK_SIZE],
+    ) -> Self {
         unsafe {
             // SSE обрабатывает всего лишь 128 бит,
             // поэтому нам нужно получить указатели на каждую половину сообщения
@@ -290,13 +295,13 @@ impl XmmMessages {
     }
 }
 
-impl<C, S, const M: usize> InstructionSet<C, S, M, 4> for Sse41InstructionSet
+impl<C, S, const M: usize> InstructionSet<C, S, M, CHUNK_SIZE> for Sse41InstructionSet
 where
     C: BusConfig,
     S: Subscriber,
 {
     #[inline(always)]
-    fn send_exactly(read: &[UntypedMessage; 4], write: &mut [UntypedMessage; 4]) {
+    fn send_exactly(read: &[UntypedMessage; CHUNK_SIZE], write: &mut [UntypedMessage; CHUNK_SIZE]) {
         // Так как половинки никак не изменяются и не читаются,
         // Мы сразу загружаем и выгружаем в их точке назначения
         let messages = XmmMessages::new(read, write);
@@ -314,8 +319,8 @@ where
         lut: &LookupTable<C>,
         range: SubscriberRange,
         src: usize,
-        read: &[UntypedMessage; 4],
-        write: &mut [UntypedMessage; 4],
+        read: &[UntypedMessage; CHUNK_SIZE],
+        write: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
         let messages = XmmMessages::new(read, write);
         Self::validate_and_write_messages(lut, range, src, &messages);
@@ -333,7 +338,7 @@ where
     }
 }
 
-impl<C, S, const M: usize> InstructionRunner<C, S, M, 4> for Sse41InstructionSet
+impl<C, S, const M: usize> InstructionRunner<C, S, M, CHUNK_SIZE> for Sse41InstructionSet
 where
     C: BusConfig,
     S: Subscriber,
@@ -342,7 +347,7 @@ where
     fn prepare_and_send_chunk_to_unknown(
         data: &mut PipelineData<C, S, M>,
         src: usize,
-        chunk: &mut [UntypedMessage; 4],
+        chunk: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
         unsafe {
             let chunk_ptr = core::ptr::from_ref(chunk).cast::<__m128i>();
@@ -354,10 +359,10 @@ where
             let msg2 = chunk_ptr.add(4);
             let msg3 = chunk_ptr.add(6);
 
-            let dst0 = msg0.cast::<u8>().add(1).read();
-            let dst1 = msg1.cast::<u8>().add(1).read();
-            let dst2 = msg2.cast::<u8>().add(1).read();
-            let dst3 = msg3.cast::<u8>().add(1).read();
+            let dst0 = msg0.cast::<u8>().read();
+            let dst1 = msg1.cast::<u8>().read();
+            let dst2 = msg2.cast::<u8>().read();
+            let dst3 = msg3.cast::<u8>().read();
 
             // Validate dst (0)
             let dst0 = validate_dst(data.subscriber_range, src, dst0);
@@ -371,9 +376,13 @@ where
             let mut h3 = data.memory.get_inc_raw_buf(dst3);
 
             let dst0_ptr = h0.write_raw_mut_ptr().cast::<__m128i>();
+            h0.set_count((h0.count() + 1) * u32::from(dst0 != 0));
             let dst1_ptr = h1.write_raw_mut_ptr().cast::<__m128i>();
+            h1.set_count((h1.count() + 1) * u32::from(dst1 != 0));
             let dst2_ptr = h2.write_raw_mut_ptr().cast::<__m128i>();
+            h2.set_count((h2.count() + 1) * u32::from(dst2 != 0));
             let dst3_ptr = h3.write_raw_mut_ptr().cast::<__m128i>();
+            h3.set_count((h3.count() + 1) * u32::from(dst3 != 0));
 
             let dst0_ptr_half = dst0_ptr.add(1);
             let dst1_ptr_half = dst1_ptr.add(1);
@@ -403,11 +412,6 @@ where
                 src,
                 &messages,
             );
-
-            h0.set_count((h0.count() + 1) * u32::from(dst0 != 0));
-            h1.set_count((h1.count() + 1) * u32::from(dst1 != 0));
-            h2.set_count((h2.count() + 1) * u32::from(dst2 != 0));
-            h3.set_count((h3.count() + 1) * u32::from(dst3 != 0));
         }
     }
 
@@ -417,15 +421,11 @@ where
         src: usize,
         messages: &mut [UntypedMessage],
     ) {
-        //TODO: remainder
-
-        let mut chunks =
-            messages.chunks_exact_mut(<Self as InstructionSet<C, S, M, _>>::CHUNK_SIZE);
-        for chunk in &mut chunks {
-            let chunk = unsafe { &mut *chunk.as_mut_ptr().cast::<[UntypedMessage; 4]>() };
+        let (chunks, remainder) = messages.as_chunks_mut::<CHUNK_SIZE>();
+        for chunk in chunks {
             Self::prepare_and_send_chunk_to_unknown(data, src, chunk);
         }
 
-        ScalarInstructionSet::prepare_and_send_direct_slice(data, src, messages);
+        ScalarInstructionSet::prepare_and_send_direct_slice(data, src, remainder);
     }
 }
