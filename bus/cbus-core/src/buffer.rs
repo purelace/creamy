@@ -9,7 +9,7 @@ use self::runtime::DynSharedBuf;
 use crate::{
     UntypedMessage,
     defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN},
-    message::TypedMessage,
+    message::{TypedMessage, cast_message},
 };
 
 const DANGLING_LAYOUT: Layout = match Layout::from_size_align(MESSAGE_SIZE + METADATA, TARGET_ALIGN)
@@ -264,7 +264,7 @@ impl<const M: usize> OutBuf<M> {
             let mut ptr = self.write_ptr().as_ptr();
 
             for msg in iter.rev() {
-                ptr.write(msg.cast());
+                ptr.write(cast_message(msg));
                 ptr = ptr.add(1);
             }
         }

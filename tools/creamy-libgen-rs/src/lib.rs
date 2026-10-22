@@ -121,6 +121,10 @@ impl Args {
         format!("{}::defines::MESSAGE_SIZE", self.creamy_sdk_path)
     }
 
+    pub(crate) fn cast_message_fn_path(&self) -> String {
+        format!("{}::message::cast_message", self.creamy_sdk_path)
+    }
+
     pub(crate) fn custom_message_handler_trait_path(&self) -> String {
         format!("{}::api::CustomHandler", self.creamy_sdk_path)
     }
@@ -987,11 +991,12 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             });
             t.add_function(function);
 
+            let cast_message = self.args.cast_message_fn_path();
             let _ = write!(
                 match_string,
                 r"
                 {path}::DISPATCH_VALUE => {{
-                    handler.{function_name}(message.cast());
+                    handler.{function_name}({cast_message}(message));
                 }},
                 ",
                 path = path_to_string(&path)

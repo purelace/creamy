@@ -7,7 +7,7 @@ use super::{SharedBuf, SharedBufFlags};
 use crate::{
     UntypedMessage,
     defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN},
-    message::TypedMessage,
+    message::{TypedMessage, cast_message},
 };
 
 pub struct RefMutDynBuf<'a> {
@@ -376,7 +376,7 @@ impl DynOutBuf {
             let mut ptr = self.write_ptr().as_ptr();
 
             for msg in iter.rev() {
-                ptr.write(msg.cast());
+                ptr.write(cast_message(msg));
                 ptr = ptr.add(1);
             }
         }

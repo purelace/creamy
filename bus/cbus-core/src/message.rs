@@ -8,14 +8,13 @@ pub trait TypedMessage: Debug + Copy + Clone {
     fn with_group(&mut self, group: u8) -> &mut Self;
     fn kind(&self) -> u8;
     fn with_kind(&mut self, kind: u8) -> &mut Self;
+}
 
-    #[must_use]
-    #[inline]
-    fn cast<M: TypedMessage>(self) -> M {
-        const {
-            assert!(size_of::<Self>() == size_of::<M>());
-            assert!(align_of::<Self>() == align_of::<M>());
-        }
-        unsafe { *core::ptr::from_ref(&self).cast::<M>() }
+#[inline]
+pub const fn cast_message<T: TypedMessage, F: TypedMessage>(message: F) -> T {
+    const {
+        assert!(size_of::<F>() == size_of::<T>());
+        assert!(align_of::<F>() == align_of::<T>());
     }
+    unsafe { *core::ptr::from_ref(&message).cast::<T>() }
 }
