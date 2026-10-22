@@ -60,7 +60,7 @@ struct Fuzzer {
 
 impl Subscriber for Fuzzer {
     fn notify(&mut self) {
-        self.inc.clear();
+        assert!(self.inc.count() == 0, "{:#?}", { self.inc.pop_all() });
     }
 }
 

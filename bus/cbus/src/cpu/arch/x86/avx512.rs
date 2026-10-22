@@ -1,10 +1,10 @@
 use core::arch::x86_64::{
-    __m512i, _mm512_add_epi32, _mm512_and_si512, _mm512_cmpeq_epi32_mask, _mm512_cmpneq_epi32_mask,
-    _mm512_i32gather_epi32, _mm512_loadu_si512, _mm512_mask_blend_epi32, _mm512_mask_expand_epi32,
-    _mm512_maskz_compress_epi32, _mm512_maskz_mov_epi32, _mm512_max_epi32, _mm512_min_epi32,
-    _mm512_or_si512, _mm512_permutexvar_epi32, _mm512_set_epi32, _mm512_set1_epi32,
-    _mm512_setzero_si512, _mm512_slli_epi32, _mm512_sllv_epi32, _mm512_srli_epi32,
-    _mm512_storeu_si512,
+    __m512i, _kand_mask16, _mm512_add_epi32, _mm512_and_si512, _mm512_cmpeq_epi32_mask,
+    _mm512_cmpneq_epi32_mask, _mm512_i32gather_epi32, _mm512_loadu_si512, _mm512_mask_blend_epi32,
+    _mm512_mask_expand_epi32, _mm512_maskz_compress_epi32, _mm512_maskz_mov_epi32,
+    _mm512_max_epi32, _mm512_min_epi32, _mm512_or_si512, _mm512_permutexvar_epi32,
+    _mm512_set_epi32, _mm512_set1_epi32, _mm512_setzero_si512, _mm512_slli_epi32,
+    _mm512_sllv_epi32, _mm512_srli_epi32, _mm512_storeu_si512,
 };
 
 use as_guard::AsGuard;
@@ -25,15 +25,22 @@ use crate::{
 pub struct Avx512FInstructionSet;
 impl Avx512FInstructionSet {
     #[inline(always)]
-    fn validate_dst(range: SubscriberRange, zmm_dst: __m512i) -> __m512i {
+    fn validate_dst(range: SubscriberRange, src: usize, zmm_dst: __m512i) -> __m512i {
         unsafe {
             let min = _mm512_set1_epi32(i32::from(range.start().cast_signed()));
             let max = _mm512_set1_epi32(i32::from(range.end().cast_signed()));
 
-            let mask = _mm512_cmpeq_epi32_mask(
+            let dst_in_valid_range_mask = _mm512_cmpeq_epi32_mask(
                 _mm512_min_epi32(_mm512_max_epi32(zmm_dst, min), max),
                 zmm_dst,
             );
+
+            let src = i32::from(src.safe_as::<u8>().cast_signed());
+            let zmm_src = _mm512_set1_epi32(src);
+            let dst_not_equal_src_mask = _mm512_cmpneq_epi32_mask(zmm_src, zmm_dst);
+
+            let mask = _kand_mask16(dst_in_valid_range_mask, dst_not_equal_src_mask);
+
             _mm512_maskz_mov_epi32(mask, zmm_dst)
         }
     }
@@ -70,7 +77,7 @@ impl Avx512FInstructionSet {
             final_headers = _mm512_mask_expand_epi32(final_headers, 0b1100_0000_0000_0000, h7);
 
             let zmm_dst = _mm512_and_si512(final_headers, _mm512_set1_epi32(0xFF));
-            let zmm_dst = Self::validate_dst(range, zmm_dst);
+            let zmm_dst = Self::validate_dst(range, src, zmm_dst);
             let zmm_group =
                 _mm512_and_si512(_mm512_srli_epi32(final_headers, 8), _mm512_set1_epi32(0xFF));
 

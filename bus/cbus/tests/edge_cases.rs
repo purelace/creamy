@@ -117,3 +117,42 @@ fn inactive_buffer_overflow() {
         bus.full_tick();
     }
 }
+
+struct Sender {
+    inc: IncBuf<M>,
+    _out: OutBuf<M>,
+}
+
+impl Subscriber for Sender {
+    fn notify(&mut self) {
+        assert!(self.inc.count() == 0, "{:#?}", { self.inc.pop_all() });
+    }
+}
+
+#[test]
+fn self_send() {
+    let mut bus = MessageBus::new(Driver);
+    let inc = IncBuf::default();
+    let mut out = OutBuf::default();
+    bus.add_subscriber_with(
+        inc.clone(),
+        out.clone(),
+        Box::new(Sender {
+            inc,
+            _out: out.clone(),
+        }) as Box<dyn Subscriber>,
+    )
+    .unwrap();
+
+    out.send_many_iter_exact(core::iter::repeat_n(
+        UntypedMessage {
+            dst: 1,
+            group: 10,
+            src: 1,
+            kind: 111,
+            payload: [0; 28],
+        },
+        1020,
+    ));
+    bus.full_tick();
+}

@@ -13,7 +13,7 @@ pub struct ScalarInstructionSet;
 impl ScalarInstructionSet {
     // Вносим правки в сообщение:
     // * Устанавливаем src, тем самым убираем возможность подмены сообщений
-    // * Проверяем права доступа и корректность DST, если он некорректный, то он обнуляется
+    // * Проверяем права доступа и корректность dst, если он некорректный, то обнуляется
     #[inline(always)]
     fn prepare_single_message<C: BusConfig>(
         lut: &LookupTable<C>,
@@ -21,8 +21,8 @@ impl ScalarInstructionSet {
         src: usize,
         message: &mut UntypedMessage,
     ) {
-        // Проверяем, находится ли dst в пределах допустимого диапазона
-        let is_dst_in_valid_range = range.contains(message.dst);
+        let dst_in_valid_range = range.contains(message.dst);
+        let dst_not_equal_src = message.dst as usize != src;
 
         // Устанавливаем актуальное значение
         message.src = src.safe_as();
@@ -30,7 +30,7 @@ impl ScalarInstructionSet {
         let src_index = src * LookupTable::<C>::MAX_GROUPS + message.group as usize;
         let consumer_group = unsafe { *lut.get_input().get_unchecked(src_index) };
 
-        let is_valid = u8::from(consumer_group != 0 && is_dst_in_valid_range);
+        let is_valid = u8::from(consumer_group != 0 && dst_in_valid_range && dst_not_equal_src);
         let final_dst = is_valid * message.dst;
 
         message.dst = final_dst;

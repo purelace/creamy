@@ -38,14 +38,24 @@ impl Sse41InstructionSet {
     // Проверяем, находится ли dst в допустимом диапазоне
     // Validate dst (1)
     #[inline(always)]
-    fn validate_dst(range: SubscriberRange, xmm_dst: __m128i) -> __m128i {
+    fn validate_dst(range: SubscriberRange, src: usize, xmm_dst: __m128i) -> __m128i {
         unsafe {
             let min = _mm_set1_epi32(i32::from(range.start().cast_signed()));
             let max = _mm_set1_epi32(i32::from(range.end().cast_signed()));
 
-            let xmm_is_dst_in_valid_range =
+            let xmm_dst_in_valid_range_mask =
                 _mm_cmpeq_epi32(_mm_min_epi32(_mm_max_epi32(xmm_dst, min), max), xmm_dst);
-            _mm_and_si128(xmm_dst, xmm_is_dst_in_valid_range)
+
+            let xmm_dst = _mm_and_si128(xmm_dst, xmm_dst_in_valid_range_mask);
+
+            let src = i32::from(src.safe_as::<u8>().cast_signed());
+            let xmm_src = _mm_set1_epi32(src);
+
+            let xmm_mask = _mm_cmpeq_epi32(xmm_dst, xmm_src);
+            let all_ones = _mm_cmpeq_epi32(xmm_mask, xmm_mask);
+            let xmm_dst_not_equal_src = _mm_andnot_si128(xmm_mask, all_ones);
+
+            _mm_and_si128(xmm_dst, xmm_dst_not_equal_src)
         }
     }
 
@@ -75,7 +85,7 @@ impl Sse41InstructionSet {
 
             // Достаем 'dst' (первый байт)
             let xmm_dst = _mm_and_si128(xmm_raw_headers, _mm_set1_epi32(0xFF));
-            let xmm_dst = Self::validate_dst(range, xmm_dst);
+            let xmm_dst = Self::validate_dst(range, src, xmm_dst);
 
             // Достаем 'group' (второй байт)
             let xmm_group = _mm_and_si128(_mm_srli_epi32(xmm_raw_headers, 8), _mm_set1_epi32(0xFF));
@@ -350,10 +360,10 @@ where
             let dst3 = msg3.cast::<u8>().add(1).read();
 
             // Validate dst (0)
-            let dst0 = validate_dst(data.subscriber_range, dst0);
-            let dst1 = validate_dst(data.subscriber_range, dst1);
-            let dst2 = validate_dst(data.subscriber_range, dst2);
-            let dst3 = validate_dst(data.subscriber_range, dst3);
+            let dst0 = validate_dst(data.subscriber_range, src, dst0);
+            let dst1 = validate_dst(data.subscriber_range, src, dst1);
+            let dst2 = validate_dst(data.subscriber_range, src, dst2);
+            let dst3 = validate_dst(data.subscriber_range, src, dst3);
 
             let mut h0 = data.memory.get_inc_raw_buf(dst0);
             let mut h1 = data.memory.get_inc_raw_buf(dst1);

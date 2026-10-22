@@ -36,7 +36,7 @@ pub const CHUNK_SIZE: usize = 8;
 pub struct Avx2InstructionSet;
 impl Avx2InstructionSet {
     #[inline(always)]
-    fn validate_dst(range: SubscriberRange, ymm_dst: __m256i) -> __m256i {
+    fn validate_dst(range: SubscriberRange, src: usize, ymm_dst: __m256i) -> __m256i {
         unsafe {
             let min = _mm256_set1_epi32(i32::from(range.start().cast_signed()));
             let max = _mm256_set1_epi32(i32::from(range.end().cast_signed()));
@@ -45,7 +45,16 @@ impl Avx2InstructionSet {
                 _mm256_min_epi32(_mm256_max_epi32(ymm_dst, min), max),
                 ymm_dst,
             );
-            _mm256_and_si256(ymm_dst, ymm_is_dst_in_valid_range)
+            let ymm_dst = _mm256_and_si256(ymm_dst, ymm_is_dst_in_valid_range);
+
+            let src = i32::from(src.safe_as::<u8>().cast_signed());
+            let ymm_src = _mm256_set1_epi32(src);
+
+            let ymm_mask = _mm256_cmpeq_epi32(ymm_dst, ymm_src);
+            let all_ones = _mm256_cmpeq_epi32(ymm_mask, ymm_mask);
+            let ymm_dst_not_equal_src = _mm256_andnot_si256(ymm_mask, all_ones);
+
+            _mm256_and_si256(ymm_dst, ymm_dst_not_equal_src)
         }
     }
 
@@ -73,7 +82,7 @@ impl Avx2InstructionSet {
 
             // Достаем dst [0]
             let ymm_dst = _mm256_and_si256(ymm_raw_headers, _mm256_set1_epi32(0xFF));
-            let ymm_dst = Self::validate_dst(range, ymm_dst);
+            let ymm_dst = Self::validate_dst(range, src, ymm_dst);
 
             // Достаем group [1]
             let ymm_group = _mm256_and_si256(
@@ -292,14 +301,14 @@ where
             let dst6 = msg6.cast::<u8>().add(1).read();
             let dst7 = msg7.cast::<u8>().add(1).read();
 
-            let dst0 = validate_dst(data.subscriber_range, dst0);
-            let dst1 = validate_dst(data.subscriber_range, dst1);
-            let dst2 = validate_dst(data.subscriber_range, dst2);
-            let dst3 = validate_dst(data.subscriber_range, dst3);
-            let dst4 = validate_dst(data.subscriber_range, dst4);
-            let dst5 = validate_dst(data.subscriber_range, dst5);
-            let dst6 = validate_dst(data.subscriber_range, dst6);
-            let dst7 = validate_dst(data.subscriber_range, dst7);
+            let dst0 = validate_dst(data.subscriber_range, src, dst0);
+            let dst1 = validate_dst(data.subscriber_range, src, dst1);
+            let dst2 = validate_dst(data.subscriber_range, src, dst2);
+            let dst3 = validate_dst(data.subscriber_range, src, dst3);
+            let dst4 = validate_dst(data.subscriber_range, src, dst4);
+            let dst5 = validate_dst(data.subscriber_range, src, dst5);
+            let dst6 = validate_dst(data.subscriber_range, src, dst6);
+            let dst7 = validate_dst(data.subscriber_range, src, dst7);
 
             let mut h0 = data.memory.get_inc_raw_buf(dst0);
             let mut h1 = data.memory.get_inc_raw_buf(dst1);
