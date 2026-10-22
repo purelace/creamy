@@ -24,6 +24,8 @@ const DANGLING_LAYOUT: Layout = match Layout::from_size_align(MESSAGE_SIZE + MET
     Err(_) => panic!("Failed to generate layout at compile-time"),
 };
 
+//static DANGLIGN_POINTER:
+
 //static DANGLING_SHARED_BUF: NonNull<u8> = unsafe {
 //    let ptr = alloc::alloc::alloc_zeroed(DANGLING_LAYOUT);
 //    NonNull::new(ptr).unwrap()
@@ -86,20 +88,17 @@ impl<const M: usize> RefMutBuf<'_, M> {
     }
 
     #[must_use]
-    //TODO: const
     pub fn read_slice(&self) -> &[UntypedMessage] {
         let count = *self.count as usize;
         &self.data[M - count..M]
     }
 
-    // TODO: const
     pub fn read_slice_mut(&mut self) -> &mut [UntypedMessage] {
         let count = *self.count as usize;
         &mut self.data[M - count..M]
     }
 
     //TODO: non zero usize
-    //TODO: const
     pub fn write_slice_mut(&mut self, slice_size: usize) -> &mut [UntypedMessage] {
         let count = *self.count as usize;
         &mut self.data[count..count + slice_size]
@@ -218,14 +217,6 @@ impl<const M: usize> OutBuf<M> {
     const fn reserve(&mut self, count: u32) {
         self.buf.set_count(self.buf.count() + count);
     }
-
-    //fn reserve_slice(&mut self, count: u32) -> &mut [UntypedMessage] {
-    //    let from = self.buf.count();
-    //    let to = from + count;
-    //    self.buf.set_count(to);
-
-    //    &mut self.buf.messages_mut()[M - from as usize..from as usize - count as usize]
-    //}
 
     #[inline]
     const fn write_ptr(&self) -> NonNull<UntypedMessage> {

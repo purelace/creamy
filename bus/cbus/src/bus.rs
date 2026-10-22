@@ -77,7 +77,7 @@ pub(crate) struct SubscriberData<S: Subscriber, const M: usize> {
 }
 
 impl<S: Subscriber, const M: usize> SubscriberData<S, M> {
-    pub unsafe fn null() -> Self {
+    unsafe fn null() -> Self {
         //TODO: fix
         Self {
             incoming: IncBuf::default(),

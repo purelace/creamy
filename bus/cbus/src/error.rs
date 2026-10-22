@@ -5,8 +5,6 @@ pub enum BusError {
     #[error("Cannot remove subscriber with id == 0")]
     InvalidSubscriberId,
 
-    //#[error("Remove request already sent")]
-    //RequestAlreadySent,
     #[error("Subscriber not registered")]
     SubscriberNotRegistered,
 
@@ -39,6 +37,4 @@ pub enum BusError {
 
     #[error("'max_groups' must be a power of 2")]
     GroupsIsNotPowerOf2,
-    //#[error("{0}")]
-    //DriverError(String),
 }
