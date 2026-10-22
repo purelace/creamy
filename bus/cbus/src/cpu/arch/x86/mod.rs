@@ -4,9 +4,10 @@ cfg_select! {
         mod avx2;
         mod sse41;
 
-        use avx512::Avx512FInstructionSet;
         use avx2::Avx2InstructionSet;
+        use avx512::Avx512FInstructionSet;
         use sse41::Sse41InstructionSet;
+
         use super::generic::ScalarInstructionSet;
 
         pub type AvailableStrategy = Avx512F;
@@ -24,6 +25,7 @@ cfg_select! {
 
         use avx2::Avx2InstructionSet;
         use sse41::Sse41InstructionSet;
+
         use super::generic::ScalarInstructionSet;
 
         pub type AvailableStrategy = Avx2;
@@ -39,6 +41,7 @@ cfg_select! {
         mod sse41;
 
         use sse41::Sse41InstructionSet;
+
         use super::generic::ScalarInstructionSet;
 
         pub type AvailableStrategy = Sse41;
@@ -59,4 +62,10 @@ cfg_select! {
 
         pub type AvailableStrategy = Fallback;
     }
+}
+
+#[cfg(target_feature = "sse4.1")]
+#[inline(always)]
+fn validate_dst(range: crate::bus::SubscriberRange, dst: u8) -> u8 {
+    dst * u8::from(range.contains(dst))
 }

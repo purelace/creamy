@@ -21,6 +21,7 @@ use cbus_core::Subscriber;
 pub use sse2_reexports::*;
 pub use sse41_reexports::*;
 
+use super::validate_dst;
 use crate::{
     bus::SubscriberRange,
     config::BusConfig,
@@ -343,39 +344,39 @@ where
             let msg2 = chunk_ptr.add(4);
             let msg3 = chunk_ptr.add(6);
 
-            let dst0_value = msg0.cast::<u8>().add(1).read();
-            let dst1_value = msg1.cast::<u8>().add(1).read();
-            let dst2_value = msg2.cast::<u8>().add(1).read();
-            let dst3_value = msg3.cast::<u8>().add(1).read();
+            let dst0 = msg0.cast::<u8>().add(1).read();
+            let dst1 = msg1.cast::<u8>().add(1).read();
+            let dst2 = msg2.cast::<u8>().add(1).read();
+            let dst3 = msg3.cast::<u8>().add(1).read();
 
             // Validate dst (0)
-            let dst0_value = dst0_value * u8::from(data.subscriber_range.contains(dst0_value));
-            let dst1_value = dst1_value * u8::from(data.subscriber_range.contains(dst1_value));
-            let dst2_value = dst2_value * u8::from(data.subscriber_range.contains(dst2_value));
-            let dst3_value = dst3_value * u8::from(data.subscriber_range.contains(dst3_value));
+            let dst0 = validate_dst(data.subscriber_range, dst0);
+            let dst1 = validate_dst(data.subscriber_range, dst1);
+            let dst2 = validate_dst(data.subscriber_range, dst2);
+            let dst3 = validate_dst(data.subscriber_range, dst3);
 
-            let mut h0 = data.memory.get_inc_raw_buf(dst0_value);
-            let mut h1 = data.memory.get_inc_raw_buf(dst1_value);
-            let mut h2 = data.memory.get_inc_raw_buf(dst2_value);
-            let mut h3 = data.memory.get_inc_raw_buf(dst3_value);
+            let mut h0 = data.memory.get_inc_raw_buf(dst0);
+            let mut h1 = data.memory.get_inc_raw_buf(dst1);
+            let mut h2 = data.memory.get_inc_raw_buf(dst2);
+            let mut h3 = data.memory.get_inc_raw_buf(dst3);
 
-            let dst0 = h0.write_raw_mut_ptr().cast::<__m128i>();
-            let dst1 = h1.write_raw_mut_ptr().cast::<__m128i>();
-            let dst2 = h2.write_raw_mut_ptr().cast::<__m128i>();
-            let dst3 = h3.write_raw_mut_ptr().cast::<__m128i>();
+            let dst0_ptr = h0.write_raw_mut_ptr().cast::<__m128i>();
+            let dst1_ptr = h1.write_raw_mut_ptr().cast::<__m128i>();
+            let dst2_ptr = h2.write_raw_mut_ptr().cast::<__m128i>();
+            let dst3_ptr = h3.write_raw_mut_ptr().cast::<__m128i>();
 
-            let dst0_half = dst0.add(1);
-            let dst1_half = dst1.add(1);
-            let dst2_half = dst2.add(1);
-            let dst3_half = dst3.add(1);
+            let dst0_ptr_half = dst0_ptr.add(1);
+            let dst1_ptr_half = dst1_ptr.add(1);
+            let dst2_ptr_half = dst2_ptr.add(1);
+            let dst3_ptr_half = dst3_ptr.add(1);
 
             let msg0_half = msg0.add(1);
             let msg1_half = msg1.add(1);
             let msg2_half = msg2.add(1);
             let msg3_half = msg3.add(1);
 
-            let dst_part1 = [dst0, dst1, dst2, dst3];
-            let dst_part2 = [dst0_half, dst1_half, dst2_half, dst3_half];
+            let dst_part1 = [dst0_ptr, dst1_ptr, dst2_ptr, dst3_ptr];
+            let dst_part2 = [dst0_ptr_half, dst1_ptr_half, dst2_ptr_half, dst3_ptr_half];
             let messages_part1 = [msg0, msg1, msg2, msg3];
             let messages_part2 = [msg0_half, msg1_half, msg2_half, msg3_half];
 
@@ -393,10 +394,10 @@ where
                 &messages,
             );
 
-            h0.set_count((h0.count() + 1) * u32::from(dst0_value != 0));
-            h1.set_count((h1.count() + 1) * u32::from(dst1_value != 0));
-            h2.set_count((h2.count() + 1) * u32::from(dst2_value != 0));
-            h3.set_count((h3.count() + 1) * u32::from(dst3_value != 0));
+            h0.set_count((h0.count() + 1) * u32::from(dst0 != 0));
+            h1.set_count((h1.count() + 1) * u32::from(dst1 != 0));
+            h2.set_count((h2.count() + 1) * u32::from(dst2 != 0));
+            h3.set_count((h3.count() + 1) * u32::from(dst3 != 0));
         }
     }
 

@@ -1,4 +1,4 @@
-use core::arch::x86_64::__m256i;
+use core::arch::x86_64::{__m256i, _mm256_max_epi32, _mm256_min_epi32};
 
 mod avx_reexport {
     pub use core::arch::x86_64::{
@@ -19,7 +19,9 @@ pub use avx_reexport::*;
 pub use avx2_reexport::*;
 use cbus_core::Subscriber;
 
+use super::validate_dst;
 use crate::{
+    bus::SubscriberRange,
     config::BusConfig,
     core::UntypedMessage,
     cpu::{
@@ -34,8 +36,23 @@ pub const CHUNK_SIZE: usize = 8;
 pub struct Avx2InstructionSet;
 impl Avx2InstructionSet {
     #[inline(always)]
+    fn validate_dst(range: SubscriberRange, ymm_dst: __m256i) -> __m256i {
+        unsafe {
+            let min = _mm256_set1_epi32(i32::from(range.start().cast_signed()));
+            let max = _mm256_set1_epi32(i32::from(range.end().cast_signed()));
+
+            let ymm_is_dst_in_valid_range = _mm256_cmpeq_epi32(
+                _mm256_min_epi32(_mm256_max_epi32(ymm_dst, min), max),
+                ymm_dst,
+            );
+            _mm256_and_si256(ymm_dst, ymm_is_dst_in_valid_range)
+        }
+    }
+
+    #[inline(always)]
     fn get_valid_header<C: BusConfig>(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         ymm_messages: [__m256i; CHUNK_SIZE],
     ) -> __m256i {
@@ -54,10 +71,11 @@ impl Avx2InstructionSet {
 
             let ymm_raw_headers = _mm256_set_epi32(h7, h6, h5, h4, h3, h2, h1, h0);
 
-            // Достаем Dst (первый байт каждого u32)
+            // Достаем dst [0]
             let ymm_dst = _mm256_and_si256(ymm_raw_headers, _mm256_set1_epi32(0xFF));
+            let ymm_dst = Self::validate_dst(range, ymm_dst);
 
-            // Достаем Group (второй байт каждого u32)
+            // Достаем group [1]
             let ymm_group = _mm256_and_si256(
                 _mm256_srli_epi32(ymm_raw_headers, 8),
                 _mm256_set1_epi32(0xFF),
@@ -65,10 +83,8 @@ impl Avx2InstructionSet {
 
             macro_rules! translate {
                 ($idx:expr) => {{
-                    //let dst: usize = _mm256_extract_epi32(ymm_dst, $idx).safe_as();
-                    let grp: usize = _mm256_extract_epi32(ymm_group, $idx).safe_as();
-
-                    (*lut.get_input().get_unchecked(shifted_src + grp)).safe_as()
+                    let group: usize = _mm256_extract_epi32(ymm_group, $idx).safe_as();
+                    (*lut.get_input().get_unchecked(shifted_src + group)).safe_as()
                 }};
             }
 
@@ -87,7 +103,7 @@ impl Avx2InstructionSet {
             let ymm_mask = _mm256_cmpeq_epi32(ymm_local_group, ymm_zero);
             let ymm_mask = _mm256_andnot_si256(ymm_mask, _mm256_set1_epi32(-1));
 
-            // 5. Сборка нового заголовка [Src][Dst][L_Group][Kind]
+            // 5. Сборка нового заголовка [dst][group][src][kind]
             let ymm_kind = _mm256_and_si256(
                 ymm_raw_headers,
                 _mm256_set1_epi32(0xFF00_0000_u32.cast_signed()),
@@ -112,11 +128,12 @@ impl Avx2InstructionSet {
     #[inline(always)]
     fn validate_messages<C: BusConfig>(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         mut ymm_msgs: [__m256i; CHUNK_SIZE],
     ) -> [__m256i; CHUNK_SIZE] {
         unsafe {
-            let ymm_valid_header = Self::get_valid_header(lut, src, ymm_msgs);
+            let ymm_valid_header = Self::get_valid_header(lut, range, src, ymm_msgs);
 
             macro_rules! get_valid {
                 ($idx:expr, $ymm_msg:expr) => {{
@@ -156,6 +173,7 @@ impl Avx2InstructionSet {
     #[inline(always)]
     fn validate_and_write_messages<C: BusConfig>(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         destinations: &[*mut __m256i; 8],
         messages: &[*const __m256i; 8],
@@ -173,7 +191,7 @@ impl Avx2InstructionSet {
             let mut ymm_messages = [
                 ymm_msg0, ymm_msg1, ymm_msg2, ymm_msg3, ymm_msg4, ymm_msg5, ymm_msg6, ymm_msg7,
             ];
-            ymm_messages = Self::validate_messages(lut, src, ymm_messages);
+            ymm_messages = Self::validate_messages(lut, range, src, ymm_messages);
 
             _mm256_store_si256(destinations[0], ymm_messages[0]);
             _mm256_store_si256(destinations[1], ymm_messages[1]);
@@ -217,24 +235,26 @@ where
     #[inline(always)]
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage; 8],
         write: &mut [UntypedMessage; 8],
     ) {
         let messages = cast(read);
         let destinations = cast_mut(write);
-        Self::validate_and_write_messages(lut, src, &destinations, &messages);
+        Self::validate_and_write_messages(lut, range, src, &destinations, &messages);
     }
 
     #[inline(always)]
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
         <Sse41InstructionSet as InstructionSet<C, S, M, _>>::slices_prepare_and_send(
-            lut, src, read, write,
+            lut, range, src, read, write,
         );
     }
 }
@@ -263,57 +283,60 @@ where
             let msg6 = msg0.add(6);
             let msg7 = msg0.add(7);
 
-            let dst_0 = msg0.cast::<u8>().add(1).read();
-            let dst_1 = msg1.cast::<u8>().add(1).read();
-            let dst_2 = msg2.cast::<u8>().add(1).read();
-            let dst_3 = msg3.cast::<u8>().add(1).read();
-            let dst_4 = msg4.cast::<u8>().add(1).read();
-            let dst_5 = msg5.cast::<u8>().add(1).read();
-            let dst_6 = msg6.cast::<u8>().add(1).read();
-            let dst_7 = msg7.cast::<u8>().add(1).read();
+            let dst0 = msg0.cast::<u8>().add(1).read();
+            let dst1 = msg1.cast::<u8>().add(1).read();
+            let dst2 = msg2.cast::<u8>().add(1).read();
+            let dst3 = msg3.cast::<u8>().add(1).read();
+            let dst4 = msg4.cast::<u8>().add(1).read();
+            let dst5 = msg5.cast::<u8>().add(1).read();
+            let dst6 = msg6.cast::<u8>().add(1).read();
+            let dst7 = msg7.cast::<u8>().add(1).read();
 
-            let mut h0 = data.memory.get_inc_raw_buf(dst_0);
-            let mut h1 = data.memory.get_inc_raw_buf(dst_1);
-            let mut h2 = data.memory.get_inc_raw_buf(dst_2);
-            let mut h3 = data.memory.get_inc_raw_buf(dst_3);
-            let mut h4 = data.memory.get_inc_raw_buf(dst_4);
-            let mut h5 = data.memory.get_inc_raw_buf(dst_5);
-            let mut h6 = data.memory.get_inc_raw_buf(dst_6);
-            let mut h7 = data.memory.get_inc_raw_buf(dst_7);
+            let dst0 = validate_dst(data.subscriber_range, dst0);
+            let dst1 = validate_dst(data.subscriber_range, dst1);
+            let dst2 = validate_dst(data.subscriber_range, dst2);
+            let dst3 = validate_dst(data.subscriber_range, dst3);
+            let dst4 = validate_dst(data.subscriber_range, dst4);
+            let dst5 = validate_dst(data.subscriber_range, dst5);
+            let dst6 = validate_dst(data.subscriber_range, dst6);
+            let dst7 = validate_dst(data.subscriber_range, dst7);
 
-            let write_ptr_0 = h0.write_raw_mut_ptr().cast::<__m256i>();
-            let write_ptr_1 = h1.write_raw_mut_ptr().cast::<__m256i>();
-            let write_ptr_2 = h2.write_raw_mut_ptr().cast::<__m256i>();
-            let write_ptr_3 = h3.write_raw_mut_ptr().cast::<__m256i>();
-            let write_ptr_4 = h4.write_raw_mut_ptr().cast::<__m256i>();
-            let write_ptr_5 = h5.write_raw_mut_ptr().cast::<__m256i>();
-            let write_ptr_6 = h6.write_raw_mut_ptr().cast::<__m256i>();
-            let write_ptr_7 = h7.write_raw_mut_ptr().cast::<__m256i>();
+            let mut h0 = data.memory.get_inc_raw_buf(dst0);
+            let mut h1 = data.memory.get_inc_raw_buf(dst1);
+            let mut h2 = data.memory.get_inc_raw_buf(dst2);
+            let mut h3 = data.memory.get_inc_raw_buf(dst3);
+            let mut h4 = data.memory.get_inc_raw_buf(dst4);
+            let mut h5 = data.memory.get_inc_raw_buf(dst5);
+            let mut h6 = data.memory.get_inc_raw_buf(dst6);
+            let mut h7 = data.memory.get_inc_raw_buf(dst7);
+
+            let dst0_ptr = h0.write_raw_mut_ptr().cast::<__m256i>();
+            let dst1_ptr = h1.write_raw_mut_ptr().cast::<__m256i>();
+            let dst2_ptr = h2.write_raw_mut_ptr().cast::<__m256i>();
+            let dst3_ptr = h3.write_raw_mut_ptr().cast::<__m256i>();
+            let dst4_ptr = h4.write_raw_mut_ptr().cast::<__m256i>();
+            let dst5_ptr = h5.write_raw_mut_ptr().cast::<__m256i>();
+            let dst6_ptr = h6.write_raw_mut_ptr().cast::<__m256i>();
+            let dst7_ptr = h7.write_raw_mut_ptr().cast::<__m256i>();
 
             Self::validate_and_write_messages(
                 data.lookup_table,
+                data.subscriber_range,
                 src,
                 &[
-                    write_ptr_0,
-                    write_ptr_1,
-                    write_ptr_2,
-                    write_ptr_3,
-                    write_ptr_4,
-                    write_ptr_5,
-                    write_ptr_6,
-                    write_ptr_7,
+                    dst0_ptr, dst1_ptr, dst2_ptr, dst3_ptr, dst4_ptr, dst5_ptr, dst6_ptr, dst7_ptr,
                 ],
                 &[msg0, msg1, msg2, msg3, msg4, msg5, msg6, msg7],
             );
 
-            h0.set_count((h0.count() + 1) * u32::from(dst_0 != 0));
-            h1.set_count((h1.count() + 1) * u32::from(dst_1 != 0));
-            h2.set_count((h2.count() + 1) * u32::from(dst_2 != 0));
-            h3.set_count((h3.count() + 1) * u32::from(dst_3 != 0));
-            h4.set_count((h4.count() + 1) * u32::from(dst_4 != 0));
-            h5.set_count((h5.count() + 1) * u32::from(dst_5 != 0));
-            h6.set_count((h6.count() + 1) * u32::from(dst_6 != 0));
-            h7.set_count((h7.count() + 1) * u32::from(dst_7 != 0));
+            h0.set_count((h0.count() + 1) * u32::from(dst0 != 0));
+            h1.set_count((h1.count() + 1) * u32::from(dst1 != 0));
+            h2.set_count((h2.count() + 1) * u32::from(dst2 != 0));
+            h3.set_count((h3.count() + 1) * u32::from(dst3 != 0));
+            h4.set_count((h4.count() + 1) * u32::from(dst4 != 0));
+            h5.set_count((h5.count() + 1) * u32::from(dst5 != 0));
+            h6.set_count((h6.count() + 1) * u32::from(dst6 != 0));
+            h7.set_count((h7.count() + 1) * u32::from(dst7 != 0));
         }
     }
 
