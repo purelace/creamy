@@ -40,7 +40,7 @@ impl Sse41InstructionSet {
     // Проверяем, находится ли dst в допустимом диапазоне
     // Validate dst (1)
     #[inline(always)]
-    fn validate_dst(range: SubscriberRange, src: usize, xmm_dst: __m128i) -> __m128i {
+    fn validate_dst(range: SubscriberRange, src: u8, xmm_dst: __m128i) -> __m128i {
         unsafe {
             let min = _mm_set1_epi32(i32::from(range.start().cast_signed()));
             let max = _mm_set1_epi32(i32::from(range.end().cast_signed()));
@@ -50,7 +50,7 @@ impl Sse41InstructionSet {
 
             let xmm_dst = _mm_and_si128(xmm_dst, xmm_dst_in_valid_range_mask);
 
-            let src = i32::from(src.safe_as::<u8>().cast_signed());
+            let src = i32::from(src.cast_signed());
             let xmm_src = _mm_set1_epi32(src);
 
             let xmm_mask = _mm_cmpeq_epi32(xmm_dst, xmm_src);
@@ -66,7 +66,7 @@ impl Sse41InstructionSet {
     fn get_valid_header<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         xmm_msg0: __m128i,
         xmm_msg1: __m128i,
         xmm_msg2: __m128i,
@@ -74,7 +74,7 @@ impl Sse41InstructionSet {
     ) -> __m128i {
         unsafe {
             let bits = LookupTable::<C>::MAX_GROUPS.trailing_zeros() as usize;
-            let shifted_id = src << bits;
+            let shifted_id = (src as usize) << bits;
 
             // Берем первые 4 байта [dst][group][src][kind]
             let h0 = _mm_extract_epi32(xmm_msg0, 0);
@@ -137,7 +137,7 @@ impl Sse41InstructionSet {
     fn validate_messages<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         xmm_msg0: __m128i,
         xmm_msg1: __m128i,
         xmm_msg2: __m128i,
@@ -195,7 +195,7 @@ impl Sse41InstructionSet {
     fn validate_and_write_messages<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         messages: &XmmMessages,
     ) {
         // Так как половинки никак не изменяются и не читаются,
@@ -318,7 +318,7 @@ where
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage; CHUNK_SIZE],
         write: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
@@ -330,7 +330,7 @@ where
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
@@ -346,7 +346,7 @@ where
     #[inline(always)]
     fn prepare_and_send_chunk_to_unknown(
         data: &mut PipelineData<C, S, M>,
-        src: usize,
+        src: u8,
         chunk: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
         unsafe {
@@ -418,7 +418,7 @@ where
     #[inline(always)]
     fn prepare_and_send_direct_slice(
         data: &mut PipelineData<C, S, M>,
-        src: usize,
+        src: u8,
         messages: &mut [UntypedMessage],
     ) {
         let (chunks, remainder) = messages.as_chunks_mut::<CHUNK_SIZE>();

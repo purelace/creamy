@@ -25,7 +25,7 @@ use crate::{
 pub struct Avx512FInstructionSet;
 impl Avx512FInstructionSet {
     #[inline(always)]
-    fn validate_dst(range: SubscriberRange, src: usize, zmm_dst: __m512i) -> __m512i {
+    fn validate_dst(range: SubscriberRange, src: u8, zmm_dst: __m512i) -> __m512i {
         unsafe {
             let min = _mm512_set1_epi32(i32::from(range.start().cast_signed()));
             let max = _mm512_set1_epi32(i32::from(range.end().cast_signed()));
@@ -35,7 +35,7 @@ impl Avx512FInstructionSet {
                 zmm_dst,
             );
 
-            let src = i32::from(src.safe_as::<u8>().cast_signed());
+            let src = i32::from(src.cast_signed());
             let zmm_src = _mm512_set1_epi32(src);
             let dst_not_equal_src_mask = _mm512_cmpneq_epi32_mask(zmm_src, zmm_dst);
 
@@ -49,7 +49,7 @@ impl Avx512FInstructionSet {
     fn get_valid_header<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         zmm_messages: &[__m512i; 8],
     ) -> __m512i {
         unsafe {
@@ -119,7 +119,7 @@ impl Avx512FInstructionSet {
     fn validate_messages<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         mut zmm_messages: [__m512i; 8],
     ) -> [__m512i; 8] {
         // Маска: меняем только 0-й и 8-й слоты (начало двух сообщений в регистре)
@@ -176,7 +176,7 @@ impl Avx512FInstructionSet {
     fn validate_and_write_messages<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         destinations: &[*mut __m512i; 8],
         pairs: &[*const __m512i; 8],
     ) {
@@ -249,7 +249,7 @@ where
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage; 16],
         write: &mut [UntypedMessage; 16],
     ) {
@@ -262,7 +262,7 @@ where
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
@@ -274,8 +274,6 @@ where
     #[inline(always)]
     fn prepare_batches(subscribers: &[u8], data: &mut PipelineData<C, S, M>) {
         for src in subscribers.iter().copied() {
-            let src = src as usize;
-
             let mut buffer = data.memory.get_mut_out_buf(src);
 
             let write = data.memory.message.reserve_slice(buffer.count() as usize);

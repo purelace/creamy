@@ -1,4 +1,3 @@
-use as_guard::AsGuard;
 use cbus_core::Subscriber;
 
 use crate::{
@@ -18,16 +17,16 @@ impl ScalarInstructionSet {
     fn prepare_single_message<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         message: &mut UntypedMessage,
     ) {
         let dst_in_valid_range = range.contains(message.dst);
-        let dst_not_equal_src = message.dst as usize != src;
+        let dst_not_equal_src = message.dst != src;
 
         // Устанавливаем актуальное значение
-        message.src = src.safe_as();
+        message.src = src;
 
-        let src_index = src * LookupTable::<C>::MAX_GROUPS + message.group as usize;
+        let src_index = src as usize * LookupTable::<C>::MAX_GROUPS + message.group as usize;
         let consumer_group = unsafe { *lut.get_input().get_unchecked(src_index) };
 
         let is_valid = u8::from(consumer_group != 0 && dst_in_valid_range && dst_not_equal_src);
@@ -54,7 +53,7 @@ impl ScalarInstructionSet {
     pub fn prepare_and_send_to<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
@@ -90,7 +89,7 @@ where
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage; 1],
         write: &mut [UntypedMessage; 1],
     ) {
@@ -101,7 +100,7 @@ where
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
@@ -117,7 +116,7 @@ where
     #[inline(always)]
     fn prepare_and_send_chunk_to_unknown(
         data: &mut PipelineData<C, S, M>,
-        src: usize,
+        src: u8,
         chunk: &mut [UntypedMessage; 1],
     ) {
         let message = &mut chunk[0];
@@ -139,7 +138,7 @@ where
     #[inline(always)]
     fn prepare_and_send_direct_slice(
         data: &mut PipelineData<C, S, M>,
-        src: usize,
+        src: u8,
         messages: &mut [UntypedMessage],
     ) {
         for message in messages.as_chunks_mut::<1>().0 {

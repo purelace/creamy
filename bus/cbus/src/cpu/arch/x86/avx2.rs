@@ -36,7 +36,7 @@ pub const CHUNK_SIZE: usize = 8;
 pub struct Avx2InstructionSet;
 impl Avx2InstructionSet {
     #[inline(always)]
-    fn validate_dst(range: SubscriberRange, src: usize, ymm_dst: __m256i) -> __m256i {
+    fn validate_dst(range: SubscriberRange, src: u8, ymm_dst: __m256i) -> __m256i {
         unsafe {
             let min = _mm256_set1_epi32(i32::from(range.start().cast_signed()));
             let max = _mm256_set1_epi32(i32::from(range.end().cast_signed()));
@@ -47,7 +47,7 @@ impl Avx2InstructionSet {
             );
             let ymm_dst = _mm256_and_si256(ymm_dst, ymm_is_dst_in_valid_range);
 
-            let src = i32::from(src.safe_as::<u8>().cast_signed());
+            let src = i32::from(src.cast_signed());
             let ymm_src = _mm256_set1_epi32(src);
 
             let ymm_mask = _mm256_cmpeq_epi32(ymm_dst, ymm_src);
@@ -62,12 +62,12 @@ impl Avx2InstructionSet {
     fn get_valid_header<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         ymm_messages: [__m256i; CHUNK_SIZE],
     ) -> __m256i {
         unsafe {
             let bits = LookupTable::<C>::MAX_GROUPS.trailing_zeros() as usize;
-            let shifted_src = src << bits;
+            let shifted_src = (src as usize) << bits;
 
             let h0 = _mm256_extract_epi32(ymm_messages[0], 0);
             let h1 = _mm256_extract_epi32(ymm_messages[1], 0);
@@ -138,7 +138,7 @@ impl Avx2InstructionSet {
     fn validate_messages<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         mut ymm_msgs: [__m256i; CHUNK_SIZE],
     ) -> [__m256i; CHUNK_SIZE] {
         unsafe {
@@ -183,7 +183,7 @@ impl Avx2InstructionSet {
     fn validate_and_write_messages<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         destinations: &[*mut __m256i; 8],
         messages: &[*const __m256i; 8],
     ) {
@@ -245,7 +245,7 @@ where
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage; 8],
         write: &mut [UntypedMessage; 8],
     ) {
@@ -258,7 +258,7 @@ where
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
@@ -277,7 +277,7 @@ where
     #[allow(clippy::too_many_lines)]
     fn prepare_and_send_chunk_to_unknown(
         data: &mut PipelineData<C, S, M>,
-        src: usize,
+        src: u8,
         chunk: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
         unsafe {
@@ -351,7 +351,7 @@ where
     #[inline(always)]
     fn prepare_and_send_direct_slice(
         data: &mut PipelineData<C, S, M>,
-        src: usize,
+        src: u8,
         messages: &mut [UntypedMessage],
     ) {
         let (chunks, remainder) = messages.as_chunks_mut::<CHUNK_SIZE>();

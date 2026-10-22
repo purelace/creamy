@@ -23,7 +23,7 @@ where
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage; CHUNK_SIZE],
         write: &mut [UntypedMessage; CHUNK_SIZE],
     );
@@ -32,7 +32,7 @@ where
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     );
@@ -45,9 +45,7 @@ where
     #[inline(always)]
     fn prepare_batches(subscribers: &[u8], data: &mut PipelineData<C, S, M>) {
         for src in subscribers.iter().copied() {
-            let src = src as usize;
-
-            let sub_data = &mut data.memory.subscribers[src];
+            let sub_data = &mut data.memory.subscribers[src as usize];
             let mut buffer = sub_data.outgoing_mut();
 
             let write = data.memory.message.reserve_slice(buffer.count() as usize);
@@ -109,7 +107,7 @@ where
     fn slices_prepare_and_send(
         lut: &LookupTable<C>,
         range: SubscriberRange,
-        src: usize,
+        src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {

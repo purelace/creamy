@@ -270,9 +270,9 @@ impl<C: BusConfig, S: Subscriber, const M: usize> MemoryPools<'_, C, S, M> {
     }
 
     /// Read
-    pub const fn get_mut_out_buf<'a>(&mut self, index: usize) -> RefMutBuf<'a, M> {
+    pub const fn get_mut_out_buf<'a>(&mut self, index: u8) -> RefMutBuf<'a, M> {
         unsafe {
-            let ptr = self.subscribers.as_mut_ptr().add(index);
+            let ptr = self.subscribers.as_mut_ptr().add(index as usize);
             (*ptr).outgoing_mut()
         }
     }
