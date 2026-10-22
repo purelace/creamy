@@ -1,15 +1,17 @@
 use core::arch::x86_64::{
-    __m512i, _mm512_add_epi32, _mm512_and_si512, _mm512_cmpneq_epi32_mask, _mm512_i32gather_epi32,
-    _mm512_loadu_si512, _mm512_mask_blend_epi32, _mm512_mask_expand_epi32,
-    _mm512_maskz_compress_epi32, _mm512_maskz_mov_epi32, _mm512_or_si512, _mm512_permutexvar_epi32,
-    _mm512_set_epi32, _mm512_set1_epi32, _mm512_setzero_si512, _mm512_slli_epi32,
-    _mm512_sllv_epi32, _mm512_srli_epi32, _mm512_storeu_si512,
+    __m512i, _mm512_add_epi32, _mm512_and_si512, _mm512_cmpeq_epi32_mask, _mm512_cmpneq_epi32_mask,
+    _mm512_i32gather_epi32, _mm512_loadu_si512, _mm512_mask_blend_epi32, _mm512_mask_expand_epi32,
+    _mm512_maskz_compress_epi32, _mm512_maskz_mov_epi32, _mm512_max_epi32, _mm512_min_epi32,
+    _mm512_or_si512, _mm512_permutexvar_epi32, _mm512_set_epi32, _mm512_set1_epi32,
+    _mm512_setzero_si512, _mm512_slli_epi32, _mm512_sllv_epi32, _mm512_srli_epi32,
+    _mm512_storeu_si512,
 };
 
 use as_guard::AsGuard;
 use cbus_core::Subscriber;
 
 use crate::{
+    bus::SubscriberRange,
     config::BusConfig,
     core::UntypedMessage,
     cpu::{
@@ -23,8 +25,23 @@ use crate::{
 pub struct Avx512FInstructionSet;
 impl Avx512FInstructionSet {
     #[inline(always)]
+    fn validate_dst(range: SubscriberRange, zmm_dst: __m512i) -> __m512i {
+        unsafe {
+            let min = _mm512_set1_epi32(i32::from(range.start().cast_signed()));
+            let max = _mm512_set1_epi32(i32::from(range.end().cast_signed()));
+
+            let mask = _mm512_cmpeq_epi32_mask(
+                _mm512_min_epi32(_mm512_max_epi32(zmm_dst, min), max),
+                zmm_dst,
+            );
+            _mm512_maskz_mov_epi32(mask, zmm_dst)
+        }
+    }
+
+    #[inline(always)]
     fn get_valid_header<C: BusConfig>(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         zmm_messages: &[__m512i; 8],
     ) -> __m512i {
@@ -53,6 +70,7 @@ impl Avx512FInstructionSet {
             final_headers = _mm512_mask_expand_epi32(final_headers, 0b1100_0000_0000_0000, h7);
 
             let zmm_dst = _mm512_and_si512(final_headers, _mm512_set1_epi32(0xFF));
+            let zmm_dst = Self::validate_dst(range, zmm_dst);
             let zmm_group =
                 _mm512_and_si512(_mm512_srli_epi32(final_headers, 8), _mm512_set1_epi32(0xFF));
 
@@ -69,30 +87,7 @@ impl Avx512FInstructionSet {
             let zmm_groups =
                 _mm512_and_si512(zmm_relative_to_dst_group_values, _mm512_set1_epi32(0xFF));
 
-            //let zmm_local_input_group_values =
-            //    _mm512_and_si512(zmm_local_input_group_values, _mm512_set1_epi32(0xFF));
-
-            //let zmm_relative_to_dst_group = _mm512_add_epi32(
-            //    _mm512_sllv_epi32(zmm_dst, zmm_bits),
-            //    zmm_local_input_group_values,
-            //);
-
-            //let zmm_local_output_group = _mm512_i32gather_epi32(
-            //    zmm_global_group,
-            //    lut.get_output().as_ptr().cast::<i32>(),
-            //    1,
-            //);
-            //let zmm_local_output_group =
-            //    _mm512_and_si512(zmm_local_output_group, _mm512_set1_epi32(0xFF));
-
-            //let k_global_not_zero =
-            //    _mm512_cmpneq_epi32_mask(zmm_global_group, _mm512_setzero_si512());
-            //let k_out_not_zero =
-            //    _mm512_cmpneq_epi32_mask(zmm_local_output_group, _mm512_setzero_si512());
-
             let k_groups_not_zero = _mm512_cmpneq_epi32_mask(zmm_groups, _mm512_setzero_si512());
-
-            //let k_final = _kand_mask16(k_global_not_zero, k_out_not_zero);
 
             let v_final_dst = _mm512_maskz_mov_epi32(k_groups_not_zero, zmm_dst);
             let v_final_group = zmm_groups;
@@ -116,6 +111,7 @@ impl Avx512FInstructionSet {
     #[inline(always)]
     fn validate_messages<C: BusConfig>(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         mut zmm_messages: [__m512i; 8],
     ) -> [__m512i; 8] {
@@ -123,7 +119,7 @@ impl Avx512FInstructionSet {
         const MASK: u16 = 0x0101;
 
         unsafe {
-            let zmm_valid_header = Self::get_valid_header(lut, src, &zmm_messages);
+            let zmm_valid_header = Self::get_valid_header(lut, range, src, &zmm_messages);
 
             macro_rules! blend_zmm {
                 ($msg:expr, $h_idx_low:expr, $h_idx_high:expr) => {{
@@ -172,6 +168,7 @@ impl Avx512FInstructionSet {
     #[inline(always)]
     fn validate_and_write_messages<C: BusConfig>(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         destinations: &[*mut __m512i; 8],
         pairs: &[*const __m512i; 8],
@@ -196,7 +193,7 @@ impl Avx512FInstructionSet {
                 zmm_msg_pair6,
                 zmm_msg_pair7,
             ];
-            zmm_messages = Self::validate_messages(lut, src, zmm_messages);
+            zmm_messages = Self::validate_messages(lut, range, src, zmm_messages);
 
             _mm512_storeu_si512(destinations[0], zmm_messages[0]);
             _mm512_storeu_si512(destinations[1], zmm_messages[1]);
@@ -244,24 +241,26 @@ where
     #[inline(always)]
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage; 16],
         write: &mut [UntypedMessage; 16],
     ) {
         let pairs = cast(read);
         let destinations = cast_mut(write);
-        Self::validate_and_write_messages(lut, src, &destinations, &pairs);
+        Self::validate_and_write_messages(lut, range, src, &destinations, &pairs);
     }
 
     #[inline(always)]
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
+        range: SubscriberRange,
         src: usize,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
         <Avx2InstructionSet as InstructionSet<C, S, M, _>>::slices_prepare_and_send(
-            lut, src, read, write,
+            lut, range, src, read, write,
         );
     }
 
@@ -279,10 +278,17 @@ where
             let is_odd = usize::from(!read.len().is_multiple_of(2));
             let (read_odd, read) = read.split_at(is_odd);
             let (write_odd, write) = write.split_at_mut(is_odd);
-            ScalarInstructionSet::prepare_and_send_to(data.lookup_table, src, read_odd, write_odd);
+            ScalarInstructionSet::prepare_and_send_to(
+                data.lookup_table,
+                data.subscriber_range,
+                src,
+                read_odd,
+                write_odd,
+            );
 
             <Self as InstructionSet<C, S, M, _>>::slices_prepare_and_send(
                 data.lookup_table,
+                data.subscriber_range,
                 src,
                 read,
                 write,

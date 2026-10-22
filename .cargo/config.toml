@@ -10,5 +10,8 @@
 #[target.'cfg(all())']
 #rustflags = ["-C", "target-feature=+avx2"]
 
+#[target.'cfg(all())']
+#rustflags = ["-C", "target-feature=+avx512f"]
+
 [env]
 RUST_BACKTRACE="1"
