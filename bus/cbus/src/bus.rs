@@ -43,26 +43,28 @@ impl IntoIterator for SubscriberRange {
     fn into_iter(self) -> Self::IntoIter {
         RangeIterator {
             end: self.end,
-            current: self.start,
+            current: Some(self.start),
         }
     }
 }
 
 pub(crate) struct RangeIterator {
     end: u8,
-    current: u8,
+    current: Option<u8>,
 }
 
 impl Iterator for RangeIterator {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current == self.end {
+        let current = self.current?;
+
+        if current > self.end {
             return None;
         }
 
-        let result = self.current;
-        self.current += 1;
+        let result = current;
+        self.current = current.checked_add(1);
         Some(result)
     }
 }
