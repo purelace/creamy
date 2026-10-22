@@ -45,7 +45,6 @@ members = [
     "tools/creamy-xmlc",
 
     "engine/creamy",
-    "engine/creamy-cbus-driver",
     "engine/creamy-engine-core",
     "engine/creamy-async-loader",
     "engine/creamy-loader",

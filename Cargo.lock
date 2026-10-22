@@ -296,6 +296,7 @@ version = "0.1.0"
 dependencies = [
  "as-guard",
  "cbus-core",
+ "criterion",
  "idmint",
  "thiserror 2.0.21",
  "tracing",
@@ -771,16 +772,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "creamy-cbus-driver"
-version = "0.1.0"
-dependencies = [
- "as-guard",
- "cbus",
- "criterion",
- "idmint",
 ]
 
 [[package]]

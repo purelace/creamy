@@ -6,10 +6,9 @@ use cbus::{
     MessageBus,
     core::{UntypedMessage, buffer::OutBuf},
 };
-use creamy_cbus_driver::CreamyDriver;
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 
-use self::general::Legacy;
+use self::general::{Legacy, driver::CreamyDriver};
 use crate::general::{
     MAX_MESSAGES, SimpleSubscriber, init_bus_legacy, init_bus_legacy_large_buf,
     init_bus_legacy_ularge_buf,
