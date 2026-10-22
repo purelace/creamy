@@ -25,7 +25,6 @@ where
         messages: &mut [UntypedMessage],
     );
 
-    #[tracing::instrument(skip_all)]
     fn prepare_and_send_direct_all(subscribers: &[u8], data: &mut PipelineData<C, S, M>) {
         for src in subscribers.iter().copied() {
             let src = src as usize;

@@ -39,7 +39,6 @@ impl ScalarInstructionSet {
 
     #[inline(always)]
     pub fn send_to(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
-        tracing::info!("got message from");
         let len = core::cmp::min(read.len(), write.len());
         let read = &read[..len];
         let write = &mut write[..len];
@@ -95,7 +94,6 @@ where
         read: &[UntypedMessage; 1],
         write: &mut [UntypedMessage; 1],
     ) {
-        tracing::info!("got message from: {src}");
         Self::prepare_and_send_to(lut, range, src, read, write);
     }
 
@@ -107,7 +105,6 @@ where
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        tracing::info!("got message from: {src}");
         Self::prepare_and_send_to(lut, range, src, read, write);
     }
 }
@@ -125,7 +122,6 @@ where
     ) {
     }
 
-    //#[tracing::instrument(skip_all)]
     #[inline(always)]
     fn prepare_and_send_direct_slice(
         data: &mut PipelineData<C, S, M>,

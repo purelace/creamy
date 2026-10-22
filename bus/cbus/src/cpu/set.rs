@@ -40,7 +40,10 @@ where
     );
 
     /// Подготавливает и пишет остаток сообщений в глобальный буфер
-    #[tracing::instrument(skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, name = "bus::prepare_batches", level = "trace")
+    )]
     #[inline(always)]
     fn prepare_batches(subscribers: &[u8], data: &mut PipelineData<C, S, M>) {
         for src in subscribers.iter().copied() {
@@ -65,7 +68,10 @@ where
     }
 
     /// Читает сообщения из глобального буфера и пишет их в буферы подписчиков
-    #[tracing::instrument(skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, name = "bus::send_batches", level = "trace")
+    )]
     #[inline(always)]
     fn send_batches(pipeline: &mut MessagePipeline<C, S, M>, data: &mut PipelineData<C, S, M>) {
         let mut batch = core::mem::take(&mut pipeline.batch);
@@ -87,7 +93,6 @@ where
 
     /// Делит оба слайса на равные чанки и передает их в `InstructionSet::send_exaclty`.
     /// Остаток предается в `InstructionSet::send_remainder`
-    #[tracing::instrument(skip_all)]
     #[inline(always)]
     fn slices_send(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
         let (read_chunks, read_remainder) = read.as_chunks::<CHUNK_SIZE>();
@@ -102,7 +107,6 @@ where
 
     /// Делит оба слайса на равные чанки и передает их в `InstructionSet::prepare_and_send_exaclty`.
     /// Остаток предается в `InstructionSet::prepare_and_send_remainder`.
-    #[tracing::instrument(skip_all)]
     #[inline(always)]
     fn slices_prepare_and_send(
         lut: &LookupTable<C>,
@@ -111,8 +115,6 @@ where
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        tracing::info!("to write: {}", write.len());
-
         let (read_chunks, read_remainder) = read.as_chunks::<CHUNK_SIZE>();
         let (write_chunks, write_remainder) = write.as_chunks_mut::<CHUNK_SIZE>();
 

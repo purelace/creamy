@@ -99,7 +99,9 @@ macro_rules! define_strategy {
             C: $crate::config::BusConfig,
             S: $crate::core::Subscriber,
         {
-            #[tracing::instrument(skip_all)]
+            #[cfg_attr(feature = "tracing",
+                tracing::instrument(skip_all, name = "bus::run", level = "trace")
+            )]
             #[inline(always)]
             fn run(pipeline: &mut MessagePipeline<C, S, M>, data: &mut PipelineData<C, S, M>) {
                 let mut total_offset = 0;
@@ -139,7 +141,6 @@ mod arch;
 
 impl PipelinePlan {
     #[inline(always)]
-    #[tracing::instrument(skip_all)]
     fn prepare<S, C, SU, const M: usize>(&mut self, data: &PipelineData<C, SU, M>)
     where
         S: Strategy,
@@ -201,13 +202,15 @@ where
         }
     }
 
-    #[tracing::instrument(skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, name = "bus::dispatch_messages", level = "trace")
+    )]
     pub(crate) fn dispatch_messages(&mut self, data: &mut PipelineData<C, S, M>) {
         self.plan.prepare::<AvailableStrategy, C, S, M>(data);
         AvailableStrategy::run(self, data);
     }
 
-    #[tracing::instrument(skip_all)]
     #[inline(always)]
     fn sort_messages(data: &mut PipelineData<C, S, M>) {
         data.memory
@@ -216,7 +219,6 @@ where
             .sort_unstable_by_key(|m| m.dst);
     }
 
-    #[tracing::instrument(skip_all)]
     #[inline(always)]
     pub(crate) fn batch_messages(&mut self, data: &mut PipelineData<C, S, M>) {
         Self::sort_messages(data);

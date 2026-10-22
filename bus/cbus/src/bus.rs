@@ -256,7 +256,10 @@ where
         }
     }
 
-    #[tracing::instrument(skip_all)]
+    #[cfg_attr(
+        feature = "tracing",
+        tracing::instrument(skip_all, name = "bus::tick", level = "trace")
+    )]
     pub fn tick(&mut self) {
         let range = self.subscriber_range();
         let memory = MemoryPools {
@@ -265,10 +268,17 @@ where
         };
 
         self.driver.process_messages(memory, range);
+
         self.subscribers[1..=self.mint.last() as usize]
             .iter_mut()
             .flat_map(|d| &mut d.sub)
             .for_each(|sub| {
+                cfg_select! {
+                    feature = "tracing" => {
+                        let span = tracing::span!(tracing::Level::INFO, "subscriber::notify()");
+                        let _enter = span.enter();
+                    }
+                }
                 sub.notify();
             });
     }
