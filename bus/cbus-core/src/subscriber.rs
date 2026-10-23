@@ -7,6 +7,7 @@ use downcast_rs::{Downcast, impl_downcast};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SubscriberId(NonZeroU8);
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl SubscriberId {
     #[must_use]
     #[inline]
@@ -49,6 +50,7 @@ impl SubscriberId {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl core::fmt::Display for SubscriberId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0)
@@ -67,6 +69,7 @@ pub trait Subscriber: Downcast + Any + 'static {
     fn notify(&mut self);
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl Subscriber for () {
     fn notify(&mut self) {}
 }
