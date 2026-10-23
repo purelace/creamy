@@ -33,7 +33,7 @@ impl SubscriberId {
 
     #[must_use]
     #[inline]
-    pub const fn as_inner(self) -> NonZeroU8 {
+    pub const fn as_non_zero_u8(self) -> NonZeroU8 {
         self.0
     }
 
