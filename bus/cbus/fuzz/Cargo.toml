@@ -21,8 +21,8 @@ path = "../../cbus-core"
 features = ["arbitrary"]
 
 [[bin]]
-name = "fuzz_target_1"
-path = "fuzz_targets/fuzz_target_1.rs"
+name = "send_messages"
+path = "targets/send_messages.rs"
 test = false
 doc = false
 bench = false
