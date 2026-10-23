@@ -245,12 +245,6 @@ impl<const M: usize> OutBuf<M> {
             return false;
         }
 
-        //let slice = self.reserve_slice(count.safe_as());
-
-        //for (index, message) in iter.rev().enumerate() {
-        //    slice[count - index - 1] = message.cast();
-        //}
-
         // Заранее резервируем пространство
         self.reserve(count.safe_as());
 

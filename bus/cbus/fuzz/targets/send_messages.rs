@@ -13,23 +13,11 @@ use libfuzzer_sys::fuzz_target;
 struct Driver;
 impl BusDriver for Driver {
     fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
-        match id.get() {
-            1 => std::iter::once(SubscriberLookupData {
-                consumer_group_id: 0,
-                provider_group_id: 0,
-                provider_id: id,
-            }),
-            2 => std::iter::once(SubscriberLookupData {
-                consumer_group_id: 10,
-                provider_group_id: 1,
-                provider_id:
-                //: SAFETY 1 != 0
-                unsafe {
-                    SubscriberId::new_unchecked(1)
-                },
-            }),
-            _ => unreachable!(),
-        }
+        core::iter::once(SubscriberLookupData {
+            consumer_group_id: 0,
+            provider_group_id: 0,
+            provider_id: id,
+        })
     }
 
     fn on_unsubscribe(&mut self, _: SubscriberId) {}
