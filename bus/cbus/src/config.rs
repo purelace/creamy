@@ -7,13 +7,12 @@ impl ValidU8 {
     pub const ONE: Self = Self(NonZeroU8::new(1).unwrap());
 
     #[must_use]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     pub const fn new(value: u8) -> Option<Self> {
-        if value != 0 && value.is_multiple_of(2) {
-            // SAFETY: The `value` is explicitly checked to be non-zero in the conditional expression above.
-            // This strictly guarantees that the precondition for `NonZeroU8::new_unchecked` is met.
-            unsafe {
-                return Some(Self(NonZeroU8::new_unchecked(value)));
-            }
+        if value.is_multiple_of(2)
+            && let Some(value) = NonZeroU8::new(value)
+        {
+            return Some(Self(value));
         }
 
         None
