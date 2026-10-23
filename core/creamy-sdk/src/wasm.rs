@@ -1,9 +1,6 @@
-use core::{alloc::Layout, num::NonZeroUsize, ptr::NonNull};
+use core::{alloc::Layout, num::NonZeroU32, ptr::NonNull};
 
-use cbus_core::{
-    buffer::runtime::DynSharedBuf,
-    defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN},
-};
+use cbus_core::defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN};
 
 use crate::{INCOMING, MAX_HEAP, OUTGOING};
 
@@ -32,12 +29,10 @@ fn alloc_buffer(count: usize) -> NonNull<u8> {
 pub extern "C" fn internal__export_incoming_buffer(count: u32) -> u32 {
     let buffer_ptr = alloc_buffer(count as usize);
     unsafe {
-        INCOMING = Some(cbus_core::buffer::runtime::DynIncBuf::from_buf(
-            DynSharedBuf::from_ptr(
-                buffer_ptr,
-                NonZeroUsize::new_unchecked(count as usize),
-                false,
-            ),
+        INCOMING = Some(cbus_core::buffer::DynIncBuf::from_ptr(
+            buffer_ptr,
+            NonZeroU32::new_unchecked(count),
+            false,
         ));
     }
 
@@ -48,12 +43,10 @@ pub extern "C" fn internal__export_incoming_buffer(count: u32) -> u32 {
 pub extern "C" fn internal__export_outgoing_buffer(count: u32) -> u32 {
     let buffer_ptr = alloc_buffer(count as usize);
     unsafe {
-        OUTGOING = Some(cbus_core::buffer::runtime::DynOutBuf::from_buf(
-            DynSharedBuf::from_ptr(
-                buffer_ptr,
-                NonZeroUsize::new_unchecked(count as usize),
-                false,
-            ),
+        OUTGOING = Some(cbus_core::buffer::DynOutBuf::from_ptr(
+            buffer_ptr,
+            NonZeroU32::new_unchecked(count),
+            false,
         ));
     }
 

@@ -126,12 +126,14 @@ where
         let write_ptr = buffer.write_slice_mut(1).as_mut_ptr();
         let read_ptr = core::ptr::from_ref(message);
 
+        // SAFETY: TODO
         unsafe {
             core::ptr::copy_nonoverlapping(read_ptr, write_ptr, 1);
 
             // Инкрементируем count если dst не равен 0
             // Это нужно чтобы все сообщения с dst == 0 отправлялись в мусорку (/dev/null)
-            buffer.set_count((buffer.count() + 1) * u32::from(message.dst != 0));
+            buffer.add_count(u32::from(message.dst != 0));
+            //buffer.set_count((buffer.count() + 1) * u32::from(message.dst != 0));
         }
     }
 

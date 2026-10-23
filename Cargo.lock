@@ -295,6 +295,7 @@ name = "cbus"
 version = "0.1.0"
 dependencies = [
  "as-guard",
+ "bitflags 2.13.2",
  "cbus-core",
  "criterion",
  "idmint",

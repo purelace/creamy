@@ -1,4 +1,4 @@
-use cbus_core::{UntypedMessage, buffer::runtime::DynIncBuf};
+use cbus_core::{UntypedMessage, buffer::DynIncBuf};
 
 use crate::Sender;
 

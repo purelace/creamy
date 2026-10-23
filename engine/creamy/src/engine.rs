@@ -8,7 +8,7 @@ use creamy_engine_core::{
         config::BusConfig,
         core::{
             Subscriber, SubscriberId,
-            buffer::{IncBuf, OutBuf, SharedBuf},
+            buffer::{IncBuf, OutBuf},
         },
     },
     package::{
@@ -330,8 +330,8 @@ impl<
         let inc_ptr = module.incoming_ptr();
         let out_ptr = module.outgoing_ptr();
 
-        let inc = IncBuf::<M>::from_buf(unsafe { SharedBuf::from_ptr(inc_ptr, false) });
-        let out = OutBuf::<M>::from_buf(unsafe { SharedBuf::from_ptr(out_ptr, false) });
+        let inc = unsafe { IncBuf::<M>::from_ptr(inc_ptr, false) };
+        let out = unsafe { OutBuf::<M>::from_ptr(out_ptr, false) };
 
         let name = package.manifest.name().to_smolstr();
         let id = self.bus.add_subscriber_with(

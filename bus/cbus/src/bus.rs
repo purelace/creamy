@@ -2,7 +2,10 @@ use alloc::boxed::Box;
 
 use cbus_core::{
     SubscriberId,
-    buffer::{IncBuf, OutBuf, RefBuf, RefMutBuf},
+    buffer::{
+        IncBuf, OutBuf,
+        reference::{RefBuf, RefMutBuf},
+    },
 };
 use idmint::StackMint;
 
@@ -88,21 +91,21 @@ impl<S: Subscriber, const M: usize> SubscriberData<S, M> {
 
     /// Write
     pub const fn incoming_mut(&mut self) -> RefMutBuf<'_, M> {
-        self.incoming.as_inner_mut().as_mut_buf()
+        unsafe { self.incoming.as_mut_buf() }
     }
 
     /// Read
     pub const fn outgoing_mut(&mut self) -> RefMutBuf<'_, M> {
-        self.outgoing.as_inner_mut().as_mut_buf()
+        unsafe { self.outgoing.as_mut_buf() }
     }
 
     pub const fn outgoing_ref(&self) -> RefBuf<'_, M> {
-        self.outgoing.as_inner_ref().as_ref_buf()
+        self.outgoing.as_ref_buf()
     }
 
     #[cfg(target_feature = "sse4.1")]
-    pub const unsafe fn incoming_raw_ptr(&mut self) -> cbus_core::buffer::RawBuf {
-        unsafe { self.incoming.as_inner_mut().as_raw_buf() }
+    pub const unsafe fn incoming_raw_ptr(&mut self) -> cbus_core::buffer::reference::RawBuf {
+        unsafe { self.incoming.as_raw_buf() }
     }
 }
 

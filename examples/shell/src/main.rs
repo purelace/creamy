@@ -8,7 +8,7 @@ use creamy::{
         bus::{
             core::{
                 Subscriber,
-                buffer::{IncBuf, OutBuf, runtime::DynIncBuf},
+                buffer::{IncBuf, OutBuf},
             },
             define_bus_config,
         },
@@ -37,11 +37,7 @@ pub struct ShellPlugin {
 
 impl Subscriber for ShellPlugin {
     fn notify(&mut self) {
-        unsafe {
-            let dyn_buf = self.inc.as_inner_mut().as_dyn_buf();
-            let inc_buf = DynIncBuf::from_buf(dyn_buf);
-            handle_incoming(self, inc_buf);
-        }
+        handle_incoming(self, self.inc.as_dyn_buf());
     }
 }
 

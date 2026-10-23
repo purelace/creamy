@@ -299,7 +299,7 @@ where
                 write,
             );
 
-            buffer.set_count(0);
+            buffer.clear();
         }
     }
 }

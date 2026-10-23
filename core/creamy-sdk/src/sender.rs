@@ -1,4 +1,4 @@
-use cbus_core::{SubscriberId, buffer::runtime::DynOutBuf};
+use cbus_core::{SubscriberId, buffer::DynOutBuf};
 
 use crate::{
     message::Message,

@@ -31,7 +31,7 @@ where
 
             Self::prepare_and_send_direct_slice(data, src, messages);
 
-            buffer.set_count(0);
+            buffer.clear();
         }
     }
 }

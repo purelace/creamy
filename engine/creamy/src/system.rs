@@ -3,7 +3,7 @@ use core::num::NonZeroU8;
 
 use creamy_engine_core::bus::core::{
     Subscriber, SubscriberId, UntypedMessage,
-    buffer::{IncBuf, OutBuf, runtime::DynIncBuf},
+    buffer::{IncBuf, OutBuf},
 };
 use creamy_sdk::{
     api::{CustomHandler, handle_incoming},
@@ -88,11 +88,7 @@ impl<const S: usize, const M: usize> SystemPlugin<S, M> {
 
 impl<const S: usize, const M: usize> Subscriber for SystemPlugin<S, M> {
     fn notify(&mut self) {
-        unsafe {
-            let dyn_buf = self.inc.as_inner_mut().as_dyn_buf();
-            let inc_buf = DynIncBuf::from_buf(dyn_buf);
-            handle_incoming(self, inc_buf);
-        }
+        handle_incoming(self, self.inc.as_dyn_buf());
     }
 }
 

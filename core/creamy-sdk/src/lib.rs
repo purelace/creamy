@@ -9,8 +9,6 @@ include!(concat!(env!("OUT_DIR"), "/system.rs"));
 // проверка на пересечения
 // сравнение длины в байтах с размером типа
 
-use cbus_core::buffer::runtime::{DynIncBuf, DynOutBuf};
-
 extern crate alloc;
 pub mod api;
 pub mod logging;
@@ -34,6 +32,7 @@ pub mod defines {
     pub use cbus_core::defines::*;
 }
 
+use cbus_core::buffer::{DynIncBuf, DynOutBuf};
 pub use sender::Sender;
 
 #[cfg(target_arch = "wasm32")]

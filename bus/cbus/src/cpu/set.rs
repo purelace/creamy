@@ -59,7 +59,7 @@ where
                 write,
             );
 
-            buffer.set_count(0);
+            buffer.clear();
         }
     }
 
@@ -73,15 +73,18 @@ where
         let mut batch = core::mem::take(&mut pipeline.batch);
 
         for (dst, len, ptr_location) in batch.drain(..) {
-            let read = data.memory.message.slice(len as usize, ptr_location);
+            let read = data.memory.message.slice(len, ptr_location);
 
             let sub_data = &mut data.memory.subscribers[dst as usize];
             let mut buffer = sub_data.incoming_mut();
-            let write = buffer.write_slice_mut(len as usize);
+            let write = buffer.write_slice_mut(len);
 
             Self::slices_send(read, write);
 
-            buffer.add_count(len);
+            // SAFETY: TODO
+            unsafe {
+                buffer.add_count(len);
+            }
         }
 
         let _ = core::mem::replace(&mut pipeline.batch, batch);
