@@ -195,9 +195,6 @@ where
         self.driver.on_subscribe(id);
     }
 
-    // Попробовать подготовить данные так, чтобы можно было одной операцией их отправить
-    // Обрабатывать возможное переполнение
-
     const fn subscriber_range(&self) -> SubscriberRange {
         const ONE: SubscriberId = SubscriberId::new_u8(1).unwrap();
         //TODO: get first

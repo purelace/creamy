@@ -45,7 +45,6 @@ impl<C: BusConfig> MessagePool<C> {
     pub fn reserve_slice(&mut self, count: usize) -> &mut [UntypedMessage] {
         unsafe {
             let ptr = self.ptr.add(self.count).as_ptr();
-            //println!("count: {}, add: {count}", self.count);
             let slice = core::slice::from_raw_parts_mut(ptr, count);
             self.count += count;
             slice

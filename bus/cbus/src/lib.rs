@@ -31,5 +31,6 @@ pub use error::BusError;
 pub use lookup::SubscriberLookupData;
 
 /*
- * TODO: Проблема диапазона
- */
+ TODO: Проблема диапазона
+ TODO: Обрабатывать возможное переполнение
+*/
