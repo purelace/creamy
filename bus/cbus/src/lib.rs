@@ -25,17 +25,6 @@ pub mod core {
     pub use cbus_core::*;
 }
 
-pub mod defines {
-    pub use cbus_core::defines::*;
-
-    pub const MAX_SIZE: usize = isize::MAX as usize - TARGET_ALIGN;
-    pub const KB: usize = 1024;
-    pub const MB: usize = KB * KB;
-    pub const DEFAULT_SLICES: usize = 256;
-    pub const DEFAULT_SLICE_SIZE: usize = KB * 512;
-    pub const SPECIAL_DATA_OFFSET: usize = 64;
-}
-
 pub use bus::MessageBus;
 pub use driver::{BusDriver, DataIterator};
 pub use error::BusError;

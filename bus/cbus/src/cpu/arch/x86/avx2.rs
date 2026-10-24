@@ -93,7 +93,7 @@ impl Avx2InstructionSet {
             macro_rules! translate {
                 ($idx:expr) => {{
                     let group: usize = _mm256_extract_epi32(ymm_group, $idx).safe_as();
-                    (*lut.get_input().get_unchecked(shifted_src + group)).safe_as()
+                    (*lut.as_slice().get_unchecked(shifted_src + group)).safe_as()
                 }};
             }
 

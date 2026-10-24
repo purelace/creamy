@@ -88,7 +88,7 @@ impl Avx512FInstructionSet {
 
             let zmm_relative_to_dst_group_values = _mm512_i32gather_epi32::<1>(
                 zmm_relative_to_dst_group_indices,
-                lut.get_input().as_ptr().cast::<i32>(),
+                lut.as_slice().as_ptr().cast::<i32>(),
             );
 
             let zmm_groups =

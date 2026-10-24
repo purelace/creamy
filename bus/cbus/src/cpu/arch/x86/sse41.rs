@@ -96,7 +96,7 @@ impl Sse41InstructionSet {
                 ($idx:expr) => {{
                     let group: usize = _mm_extract_epi32(xmm_group, $idx).safe_as();
 
-                    (*lut.get_input().get_unchecked(shifted_id + group)).safe_as()
+                    (*lut.as_slice().get_unchecked(shifted_id + group)).safe_as()
                 }};
             }
 

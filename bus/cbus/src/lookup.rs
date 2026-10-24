@@ -46,21 +46,13 @@ impl<C: BusConfig> LookupTable<C> {
                     provider_id: lookup_data.provider_id,
                 },
             );
-
-            //self.input[id * Self::MAX_GROUPS] = 1;
-            //self.output[id * Self::MAX_GROUPS] = 1;
         }
     }
 
     fn set_values(&mut self, id: usize, data: SubscriberLookupData) {
         let slice = id * Self::MAX_GROUPS;
-        // Индекс в IN: (ID подписчика * max groups) + ID группы потребителя
-        let in_idx = slice + data.consumer_group_id as usize;
-        self.input[in_idx] = data.provider_group_id;
-
-        // Индекс в OUT: (ID подписчика * max groups) + ID группы поставщика
-        //let out_idx = slice + data.provider_group_id as usize;
-        //self.output[out_idx] = data.consumer_group_id;
+        let src_index = slice + data.consumer_group_id as usize;
+        self.input[src_index] = data.provider_group_id;
     }
 
     pub fn zeroize(&mut self, id: SubscriberId) {
@@ -70,21 +62,10 @@ impl<C: BusConfig> LookupTable<C> {
         let end = start + Self::MAX_GROUPS;
 
         let in_slice = &mut self.input[start..end];
-        for value in in_slice {
-            *value = 0;
-        }
-
-        //let out_slice = &mut self.output[start..end];
-        //for value in out_slice {
-        //    *value = 0;
-        //}
+        in_slice.fill(0);
     }
 
-    pub const fn get_input(&self) -> &[u8] {
+    pub const fn as_slice(&self) -> &[u8] {
         &self.input
     }
-
-    //pub const fn get_output(&self) -> &[u8] {
-    //    &self.output
-    //}
 }
