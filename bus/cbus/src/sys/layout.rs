@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, coverage(off))]
+
 use core::{alloc::Layout, ptr::NonNull};
 
 pub fn alloc_pool(layout: Layout) -> NonNull<u8> {

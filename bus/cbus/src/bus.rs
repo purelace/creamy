@@ -134,6 +134,10 @@ where
     /// * [`BusError::ValueOutOfRange`] — if a value exceeds the architectural limits.
     /// * [`BusError::PoolExhausted`] - if a pool is exhausted.
     pub fn new(driver: D) -> Self {
+        const {
+            assert!(C::MAX_MESSAGES.get() as usize == M);
+        };
+
         let driver = Driver::new(driver);
 
         let subscribers = core::iter::repeat_with(|| unsafe { SubscriberData::null() })
