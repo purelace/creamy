@@ -257,6 +257,7 @@ impl<const M: usize> core::fmt::Debug for SharedBuf<M> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use core::ptr::NonNull;
 
     use crate::{
