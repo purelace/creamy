@@ -10,31 +10,4 @@ pub enum BusError {
 
     #[error("Cannot allocate buffer. Pool is full. Possible count of subscribers: {max}")]
     PoolExhausted { max: u8 },
-
-    #[error("Size of pool is too big ({current}). Size should be less than {max} bytes")]
-    TooBigPoolSize { current: usize, max: usize },
-
-    #[error("Config '{name}' is too small: {current}. Minimum required: {min}")]
-    ValueTooSmall {
-        name: &'static str,
-        current: usize,
-        min: usize,
-    },
-
-    #[error("Config '{name}' is too big.")]
-    ValueTooBig { name: &'static str },
-
-    #[error("Config '{name}' is out of range: {current}. Valid range: [{min}..{max}]")]
-    ValueOutOfRange {
-        name: &'static str,
-        current: usize,
-        min: usize,
-        max: usize,
-    },
-
-    #[error("Config '{name}' is not multiple of 2")]
-    ValueIsNotMultipleOf2 { name: &'static str },
-
-    #[error("'max_groups' must be a power of 2")]
-    GroupsIsNotPowerOf2,
 }

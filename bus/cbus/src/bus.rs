@@ -75,10 +75,6 @@ where
     S: Subscriber,
 {
     /// Creates a new message bus with the specified configuration and driver.
-    /// # Errors
-    /// * [`BusError::ValueTooSmall`] — if a value is below the minimum required.
-    /// * [`BusError::ValueOutOfRange`] — if a value exceeds the architectural limits.
-    /// * [`BusError::PoolExhausted`] - if a pool is exhausted.
     pub fn new(driver: D) -> Self {
         const {
             assert!(C::MAX_MESSAGES.get() as usize == M);
