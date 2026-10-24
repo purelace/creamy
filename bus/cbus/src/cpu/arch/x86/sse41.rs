@@ -23,7 +23,6 @@ pub use sse41_reexports::*;
 
 use super::validate_dst;
 use crate::{
-    bus::SubscriberRange,
     config::BusConfig,
     core::UntypedMessage,
     cpu::{
@@ -31,6 +30,7 @@ use crate::{
         set::InstructionSet,
     },
     lookup::LookupTable,
+    sys::SubscriberRange,
 };
 
 const CHUNK_SIZE: usize = 4;

@@ -5,14 +5,14 @@ use as_guard::AsGuard;
 use cbus_core::{Subscriber, buffer::reference::RefMutBuf};
 
 use crate::{
-    bus::{SubscriberData, SubscriberRange},
+    bus::SubscriberData,
     config::BusConfig,
     cpu::{
         arch::AvailableStrategy,
         offsets::{MAX_SLICE_SIZE, Offsets},
     },
     lookup::LookupTable,
-    sys::MessagePool,
+    sys::{MessagePool, SubscriberRange},
 };
 
 mod offsets;
@@ -151,7 +151,7 @@ impl PipelinePlan {
         self.indices = [0; 256];
 
         for src in data.subscriber_range {
-            let sub_data = &data.memory.subscribers[src as usize];
+            let sub_data = &data.memory.subscribers[src.as_usize()];
             let count = sub_data.outgoing_ref().count();
             S::add_offset(&mut self.offsets, count as usize);
         }
@@ -161,13 +161,13 @@ impl PipelinePlan {
 
         // 3. Заполняем массив indices, используя смещения
         for src in data.subscriber_range {
-            let sub_data = &data.memory.subscribers[src as usize];
+            let sub_data = &data.memory.subscribers[src.as_usize()];
             let count = sub_data.outgoing_ref().count();
 
             let bucket_idx = S::get_bucket_idx(count as usize);
 
             let pos = write_ptr[bucket_idx];
-            self.indices[pos as usize] = src;
+            self.indices[pos as usize] = src.as_u8();
             write_ptr[bucket_idx] += 1; // Сдвигаемся внутри бакета
         }
     }

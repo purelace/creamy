@@ -57,7 +57,7 @@ impl Dns {
 
 impl BusDriver for Dns {
     fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
-        if id.get() == 1 {
+        if id.as_u8() == 1 {
             return std::iter::once(SubscriberLookupData {
                 consumer_group_id: 1,
                 provider_group_id: 1,
@@ -66,14 +66,14 @@ impl BusDriver for Dns {
         }
 
         let mut message = UntypedMessage {
-            dst: id.get(),
+            dst: id.as_u8(),
             group: 1,
             src: 0,
             kind: 0,
             payload: [0; 28],
         };
 
-        let ident = self.table.get(&id.get()).unwrap();
+        let ident = self.table.get(&id.as_u8()).unwrap();
         let bytes = ident.as_bytes();
         message.payload[0] = bytes[0];
         message.payload[1] = bytes[1];

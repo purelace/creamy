@@ -1,11 +1,11 @@
 use cbus_core::Subscriber;
 
 use crate::{
-    bus::SubscriberRange,
     config::BusConfig,
     core::UntypedMessage,
     cpu::{MessagePipeline, PipelineData},
     lookup::LookupTable,
+    sys::SubscriberRange,
 };
 
 pub trait InstructionSet<C, S, const M: usize, const CHUNK_SIZE: usize>: Sized

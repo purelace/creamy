@@ -10,67 +10,13 @@ use cbus_core::{
 use idmint::StackMint;
 
 use crate::{
-    BusDriver, BusError, config::BusConfig, core::Subscriber, cpu::MemoryPools, driver::Driver,
-    sys::MessagePool,
+    BusDriver, BusError,
+    config::BusConfig,
+    core::Subscriber,
+    cpu::MemoryPools,
+    driver::Driver,
+    sys::{MessagePool, SubscriberRange},
 };
-
-//TODO: NonZeroU8
-/// Inclusive range of almost all valid subscriber ids
-#[derive(Clone, Copy)]
-pub(crate) struct SubscriberRange {
-    start: u8,
-    end: u8,
-}
-
-impl SubscriberRange {
-    #[cfg(target_feature = "sse4.1")]
-    pub const fn start(self) -> u8 {
-        self.start
-    }
-
-    #[cfg(target_feature = "sse4.1")]
-    pub const fn end(self) -> u8 {
-        self.end
-    }
-
-    pub const fn contains(self, value: u8) -> bool {
-        value >= self.start && value <= self.end
-    }
-}
-
-impl IntoIterator for SubscriberRange {
-    type Item = u8;
-
-    type IntoIter = RangeIterator;
-
-    fn into_iter(self) -> Self::IntoIter {
-        RangeIterator {
-            end: self.end,
-            current: Some(self.start),
-        }
-    }
-}
-
-pub(crate) struct RangeIterator {
-    end: u8,
-    current: Option<u8>,
-}
-
-impl Iterator for RangeIterator {
-    type Item = u8;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let current = self.current?;
-
-        if current > self.end {
-            return None;
-        }
-
-        let result = current;
-        self.current = current.checked_add(1);
-        Some(result)
-    }
-}
 
 #[derive(Debug)]
 pub(crate) struct SubscriberData<S: Subscriber, const M: usize> {
@@ -239,13 +185,13 @@ where
 
     pub fn get_subscriber(&self, id: SubscriberId) -> Option<&S> {
         self.subscribers
-            .get(id.get() as usize)
+            .get(id.as_usize())
             .and_then(|data| data.sub.as_ref())
     }
 
     pub fn get_subscriber_mut(&mut self, id: SubscriberId) -> Option<&mut S> {
         self.subscribers
-            .get_mut(id.get() as usize)
+            .get_mut(id.as_usize())
             .and_then(|data| data.sub.as_mut())
     }
 
@@ -257,10 +203,9 @@ where
     // Обрабатывать возможное переполнение
 
     const fn subscriber_range(&self) -> SubscriberRange {
-        SubscriberRange {
-            start: 0,
-            end: self.mint.last(),
-        }
+        const ONE: SubscriberId = SubscriberId::new_u8(1).unwrap();
+        //TODO: get first
+        SubscriberRange::new(ONE, self.mint.last())
     }
 
     #[cfg_attr(

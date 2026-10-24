@@ -75,15 +75,15 @@ fn init() -> Mutex<Wrapper> {
             _out: out.clone(),
         }) as Box<dyn Subscriber>,
     );
-    assert!(result.is_ok_and(|id| id.get() == 1));
+    assert!(result.is_ok_and(|id| id.as_u8() == 1));
 
     let result =
         bus.add_subscriber(|inc, out| Box::new(Reader { inc, _out: out }) as Box<dyn Subscriber>);
-    assert!(result.is_ok_and(|id| id.get() == 2));
+    assert!(result.is_ok_and(|id| id.as_u8() == 2));
 
     let result =
         bus.add_subscriber(|inc, out| Box::new(Reader { inc, _out: out }) as Box<dyn Subscriber>);
-    assert!(result.is_ok_and(|id| id.get() == 3));
+    assert!(result.is_ok_and(|id| id.as_u8() == 3));
 
     let result = bus.remove_subscriber(SubscriberId::new_u8(2).unwrap());
     assert!(result.is_ok());

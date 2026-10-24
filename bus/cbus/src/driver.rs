@@ -1,11 +1,11 @@
 use core::marker::PhantomData;
 
 use crate::{
-    bus::SubscriberRange,
     config::BusConfig,
     core::{Subscriber, SubscriberId},
     cpu::{MemoryPools, MessagePipeline, PipelineData},
     lookup::{LookupTable, SubscriberLookupData},
+    sys::SubscriberRange,
 };
 
 pub trait DataIterator: Iterator<Item = SubscriberLookupData> {}

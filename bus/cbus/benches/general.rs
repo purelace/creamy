@@ -226,7 +226,7 @@ pub mod driver {
 
     impl BusDriver for CreamyDriver {
         fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
-            let metadata = &mut self.subscribers[id.get() as usize];
+            let metadata = &mut self.subscribers[id.as_usize()];
 
             metadata
                 .to_sync
@@ -247,7 +247,7 @@ pub mod driver {
         }
 
         fn on_unsubscribe(&mut self, id: SubscriberId) {
-            let metadata = &mut self.subscribers[id.get() as usize];
+            let metadata = &mut self.subscribers[id.as_usize()];
             metadata.to_sync.clear();
         }
     }

@@ -15,16 +15,16 @@ impl<const S: usize> EngineBusDriver<S> {
     }
 
     pub fn provide_api(&mut self, id: SubscriberId, request: SubscriberLookupData) {
-        self.requests[id.get() as usize - 1].push(request);
+        self.requests[id.as_usize() - 1].push(request);
     }
 }
 
 impl<const S: usize> BusDriver for EngineBusDriver<S> {
     fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
-        self.requests[id.get() as usize - 1].drain(..)
+        self.requests[id.as_usize() - 1].drain(..)
     }
 
     fn on_unsubscribe(&mut self, id: SubscriberId) {
-        self.requests[id.get() as usize - 1].clear();
+        self.requests[id.as_usize() - 1].clear();
     }
 }

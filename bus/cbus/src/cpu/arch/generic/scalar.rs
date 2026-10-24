@@ -1,11 +1,11 @@
 use cbus_core::Subscriber;
 
 use crate::{
-    bus::SubscriberRange,
     config::BusConfig,
     core::UntypedMessage,
     cpu::{PipelineData, runner::InstructionRunner, set::InstructionSet},
     lookup::LookupTable,
+    sys::SubscriberRange,
 };
 
 pub struct ScalarInstructionSet;

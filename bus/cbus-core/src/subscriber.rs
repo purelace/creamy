@@ -57,14 +57,6 @@ impl core::fmt::Display for SubscriberId {
     }
 }
 
-impl core::ops::Deref for SubscriberId {
-    type Target = NonZeroU8;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 pub trait Subscriber: Downcast + Any + 'static {
     fn notify(&mut self);
 }

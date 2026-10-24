@@ -23,7 +23,7 @@ define_bus_config! {
 struct Driver;
 impl BusDriver for Driver {
     fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
-        match id.get() {
+        match id.as_u8() {
             1 => std::iter::once(SubscriberLookupData {
                 consumer_group_id: 0,
                 provider_group_id: 0,

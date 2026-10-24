@@ -53,19 +53,19 @@ impl<const S: usize, const M: usize> SystemPlugin<S, M> {
     }
 
     pub fn get_plugin_name(&self, id: SubscriberId) -> Option<&str> {
-        self.names[id.get() as usize - Self::ARRAY_OFFSET]
+        self.names[id.as_usize() - Self::ARRAY_OFFSET]
             .as_ref()
             .map(SmolStr::as_str)
     }
 
     pub fn add_plugin_name(&mut self, id: SubscriberId, name: impl Into<SmolStr>) {
         // Subtract 2 because 0 is invalid and we omit the system plugin itself.
-        self.names[id.get() as usize - Self::ARRAY_OFFSET] = Some(name.into());
+        self.names[id.as_usize() - Self::ARRAY_OFFSET] = Some(name.into());
         self.plugins += 1;
     }
 
     pub fn remove_plugin_name(&mut self, id: SubscriberId) {
-        self.names[id.get() as usize - Self::ARRAY_OFFSET] = None;
+        self.names[id.as_usize() - Self::ARRAY_OFFSET] = None;
         self.plugins -= 1;
     }
 
@@ -78,8 +78,8 @@ impl<const S: usize, const M: usize> SystemPlugin<S, M> {
         assert!(
             self.out.send(
                 GroupDeclared::PREPARED
-                    .with_dst(consumer.get())
-                    .with_provider(provider.get())
+                    .with_dst(consumer.as_u8())
+                    .with_provider(provider.as_u8())
                     .with_group_id(group_id.get())
             )
         );

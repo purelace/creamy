@@ -27,7 +27,7 @@ impl Sender {
             return false;
         };
 
-        message.with_dst(dst.get());
+        message.with_dst(dst.as_u8());
         message.with_group(T::GROUP.get());
         message.with_kind(T::KIND);
 
@@ -43,7 +43,7 @@ impl Sender {
             return false;
         };
 
-        let mut writer = StreamWriter::<T>::new(dst.get(), StreamId::new(10));
+        let mut writer = StreamWriter::<T>::new(dst.as_u8(), StreamId::new(10));
         writer.send(content);
         true
     }

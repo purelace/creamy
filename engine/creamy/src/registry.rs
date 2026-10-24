@@ -286,8 +286,8 @@ impl ProtocolContext {
         match self.groups.get_mut(&group) {
             Some(context) => match &mut context.access {
                 AccessPolicy::Public { consumers, ids } => {
-                    consumers.set(consumer_id.get());
-                    ids[consumer_id.get() as usize] = group_id;
+                    consumers.set(consumer_id.as_u8());
+                    ids[consumer_id.as_usize()] = group_id;
                     true
                 }
                 AccessPolicy::Private {
@@ -311,9 +311,9 @@ impl ProtocolContext {
         match self.groups.get_mut(&group) {
             Some(context) => match &mut context.access {
                 AccessPolicy::Public { consumers, ids } => {
-                    debug_assert!(consumers.get(consumer_id.get()));
-                    consumers.unset(consumer_id.get());
-                    ids[consumer_id.get() as usize] = NonZeroU8::new(1).unwrap();
+                    debug_assert!(consumers.get(consumer_id.as_u8()));
+                    consumers.unset(consumer_id.as_u8());
+                    ids[consumer_id.as_usize()] = NonZeroU8::new(1).unwrap();
                 }
                 AccessPolicy::Private {
                     consumer,

@@ -11,7 +11,6 @@ use as_guard::AsGuard;
 use cbus_core::Subscriber;
 
 use crate::{
-    bus::SubscriberRange,
     config::BusConfig,
     core::UntypedMessage,
     cpu::{
@@ -20,6 +19,7 @@ use crate::{
         set::InstructionSet,
     },
     lookup::LookupTable,
+    sys::SubscriberRange,
 };
 
 pub struct Avx512FInstructionSet;

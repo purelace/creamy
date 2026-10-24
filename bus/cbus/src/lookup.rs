@@ -34,12 +34,12 @@ impl<C: BusConfig> LookupTable<C> {
     where
         I: IntoIterator<Item = SubscriberLookupData>,
     {
-        let id = id.get() as usize;
+        let id = id.as_usize();
 
         for lookup_data in lookup_data_iter {
             self.set_values(id, lookup_data);
             self.set_values(
-                lookup_data.provider_id.get() as usize,
+                lookup_data.provider_id.as_usize(),
                 SubscriberLookupData {
                     consumer_group_id: lookup_data.provider_group_id,
                     provider_group_id: lookup_data.consumer_group_id,
@@ -56,7 +56,7 @@ impl<C: BusConfig> LookupTable<C> {
     }
 
     pub fn zeroize(&mut self, id: SubscriberId) {
-        let id = id.get() as usize;
+        let id = id.as_usize();
 
         let start = id * Self::MAX_GROUPS;
         let end = start + Self::MAX_GROUPS;

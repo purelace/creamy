@@ -21,7 +21,6 @@ use cbus_core::Subscriber;
 
 use super::validate_dst;
 use crate::{
-    bus::SubscriberRange,
     config::BusConfig,
     core::UntypedMessage,
     cpu::{
@@ -29,6 +28,7 @@ use crate::{
         set::InstructionSet,
     },
     lookup::LookupTable,
+    sys::SubscriberRange,
 };
 
 pub const CHUNK_SIZE: usize = 8;

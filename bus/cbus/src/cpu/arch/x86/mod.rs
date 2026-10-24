@@ -66,7 +66,7 @@ cfg_select! {
 
 #[cfg(target_feature = "sse4.1")]
 #[inline(always)]
-fn validate_dst(range: crate::bus::SubscriberRange, src: u8, dst: u8) -> u8 {
+fn validate_dst(range: crate::sys::SubscriberRange, src: u8, dst: u8) -> u8 {
     let in_valid_range = u8::from(range.contains(dst));
     let not_equal_src = u8::from(src != dst);
     dst * not_equal_src * in_valid_range
