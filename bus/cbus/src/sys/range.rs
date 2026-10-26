@@ -2,7 +2,7 @@ use cbus_core::SubscriberId;
 
 /// Inclusive range of almost all valid subscriber ids
 #[derive(Clone, Copy)]
-pub(crate) struct SubscriberRange {
+pub struct SubscriberRange {
     start: SubscriberId,
     end: u8,
 }
@@ -40,7 +40,7 @@ impl IntoIterator for SubscriberRange {
     }
 }
 
-pub(crate) struct RangeIterator {
+pub struct RangeIterator {
     end: u8,
     current: Option<SubscriberId>,
 }

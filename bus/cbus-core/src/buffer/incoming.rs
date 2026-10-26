@@ -21,6 +21,13 @@ impl<const M: usize> Default for IncBuf<M> {
 
 impl<const M: usize> IncBuf<M> {
     #[must_use]
+    pub const fn null() -> Self {
+        Self {
+            buf: SharedBuf::null(),
+        }
+    }
+
+    #[must_use]
     pub fn new() -> Self {
         Self {
             buf: SharedBuf::new(),

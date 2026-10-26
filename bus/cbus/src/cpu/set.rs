@@ -5,7 +5,7 @@ use crate::{
     core::UntypedMessage,
     cpu::{MessagePipeline, PipelineData},
     lookup::LookupTable,
-    sys::SubscriberRange,
+    sys::{SubscriberRange, subscriber::Mask},
 };
 
 pub trait InstructionSet<C, S, const M: usize, const CHUNK_SIZE: usize>: Sized
@@ -23,6 +23,7 @@ where
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage; CHUNK_SIZE],
         write: &mut [UntypedMessage; CHUNK_SIZE],
@@ -32,6 +33,7 @@ where
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
@@ -44,8 +46,9 @@ where
     )]
     #[inline(always)]
     fn prepare_batches(subscribers: &[u8], data: &mut PipelineData<C, S, M>) {
+        let mask = data.memory.subscribers.get_mask();
         for src in subscribers.iter().copied() {
-            let sub_data = &mut data.memory.subscribers[src as usize];
+            let sub_data = unsafe { data.memory.subscribers.get_data_mut_unchecked(src) };
             let mut buffer = sub_data.outgoing_mut();
 
             let write = data.memory.message.reserve_slice(buffer.count() as usize);
@@ -54,6 +57,7 @@ where
             Self::slices_prepare_and_send(
                 data.lookup_table,
                 data.subscriber_range,
+                mask,
                 src,
                 read,
                 write,
@@ -75,7 +79,7 @@ where
         for (dst, len, ptr_location) in batch.drain(..) {
             let read = data.memory.message.slice(len, ptr_location);
 
-            let sub_data = &mut data.memory.subscribers[dst as usize];
+            let sub_data = unsafe { data.memory.subscribers.get_data_mut_unchecked(dst) };
             let mut buffer = sub_data.incoming_mut();
             let write = buffer.write_slice_mut(len);
 
@@ -110,6 +114,7 @@ where
     fn slices_prepare_and_send(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
@@ -118,9 +123,9 @@ where
         let (write_chunks, write_remainder) = write.as_chunks_mut::<CHUNK_SIZE>();
 
         for (read_chunk, write_chunk) in read_chunks.iter().zip(write_chunks) {
-            Self::prepare_and_send_exactly(lut, range, src, read_chunk, write_chunk);
+            Self::prepare_and_send_exactly(lut, range, mask, src, read_chunk, write_chunk);
         }
 
-        Self::prepare_and_send_remainder(lut, range, src, read_remainder, write_remainder);
+        Self::prepare_and_send_remainder(lut, range, mask, src, read_remainder, write_remainder);
     }
 }

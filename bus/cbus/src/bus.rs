@@ -2,12 +2,8 @@ use alloc::boxed::Box;
 
 use cbus_core::{
     SubscriberId,
-    buffer::{
-        IncBuf, OutBuf,
-        reference::{RefBuf, RefMutBuf},
-    },
+    buffer::{IncBuf, OutBuf},
 };
-use idmint::StackMint;
 
 use crate::{
     BusDriver, BusError,
@@ -15,45 +11,8 @@ use crate::{
     core::Subscriber,
     cpu::MemoryPools,
     driver::Driver,
-    sys::{MessagePool, SubscriberRange},
+    sys::{MessagePool, subscriber::SubscriberList},
 };
-
-#[derive(Debug)]
-pub(crate) struct SubscriberData<S: Subscriber, const M: usize> {
-    incoming: IncBuf<M>,
-    outgoing: OutBuf<M>,
-    sub: Option<S>,
-}
-
-impl<S: Subscriber, const M: usize> SubscriberData<S, M> {
-    unsafe fn null() -> Self {
-        //TODO: fix
-        Self {
-            incoming: IncBuf::default(),
-            outgoing: OutBuf::default(),
-            sub: None,
-        }
-    }
-
-    /// Write
-    pub const fn incoming_mut(&mut self) -> RefMutBuf<'_, M> {
-        unsafe { self.incoming.as_mut_buf() }
-    }
-
-    /// Read
-    pub const fn outgoing_mut(&mut self) -> RefMutBuf<'_, M> {
-        unsafe { self.outgoing.as_mut_buf() }
-    }
-
-    pub const fn outgoing_ref(&self) -> RefBuf<'_, M> {
-        self.outgoing.as_ref_buf()
-    }
-
-    #[cfg(target_feature = "sse4.1")]
-    pub const unsafe fn incoming_raw_ptr(&mut self) -> cbus_core::buffer::reference::RawBuf {
-        unsafe { self.incoming.as_raw_buf() }
-    }
-}
 
 #[derive(Debug)]
 pub struct MessageBus<C, D, const M: usize, S = Box<dyn Subscriber>>
@@ -63,8 +22,7 @@ where
     S: Subscriber,
 {
     pool: MessagePool<C>,
-    subscribers: Box<[SubscriberData<S, M>]>,
-    mint: StackMint,
+    subscribers: SubscriberList<C, S, M>,
     driver: Driver<C, D, S, M>,
 }
 
@@ -82,123 +40,15 @@ where
 
         let driver = Driver::new(driver);
 
-        let subscribers = core::iter::repeat_with(|| unsafe { SubscriberData::null() })
-            .take(C::MAX_SUBSCRIBERS.get() as usize)
-            .collect::<Box<[_]>>();
-
         Self {
             pool: MessagePool::new(),
-            subscribers,
-            mint: StackMint::new(1), // SubscriberId cannot be zero
+            subscribers: SubscriberList::default(),
             driver,
         }
     }
 
-    fn new_id(&mut self) -> Result<SubscriberId, BusError> {
-        let Some(id) = self.mint.issue() else {
-            return Err(BusError::PoolExhausted {
-                max: C::MAX_SUBSCRIBERS.get(),
-            });
-        };
-
-        if id >= C::MAX_SUBSCRIBERS.get() {
-            self.mint.recycle(id);
-            return Err(BusError::PoolExhausted {
-                max: C::MAX_SUBSCRIBERS.get(),
-            });
-        }
-
-        Ok(unsafe { SubscriberId::new_unchecked(id) })
-    }
-
-    fn add_subscriber_unchecked(
-        &mut self,
-        id: SubscriberId,
-        inc: IncBuf<M>,
-        out: OutBuf<M>,
-        sub: S,
-    ) {
-        let data = &mut self.subscribers[id.as_usize()];
-        data.incoming = inc;
-        data.outgoing = out;
-        data.sub = Some(sub);
-
-        self.driver.on_subscribe(id);
-    }
-
-    /// Adds a new subscriber with specified buffers
-    ///
-    /// # Errors
-    /// Returns an error if the pool is exhausted.
-    pub fn add_subscriber_with<R: Into<S>>(
-        &mut self,
-        inc: IncBuf<M>,
-        out: OutBuf<M>,
-        sub: R,
-    ) -> Result<SubscriberId, BusError> {
-        let id = self.new_id()?;
-        self.add_subscriber_unchecked(id, inc, out, sub.into());
-        Ok(id)
-    }
-
-    /// Adds a new subscriber
-    ///
-    /// # Errors
-    /// Returns an error if the pool is exhausted.
-    pub fn add_subscriber<R: Into<S>>(
-        &mut self,
-        sub: impl FnOnce(IncBuf<M>, OutBuf<M>) -> R,
-    ) -> Result<SubscriberId, BusError> {
-        let id = self.new_id()?;
-
-        let inc = IncBuf::default();
-        let out = OutBuf::default();
-
-        let sub = sub(inc.clone(), out.clone()).into();
-
-        self.add_subscriber_unchecked(id, inc, out, sub);
-
-        Ok(id)
-    }
-
-    /// # Errors
-    ///
-    /// This function will return an error if the subscriber is not registered
-    pub fn remove_subscriber(&mut self, id: SubscriberId) -> Result<S, BusError> {
-        let Some(data) = self.subscribers.get_mut(id.as_usize()) else {
-            return Err(BusError::InvalidSubscriberId);
-        };
-
-        let Some(sub) = data.sub.take() else {
-            return Err(BusError::SubscriberNotRegistered);
-        };
-
-        self.driver.on_unsubscribe(id);
-        self.mint.recycle(id.as_u8());
-
-        Ok(sub)
-    }
-
-    pub fn get_subscriber(&self, id: SubscriberId) -> Option<&S> {
-        self.subscribers
-            .get(id.as_usize())
-            .and_then(|data| data.sub.as_ref())
-    }
-
-    pub fn get_subscriber_mut(&mut self, id: SubscriberId) -> Option<&mut S> {
-        self.subscribers
-            .get_mut(id.as_usize())
-            .and_then(|data| data.sub.as_mut())
-    }
-
     pub fn update_lookup_table(&mut self, id: SubscriberId) {
         self.driver.on_subscribe(id);
-    }
-
-    const fn subscriber_range(&self) -> SubscriberRange {
-        const ONE: SubscriberId = SubscriberId::new_u8(1).unwrap();
-        //TODO: get first
-        SubscriberRange::new(ONE, self.mint.last())
     }
 
     #[cfg_attr(
@@ -206,7 +56,7 @@ where
         tracing::instrument(skip_all, name = "bus::tick", level = "trace")
     )]
     pub fn tick(&mut self) {
-        let range = self.subscriber_range();
+        let range = self.subscribers.subscriber_range();
         let memory = MemoryPools {
             subscribers: &mut self.subscribers,
             message: &mut self.pool,
@@ -214,19 +64,19 @@ where
 
         self.driver.process_messages(memory, range);
 
-        self.subscribers[1..=self.mint.last() as usize]
-            .iter_mut()
-            .flat_map(|d| &mut d.sub)
-            .for_each(|sub| {
-                cfg_select! {
-                    feature = "tracing" => {
-                        let span = tracing::span!(tracing::Level::INFO, "subscriber::notify()");
-                        let _enter = span.enter();
-                    }
-                    _ => {}
+        core::hint::black_box(());
+
+        //self.subscribers[1..=self.mint.last() as usize]
+        self.subscribers.iter_mut().for_each(|sub| {
+            cfg_select! {
+                feature = "tracing" => {
+                    let span = tracing::span!(tracing::Level::INFO, "subscriber::notify()");
+                    let _enter = span.enter();
                 }
-                sub.notify();
-            });
+                _ => {}
+            }
+            sub.notify();
+        });
     }
 
     pub fn full_tick(&mut self) {
@@ -242,8 +92,53 @@ where
     D: BusDriver,
     S: Subscriber,
 {
+    /// Adds a new subscriber with specified buffers
+    ///
+    /// # Errors
+    /// Returns an error if the pool is exhausted.
+    pub fn add_subscriber_with<R: Into<S>>(
+        &mut self,
+        inc: IncBuf<M>,
+        out: OutBuf<M>,
+        sub: R,
+    ) -> Result<SubscriberId, BusError> {
+        self.subscribers.add_with(inc, out, sub).inspect(|&id| {
+            self.driver.on_subscribe(id);
+        })
+    }
+
+    /// Adds a new subscriber
+    ///
+    /// # Errors
+    /// Returns an error if the pool is exhausted.
+    pub fn add_subscriber<R: Into<S>>(
+        &mut self,
+        sub: impl FnOnce(IncBuf<M>, OutBuf<M>) -> R,
+    ) -> Result<SubscriberId, BusError> {
+        self.subscribers.add(sub).inspect(|&id| {
+            self.driver.on_subscribe(id);
+        })
+    }
+
+    /// # Errors
+    ///
+    /// This function will return an error if the subscriber is not registered
+    pub fn remove_subscriber(&mut self, id: SubscriberId) -> Result<S, BusError> {
+        self.subscribers.remove(id).inspect(|_| {
+            self.driver.on_unsubscribe(id);
+        })
+    }
+
+    pub fn get_subscriber(&self, id: SubscriberId) -> Option<&S> {
+        self.subscribers.get(id.as_u8())
+    }
+
+    pub fn get_subscriber_mut(&mut self, id: SubscriberId) -> Option<&mut S> {
+        self.subscribers.get_mut(id)
+    }
+
     pub const fn subscribers(&self) -> u8 {
-        self.mint.used() - 1
+        self.subscribers.count()
     }
 
     pub const fn get_driver_mut(&mut self) -> &mut D {

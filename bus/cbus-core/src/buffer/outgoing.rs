@@ -19,6 +19,13 @@ pub struct OutBuf<const M: usize> {
 }
 
 impl<const M: usize> OutBuf<M> {
+    #[must_use]
+    pub const fn null() -> Self {
+        Self {
+            buf: SharedBuf::null(),
+        }
+    }
+
     #[allow(clippy::cast_possible_truncation)]
     #[must_use]
     pub const fn available_space(&self) -> u32 {

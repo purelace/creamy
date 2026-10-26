@@ -10,12 +10,15 @@ use crate::{
     defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN},
 };
 
-bitflags::bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct SharedBufFlags: u8 {
-        const SHOULD_BE_DROPPED = 0b0000_0001;
-        const DANGLING = 0b0000_0010;
-    }
+#[repr(C, align(32))]
+struct AlignedBuffer([u8; 64 + 32]);
+
+static mut TRASHCAN: AlignedBuffer = AlignedBuffer([0; 64 + 32]);
+
+pub(super) const fn get_trashcan_ptr() -> NonNull<u8> {
+    let ptr = (&raw mut TRASHCAN).cast::<u8>();
+    // SAFETY: TRASHCAN is not null
+    unsafe { NonNull::new_unchecked(ptr) }
 }
 
 //TODO: check for alignment
@@ -23,14 +26,20 @@ bitflags::bitflags! {
 pub(super) struct SharedBuf<const M: usize> {
     /// `[Count: 4-bytes]`
     /// `[Refs: 4-bytes]`
-    /// `[Flags: 1-byte]`
-    /// `[Padding: 55-bytes]`
+    /// `[Padding: 56-bytes]`
     /// `[Data: M * MESSAGE_SIZE(32-bytes)]`
     ptr: NonNull<u8>,
-    is_should_be_dropped: bool,
+    should_be_dropped: bool,
 }
 
 impl<const M: usize> SharedBuf<M> {
+    pub(super) const fn null() -> Self {
+        Self {
+            ptr: get_trashcan_ptr(),
+            should_be_dropped: false,
+        }
+    }
+
     #[must_use]
     pub fn new() -> Self {
         let mut instance = unsafe {
@@ -40,12 +49,11 @@ impl<const M: usize> SharedBuf<M> {
                 .unwrap_or_else(|| alloc::alloc::handle_alloc_error(Self::LAYOUT));
             Self {
                 ptr,
-                is_should_be_dropped: true,
+                should_be_dropped: true,
             }
         };
 
         instance.add_reference();
-        *instance.get_flags_mut() |= SharedBufFlags::SHOULD_BE_DROPPED;
         instance
     }
 
@@ -58,6 +66,10 @@ impl<const M: usize> SharedBuf<M> {
         unsafe {
             self.set_count(0);
         }
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.ptr == get_trashcan_ptr()
     }
 }
 
@@ -76,14 +88,11 @@ impl<const M: usize> SharedBuf<M> {
     pub unsafe fn from_ptr(ptr: NonNull<u8>, should_be_dropped: bool) -> Self {
         let mut instance = Self {
             ptr,
-            is_should_be_dropped: should_be_dropped,
+            should_be_dropped,
         };
 
         //TODO: instance.reset_metadata();
         instance.add_reference();
-        if should_be_dropped {
-            *instance.get_flags_mut() |= SharedBufFlags::SHOULD_BE_DROPPED;
-        }
         instance
     }
 
@@ -91,7 +100,7 @@ impl<const M: usize> SharedBuf<M> {
     pub const unsafe fn from_ptr_only(ptr: NonNull<u8>) -> Self {
         let mut instance = Self {
             ptr,
-            is_should_be_dropped: false,
+            should_be_dropped: false,
         };
         instance.add_reference();
         instance
@@ -105,20 +114,8 @@ impl<const M: usize> SharedBuf<M> {
         unsafe { self.get_count_ptr().add(1) }
     }
 
-    const fn get_flags_ptr(&self) -> NonNull<SharedBufFlags> {
-        unsafe { self.get_reference_ptr().add(1).cast() }
-    }
-
     pub const fn get_slice_ptr(&self) -> NonNull<UntypedMessage> {
         unsafe { self.ptr.add(METADATA).cast() }
-    }
-
-    const fn get_flags_mut(&mut self) -> &mut SharedBufFlags {
-        unsafe { self.get_flags_ptr().as_mut() }
-    }
-
-    const fn get_flags(&self) -> SharedBufFlags {
-        unsafe { self.get_flags_ptr().read() }
     }
 
     pub const unsafe fn set_count(&self, value: u32) {
@@ -152,17 +149,12 @@ impl<const M: usize> SharedBuf<M> {
         unsafe {
             self.get_count_ptr().write(0);
             self.get_reference_ptr().write(0);
-            self.get_flags_ptr().write(SharedBufFlags::empty());
         };
     }
 
     #[must_use]
     pub const fn is_should_be_dropped(&self) -> bool {
-        unsafe {
-            self.is_should_be_dropped && self.get_reference_ptr().read() == 0
-            //self.get_flags().contains(SharedBufFlags::SHOULD_BE_DROPPED)
-            //    && self.get_reference_ptr().read() == 0
-        }
+        unsafe { self.should_be_dropped && self.get_reference_ptr().read() == 0 }
     }
 
     pub const fn as_mut_buf(&mut self) -> RefMutBuf<'_, M> {
@@ -227,16 +219,22 @@ impl<const M: usize> Default for SharedBuf<M> {
 
 impl<const M: usize> Clone for SharedBuf<M> {
     fn clone(&self) -> Self {
-        self.add_reference();
+        if self.ptr != get_trashcan_ptr() {
+            self.add_reference();
+        }
         Self {
             ptr: self.ptr,
-            is_should_be_dropped: self.is_should_be_dropped,
+            should_be_dropped: self.should_be_dropped,
         }
     }
 }
 
 impl<const M: usize> Drop for SharedBuf<M> {
     fn drop(&mut self) {
+        if self.ptr == get_trashcan_ptr() {
+            return;
+        }
+
         self.remove_reference();
         if self.is_should_be_dropped() {
             unsafe {
@@ -335,5 +333,16 @@ mod tests {
         let mut buf = buf0.clone();
 
         assert_eq!(buf.as_mut_buf().slice_mut(), &mut [A, B, C, D]);
+    }
+
+    #[test]
+    fn null() {
+        let null = SharedBuf::<1024>::null();
+        let null0 = null.clone();
+        drop(null);
+        let mut null = null0;
+
+        assert_eq!(null.count(), 0);
+        null.clear();
     }
 }

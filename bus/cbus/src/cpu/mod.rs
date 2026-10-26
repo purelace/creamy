@@ -5,14 +5,13 @@ use as_guard::AsGuard;
 use cbus_core::{Subscriber, buffer::reference::RefMutBuf};
 
 use crate::{
-    bus::SubscriberData,
     config::BusConfig,
     cpu::{
         arch::AvailableStrategy,
         offsets::{MAX_SLICE_SIZE, Offsets},
     },
     lookup::LookupTable,
-    sys::{MessagePool, SubscriberRange},
+    sys::{MessagePool, SubscriberRange, subscriber::SubscriberList},
 };
 
 mod offsets;
@@ -151,7 +150,7 @@ impl PipelinePlan {
         self.indices = [0; 256];
 
         for src in data.subscriber_range {
-            let sub_data = &data.memory.subscribers[src.as_usize()];
+            let sub_data = unsafe { data.memory.subscribers.get_data_unchecked(src.as_u8()) };
             let count = sub_data.outgoing_ref().count();
             S::add_offset(&mut self.offsets, count as usize);
         }
@@ -161,7 +160,7 @@ impl PipelinePlan {
 
         // 3. Заполняем массив indices, используя смещения
         for src in data.subscriber_range {
-            let sub_data = &data.memory.subscribers[src.as_usize()];
+            let sub_data = unsafe { data.memory.subscribers.get_data_unchecked(src.as_u8()) };
             let count = sub_data.outgoing_ref().count();
 
             let bucket_idx = S::get_bucket_idx(count as usize);
@@ -250,30 +249,24 @@ pub struct PipelineData<'a, C: BusConfig, S: Subscriber, const M: usize> {
 }
 
 pub struct MemoryPools<'a, C: BusConfig, S: Subscriber, const M: usize> {
-    pub(crate) subscribers: &'a mut [SubscriberData<S, M>],
+    pub(crate) subscribers: &'a mut SubscriberList<C, S, M>,
     pub(crate) message: &'a mut MessagePool<C>,
 }
 
 impl<C: BusConfig, S: Subscriber, const M: usize> MemoryPools<'_, C, S, M> {
     #[cfg(target_feature = "sse4.1")]
-    pub const fn get_inc_raw_buf(&mut self, index: u8) -> cbus_core::buffer::reference::RawBuf {
-        let data = &mut self.subscribers[index as usize];
+    pub fn get_inc_raw_buf(&mut self, index: u8) -> cbus_core::buffer::reference::RawBuf {
+        let data = unsafe { self.subscribers.get_data_mut_unchecked(index) };
         unsafe { data.incoming_raw_ptr() }
     }
 
     /// Write
-    pub const fn get_mut_inc_buf(&mut self, index: usize) -> RefMutBuf<'_, M> {
-        unsafe {
-            let ptr = self.subscribers.as_mut_ptr().add(index);
-            (*ptr).incoming_mut()
-        }
+    pub fn get_mut_inc_buf(&mut self, index: u8) -> RefMutBuf<'_, M> {
+        unsafe { self.subscribers.get_mut_inc_buf(index) }
     }
 
     /// Read
-    pub const fn get_mut_out_buf<'a>(&mut self, index: u8) -> RefMutBuf<'a, M> {
-        unsafe {
-            let ptr = self.subscribers.as_mut_ptr().add(index as usize);
-            (*ptr).outgoing_mut()
-        }
+    pub fn get_mut_out_buf<'a>(&mut self, index: u8) -> RefMutBuf<'a, M> {
+        unsafe { self.subscribers.get_mut_out_buf(index) }
     }
 }

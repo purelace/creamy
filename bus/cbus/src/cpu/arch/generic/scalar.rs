@@ -5,7 +5,7 @@ use crate::{
     core::UntypedMessage,
     cpu::{PipelineData, runner::InstructionRunner, set::InstructionSet},
     lookup::LookupTable,
-    sys::SubscriberRange,
+    sys::{SubscriberRange, subscriber::Mask},
 };
 
 pub struct ScalarInstructionSet;
@@ -17,16 +17,19 @@ impl ScalarInstructionSet {
     fn prepare_single_message<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         message: &mut UntypedMessage,
     ) {
         let dst_in_valid_range = range.contains(message.dst);
         let dst_not_equal_src = message.dst != src;
+        let exist = mask.get_bit(message.dst) != 0;
 
         let src_index = src as usize * LookupTable::<C>::MAX_GROUPS + message.group as usize;
         let consumer_group = unsafe { *lut.as_slice().get_unchecked(src_index) };
 
-        let is_valid = u8::from(consumer_group != 0 && dst_in_valid_range && dst_not_equal_src);
+        let is_valid =
+            u8::from(consumer_group != 0 && dst_in_valid_range && dst_not_equal_src && exist);
         let final_dst = is_valid * message.dst;
 
         // Устанавливаем актуальное значение
@@ -52,6 +55,7 @@ impl ScalarInstructionSet {
     pub fn prepare_and_send_to<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
@@ -63,7 +67,7 @@ impl ScalarInstructionSet {
         for i in 0..len {
             unsafe {
                 *write.get_unchecked_mut(i) = *read.get_unchecked(i);
-                Self::prepare_single_message(lut, range, src, write.get_unchecked_mut(i));
+                Self::prepare_single_message(lut, range, mask, src, write.get_unchecked_mut(i));
             }
         }
     }
@@ -88,22 +92,24 @@ where
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage; 1],
         write: &mut [UntypedMessage; 1],
     ) {
-        Self::prepare_and_send_to(lut, range, src, read, write);
+        Self::prepare_and_send_to(lut, range, mask, src, read, write);
     }
 
     #[inline(always)]
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        Self::prepare_and_send_to(lut, range, src, read, write);
+        Self::prepare_and_send_to(lut, range, mask, src, read, write);
     }
 }
 
@@ -119,13 +125,18 @@ where
         chunk: &mut [UntypedMessage; 1],
     ) {
         let message = &mut chunk[0];
-        Self::prepare_single_message(data.lookup_table, data.subscriber_range, src, message);
-        let mut buffer = data.memory.get_mut_inc_buf(message.dst as usize);
+        Self::prepare_single_message(
+            data.lookup_table,
+            data.subscriber_range,
+            data.memory.subscribers.get_mask(),
+            src,
+            message,
+        );
+        let mut buffer = data.memory.get_mut_inc_buf(message.dst);
 
         let write_ptr = buffer.write_slice_mut(1).as_mut_ptr();
         let read_ptr = core::ptr::from_ref(message);
 
-        // SAFETY: TODO
         unsafe {
             core::ptr::copy_nonoverlapping(read_ptr, write_ptr, 1);
 

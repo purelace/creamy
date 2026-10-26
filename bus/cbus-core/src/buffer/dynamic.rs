@@ -3,7 +3,6 @@ use core::{alloc::Layout, num::NonZeroU32, ptr::NonNull};
 
 use as_guard::AsGuard;
 
-use super::shared::SharedBufFlags;
 use crate::{
     UntypedMessage,
     defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN},
@@ -33,10 +32,10 @@ pub(super) struct DynSharedBuf {
     size: NonZeroU32,
     /// `[Count: 4-bytes]`
     /// `[Refs: 4-bytes]`
-    /// `[Flags: 1-byte]`
-    /// `[Padding: 55-bytes]`
+    /// `[Padding: 56-bytes]`
     /// `[Data: M * MESSAGE_SIZE(32-bytes)]`
     ptr: NonNull<u8>,
+    should_be_dropped: bool,
 }
 
 impl DynSharedBuf {
@@ -50,9 +49,11 @@ impl DynSharedBuf {
 
             let ptr =
                 NonNull::new(raw_ptr).unwrap_or_else(|| alloc::alloc::handle_alloc_error(layout));
+
             Self {
                 size: messages,
                 ptr,
+                should_be_dropped: true,
             }
         };
 
@@ -81,13 +82,11 @@ impl DynSharedBuf {
         let mut instance = Self {
             ptr,
             size: messages,
+            should_be_dropped,
         };
 
         instance.reset_metadata();
         instance.add_reference();
-        if should_be_dropped {
-            *instance.get_flags_mut() |= SharedBufFlags::SHOULD_BE_DROPPED;
-        }
         instance
     }
 
@@ -96,6 +95,7 @@ impl DynSharedBuf {
         let mut instance = Self {
             ptr,
             size: messages,
+            should_be_dropped: false,
         };
         instance.add_reference();
         instance
@@ -109,20 +109,8 @@ impl DynSharedBuf {
         unsafe { self.get_count_ptr().add(1) }
     }
 
-    const fn get_flags_ptr(&self) -> NonNull<SharedBufFlags> {
-        unsafe { self.get_reference_ptr().add(1).cast() }
-    }
-
     pub(super) const fn get_slice_ptr(&self) -> NonNull<UntypedMessage> {
         unsafe { self.ptr.add(METADATA).cast() }
-    }
-
-    const fn get_flags_mut(&mut self) -> &mut SharedBufFlags {
-        unsafe { self.get_flags_ptr().as_mut() }
-    }
-
-    const fn get_flags(&self) -> SharedBufFlags {
-        unsafe { self.get_flags_ptr().read() }
     }
 
     pub(super) const fn set_count(&self, value: u32) {
@@ -155,16 +143,12 @@ impl DynSharedBuf {
         unsafe {
             self.get_count_ptr().write(0);
             self.get_reference_ptr().write(0);
-            self.get_flags_ptr().write(SharedBufFlags::empty());
         };
     }
 
     #[must_use]
     pub const fn is_should_be_dropped(&self) -> bool {
-        unsafe {
-            self.get_flags().contains(SharedBufFlags::SHOULD_BE_DROPPED)
-                && self.get_reference_ptr().read() == 0
-        }
+        unsafe { self.should_be_dropped && self.get_reference_ptr().read() == 0 }
     }
 
     pub(super) const fn as_mut_buf(&mut self) -> RefMutDynBuf<'_> {
@@ -195,6 +179,7 @@ impl Clone for DynSharedBuf {
         Self {
             size: self.size,
             ptr: self.ptr,
+            should_be_dropped: self.should_be_dropped,
         }
     }
 }

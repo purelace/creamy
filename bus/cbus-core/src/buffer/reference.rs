@@ -1,5 +1,6 @@
 use core::ptr::NonNull;
 
+use super::shared::get_trashcan_ptr;
 use crate::UntypedMessage;
 
 pub struct RawBuf {
@@ -33,6 +34,12 @@ pub struct RefMutBuf<'a, const SIZE: usize> {
 }
 
 impl<const M: usize> RefMutBuf<'_, M> {
+    #[must_use]
+    pub fn is_null(&self) -> bool {
+        let ptr = (&raw const self.count).cast::<u8>();
+        ptr == get_trashcan_ptr().as_ptr()
+    }
+
     /// Очищает буфер
     pub const fn clear(&mut self) {
         *self.count = 0;
