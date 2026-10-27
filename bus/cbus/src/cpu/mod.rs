@@ -151,7 +151,7 @@ impl PipelinePlan {
 
         for src in data.subscriber_range {
             let sub_data = unsafe { data.memory.subscribers.get_data_unchecked(src.as_u8()) };
-            let count = sub_data.outgoing_ref().count();
+            let count = sub_data.outgoing_count();
             S::add_offset(&mut self.offsets, count as usize);
         }
 
@@ -161,7 +161,7 @@ impl PipelinePlan {
         // 3. Заполняем массив indices, используя смещения
         for src in data.subscriber_range {
             let sub_data = unsafe { data.memory.subscribers.get_data_unchecked(src.as_u8()) };
-            let count = sub_data.outgoing_ref().count();
+            let count = sub_data.outgoing_count();
 
             let bucket_idx = S::get_bucket_idx(count as usize);
 

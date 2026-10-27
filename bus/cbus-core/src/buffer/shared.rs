@@ -3,7 +3,7 @@ use core::{alloc::Layout, num::NonZeroU32, ptr::NonNull};
 
 use super::{
     dynamic::DynSharedBuf,
-    reference::{RawBuf, RefBuf, RefMutBuf},
+    reference::{RawBuf, RefMutBuf},
 };
 use crate::{
     UntypedMessage,
@@ -158,25 +158,14 @@ impl<const M: usize> SharedBuf<M> {
     }
 
     pub const fn as_mut_buf(&mut self) -> RefMutBuf<'_, M> {
-        let data: &mut [UntypedMessage; M] = unsafe {
-            let array_ptr = self.get_slice_ptr().as_ptr().cast::<[UntypedMessage; M]>();
-            &mut *array_ptr
+        let data = unsafe {
+            core::slice::from_raw_parts_mut(self.get_slice_ptr().as_ptr(), self.count() as usize)
         };
 
         unsafe {
             RefMutBuf {
                 count: self.get_count_ptr().as_mut(),
                 data,
-            }
-        }
-    }
-
-    #[must_use]
-    pub const fn as_ref_buf(&self) -> RefBuf<'_, M> {
-        unsafe {
-            RefBuf {
-                count: self.get_count_ptr().as_ref(),
-                _data: self.messages(),
             }
         }
     }
@@ -321,18 +310,16 @@ mod tests {
         let mut buf0 = buf.clone();
 
         let mut mut_buf = buf.as_mut_buf();
-        let data = mut_buf.slice_mut();
-        data[0] = A;
-        data[1] = B;
+        mut_buf.data[0] = A;
+        mut_buf.data[1] = B;
 
         let mut mut_buf = buf0.as_mut_buf();
-        let data = mut_buf.slice_mut();
-        data[2] = C;
-        data[3] = D;
+        mut_buf.data[2] = C;
+        mut_buf.data[3] = D;
 
         let mut buf = buf0.clone();
 
-        assert_eq!(buf.as_mut_buf().slice_mut(), &mut [A, B, C, D]);
+        assert_eq!(buf.as_mut_buf().data, &mut [A, B, C, D]);
     }
 
     #[test]

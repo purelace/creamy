@@ -2,7 +2,7 @@ use core::{mem::ManuallyDrop, num::NonZeroU32, ptr::NonNull};
 
 use super::{
     dynamic::DynSharedBuf,
-    reference::{RawBuf, RefBuf, RefMutBuf},
+    reference::{RawBuf, RefMutBuf},
     shared::SharedBuf,
 };
 use crate::UntypedMessage;
@@ -73,12 +73,6 @@ impl<const M: usize> IncBuf<M> {
                 buf: SharedBuf::from_ptr(ptr, should_be_dropped),
             }
         }
-    }
-
-    #[must_use]
-    #[doc(hidden)]
-    pub const fn as_ref_buf(&self) -> RefBuf<'_, M> {
-        self.buf.as_ref_buf()
     }
 
     #[doc(hidden)]

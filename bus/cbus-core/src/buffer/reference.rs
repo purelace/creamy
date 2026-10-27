@@ -30,7 +30,7 @@ impl RawBuf {
 
 pub struct RefMutBuf<'a, const SIZE: usize> {
     pub(crate) count: &'a mut u32,
-    pub(crate) data: &'a mut [UntypedMessage; SIZE],
+    pub(crate) data: &'a mut [UntypedMessage],
 }
 
 impl<const M: usize> RefMutBuf<'_, M> {
@@ -63,10 +63,6 @@ impl<const M: usize> RefMutBuf<'_, M> {
     pub const fn count(&self) -> u32 {
         *self.count
     }
-
-    pub const fn slice_mut(&mut self) -> &mut [UntypedMessage; M] {
-        self.data
-    }
 }
 
 impl<const M: usize> RefMutBuf<'_, M> {
@@ -85,18 +81,5 @@ impl<const M: usize> RefMutBuf<'_, M> {
     pub fn write_slice_mut(&mut self, slice_size: u32) -> &mut [UntypedMessage] {
         let count = *self.count as usize;
         &mut self.data[count..count + slice_size as usize]
-    }
-}
-
-pub struct RefBuf<'a, const M: usize> {
-    pub(crate) count: &'a u32,
-    pub(crate) _data: &'a [UntypedMessage; M],
-}
-
-#[cfg_attr(coverage_nightly, coverage(off))]
-impl<const M: usize> RefBuf<'_, M> {
-    #[must_use]
-    pub const fn count(&self) -> u32 {
-        *self.count
     }
 }

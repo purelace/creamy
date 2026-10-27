@@ -2,10 +2,7 @@ use core::mem::MaybeUninit;
 
 use cbus_core::{
     Subscriber,
-    buffer::{
-        IncBuf, OutBuf,
-        reference::{RefBuf, RefMutBuf},
-    },
+    buffer::{IncBuf, OutBuf, reference::RefMutBuf},
 };
 
 #[derive(Debug)]
@@ -34,8 +31,8 @@ impl<S: Subscriber, const M: usize> SubscriberData<S, M> {
         unsafe { self.outgoing.as_mut_buf() }
     }
 
-    pub const fn outgoing_ref(&self) -> RefBuf<'_, M> {
-        self.outgoing.as_ref_buf()
+    pub const fn outgoing_count(&self) -> u32 {
+        self.outgoing.count()
     }
 
     #[cfg(target_feature = "sse4.1")]
