@@ -43,7 +43,7 @@ impl<const M: usize> IncBuf<M> {
         self.buf.clear();
     }
 
-    pub const fn pop(&mut self) -> Option<UntypedMessage> {
+    pub fn pop(&mut self) -> Option<UntypedMessage> {
         if self.count() == 0 {
             return None;
         }
@@ -76,7 +76,7 @@ impl<const M: usize> IncBuf<M> {
     }
 
     #[doc(hidden)]
-    pub const unsafe fn as_mut_buf(&mut self) -> RefMutBuf<'_, M> {
+    pub unsafe fn as_mut_buf(&mut self) -> RefMutBuf<'_, M> {
         self.buf.as_mut_buf()
     }
 

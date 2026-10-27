@@ -119,7 +119,7 @@ impl<const M: usize> OutBuf<M> {
     }
 
     #[doc(hidden)]
-    pub const unsafe fn as_mut_buf(&mut self) -> RefMutBuf<'_, M> {
+    pub unsafe fn as_mut_buf(&mut self) -> RefMutBuf<'_, M> {
         self.buf.as_mut_buf()
     }
 

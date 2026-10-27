@@ -157,10 +157,10 @@ impl<const M: usize> SharedBuf<M> {
         unsafe { self.should_be_dropped && self.get_reference_ptr().read() == 0 }
     }
 
-    pub const fn as_mut_buf(&mut self) -> RefMutBuf<'_, M> {
-        let data = unsafe {
-            core::slice::from_raw_parts_mut(self.get_slice_ptr().as_ptr(), self.count() as usize)
-        };
+    pub fn as_mut_buf(&mut self) -> RefMutBuf<'_, M> {
+        let count = if self.is_null() { 1 } else { M };
+
+        let data = unsafe { core::slice::from_raw_parts_mut(self.get_slice_ptr().as_ptr(), count) };
 
         unsafe {
             RefMutBuf {

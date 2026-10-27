@@ -22,12 +22,12 @@ impl<S: Subscriber, const M: usize> SubscriberData<S, M> {
     }
 
     /// Write
-    pub const fn incoming_mut(&mut self) -> RefMutBuf<'_, M> {
+    pub fn incoming_mut(&mut self) -> RefMutBuf<'_, M> {
         unsafe { self.incoming.as_mut_buf() }
     }
 
     /// Read
-    pub const fn outgoing_mut(&mut self) -> RefMutBuf<'_, M> {
+    pub fn outgoing_mut(&mut self) -> RefMutBuf<'_, M> {
         unsafe { self.outgoing.as_mut_buf() }
     }
 
