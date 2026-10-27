@@ -42,8 +42,8 @@ impl<S: Subscriber, const M: usize> SubscriberData<S, M> {
 
     pub(super) unsafe fn drop(&mut self, is_initialized: bool) {
         unsafe {
-            //core::ptr::drop_in_place(core::ptr::from_mut(&mut self.incoming));
-            //core::ptr::drop_in_place(core::ptr::from_mut(&mut self.outgoing));
+            core::ptr::drop_in_place(core::ptr::from_mut(&mut self.incoming));
+            core::ptr::drop_in_place(core::ptr::from_mut(&mut self.outgoing));
             if is_initialized {
                 core::ptr::drop_in_place(self.sub.as_mut_ptr());
             }
