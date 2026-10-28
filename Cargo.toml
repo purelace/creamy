@@ -101,7 +101,7 @@ bitflags = "2.13.2"
 tempfile = "3.27.0"
 tracing = { version = "0.1.44", default-features = false, features = ["attributes"] }
 tracing-subscriber = "0.3.23"
-roxmltree = "0.21.1"
+roxmltree = "0.21.2"
 ptree = "0.5.2"
 console = "0.16.6"
 inotify = "0.11.5"
