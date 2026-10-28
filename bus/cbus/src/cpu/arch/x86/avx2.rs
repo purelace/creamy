@@ -28,7 +28,7 @@ use crate::{
         set::InstructionSet,
     },
     lookup::LookupTable,
-    sys::SubscriberRange,
+    sys::{SubscriberRange, subscriber::Mask},
 };
 
 pub const CHUNK_SIZE: usize = 8;
@@ -245,6 +245,7 @@ where
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage; 8],
         write: &mut [UntypedMessage; 8],
@@ -258,12 +259,13 @@ where
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
         <Sse41InstructionSet as InstructionSet<C, S, M, _>>::slices_prepare_and_send(
-            lut, range, src, read, write,
+            lut, range, mask, src, read, write,
         );
     }
 }

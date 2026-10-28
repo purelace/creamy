@@ -17,25 +17,25 @@ use crate::{
         PipelineData,
         arch::{generic::ScalarInstructionSet, x86::Avx2InstructionSet},
         set::InstructionSet,
+        validator::Validator,
     },
     lookup::LookupTable,
-    sys::SubscriberRange,
 };
 
 pub struct Avx512FInstructionSet;
 impl Avx512FInstructionSet {
     #[inline(always)]
-    fn validate_dst(range: SubscriberRange, src: u8, zmm_dst: __m512i) -> __m512i {
+    fn validate_dst<C: BusConfig>(v: Validator<'_, C>, zmm_dst: __m512i) -> __m512i {
         unsafe {
-            let min = _mm512_set1_epi32(i32::from(range.start().cast_signed()));
-            let max = _mm512_set1_epi32(i32::from(range.end().cast_signed()));
+            let min = _mm512_set1_epi32(i32::from(v.range.start().cast_signed()));
+            let max = _mm512_set1_epi32(i32::from(v.range.end().cast_signed()));
 
             let dst_in_valid_range_mask = _mm512_cmpeq_epi32_mask(
                 _mm512_min_epi32(_mm512_max_epi32(zmm_dst, min), max),
                 zmm_dst,
             );
 
-            let src = i32::from(src.cast_signed());
+            let src = i32::from(v.src.cast_signed());
             let zmm_src = _mm512_set1_epi32(src);
             let dst_not_equal_src_mask = _mm512_cmpneq_epi32_mask(zmm_src, zmm_dst);
 
@@ -46,12 +46,7 @@ impl Avx512FInstructionSet {
     }
 
     #[inline(always)]
-    fn get_valid_header<C: BusConfig>(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        src: u8,
-        zmm_messages: &[__m512i; 8],
-    ) -> __m512i {
+    fn get_valid_header<C: BusConfig>(v: Validator<'_, C>, zmm_messages: &[__m512i; 8]) -> __m512i {
         unsafe {
             let shift_bits = LookupTable::<C>::MAX_GROUPS.trailing_zeros();
             let zmm_bits = _mm512_set1_epi32(shift_bits.safe_as());
@@ -77,18 +72,18 @@ impl Avx512FInstructionSet {
             final_headers = _mm512_mask_expand_epi32(final_headers, 0b1100_0000_0000_0000, h7);
 
             let zmm_dst = _mm512_and_si512(final_headers, _mm512_set1_epi32(0xFF));
-            let zmm_dst = Self::validate_dst(range, src, zmm_dst);
+            let zmm_dst = Self::validate_dst(v, zmm_dst);
             let zmm_group =
                 _mm512_and_si512(_mm512_srli_epi32(final_headers, 8), _mm512_set1_epi32(0xFF));
 
-            let zmm_src = _mm512_set1_epi32(src.safe_as());
+            let zmm_src = _mm512_set1_epi32(v.src.safe_as());
 
             let zmm_relative_to_dst_group_indices =
                 _mm512_add_epi32(_mm512_sllv_epi32(zmm_src, zmm_bits), zmm_group);
 
             let zmm_relative_to_dst_group_values = _mm512_i32gather_epi32::<1>(
                 zmm_relative_to_dst_group_indices,
-                lut.as_slice().as_ptr().cast::<i32>(),
+                v.lut.slice_ptr().cast::<i32>(),
             );
 
             let zmm_groups =
@@ -117,16 +112,14 @@ impl Avx512FInstructionSet {
 
     #[inline(always)]
     fn validate_messages<C: BusConfig>(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        src: u8,
+        validator: Validator<'_, C>,
         mut zmm_messages: [__m512i; 8],
     ) -> [__m512i; 8] {
         // Маска: меняем только 0-й и 8-й слоты (начало двух сообщений в регистре)
         const MASK: u16 = 0x0101;
 
         unsafe {
-            let zmm_valid_header = Self::get_valid_header(lut, range, src, &zmm_messages);
+            let zmm_valid_header = Self::get_valid_header(validator, &zmm_messages);
 
             macro_rules! blend_zmm {
                 ($msg:expr, $h_idx_low:expr, $h_idx_high:expr) => {{
@@ -174,9 +167,7 @@ impl Avx512FInstructionSet {
 
     #[inline(always)]
     fn validate_and_write_messages<C: BusConfig>(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        src: u8,
+        validator: Validator<'_, C>,
         destinations: &[*mut __m512i; 8],
         pairs: &[*const __m512i; 8],
     ) {
@@ -200,7 +191,7 @@ impl Avx512FInstructionSet {
                 zmm_msg_pair6,
                 zmm_msg_pair7,
             ];
-            zmm_messages = Self::validate_messages(lut, range, src, zmm_messages);
+            zmm_messages = Self::validate_messages(validator, zmm_messages);
 
             _mm512_storeu_si512(destinations[0], zmm_messages[0]);
             _mm512_storeu_si512(destinations[1], zmm_messages[1]);
@@ -247,27 +238,23 @@ where
 
     #[inline(always)]
     fn prepare_and_send_exactly(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        src: u8,
+        validator: Validator<'_, C>,
         read: &[UntypedMessage; 16],
         write: &mut [UntypedMessage; 16],
     ) {
         let pairs = cast(read);
         let destinations = cast_mut(write);
-        Self::validate_and_write_messages(lut, range, src, &destinations, &pairs);
+        Self::validate_and_write_messages(validator, &destinations, &pairs);
     }
 
     #[inline(always)]
     fn prepare_and_send_remainder(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        src: u8,
+        validator: Validator<'_, C>,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
         <Avx2InstructionSet as InstructionSet<C, S, M, _>>::slices_prepare_and_send(
-            lut, range, src, read, write,
+            validator, read, write,
         );
     }
 

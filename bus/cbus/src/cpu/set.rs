@@ -1,11 +1,10 @@
 use cbus_core::Subscriber;
 
+use super::validator::Validator;
 use crate::{
     config::BusConfig,
     core::UntypedMessage,
     cpu::{MessagePipeline, PipelineData},
-    lookup::LookupTable,
-    sys::{SubscriberRange, subscriber::Mask},
 };
 
 pub trait InstructionSet<C, S, const M: usize, const CHUNK_SIZE: usize>: Sized
@@ -21,20 +20,14 @@ where
 
     /// Подготавливает сообщения и пишет в слайс с заданным размером
     fn prepare_and_send_exactly(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        mask: Mask,
-        src: u8,
+        validator: Validator<'_, C>,
         read: &[UntypedMessage; CHUNK_SIZE],
         write: &mut [UntypedMessage; CHUNK_SIZE],
     );
 
     /// Подготавливает и пишет остаток сообщений в указанный слайс
     fn prepare_and_send_remainder(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        mask: Mask,
-        src: u8,
+        validator: Validator<'_, C>,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     );
@@ -112,10 +105,7 @@ where
     /// Остаток предается в `InstructionSet::prepare_and_send_remainder`.
     #[inline(always)]
     fn slices_prepare_and_send(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        mask: Mask,
-        src: u8,
+        validator: Validator<'_, C>,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
@@ -123,9 +113,9 @@ where
         let (write_chunks, write_remainder) = write.as_chunks_mut::<CHUNK_SIZE>();
 
         for (read_chunk, write_chunk) in read_chunks.iter().zip(write_chunks) {
-            Self::prepare_and_send_exactly(lut, range, mask, src, read_chunk, write_chunk);
+            Self::prepare_and_send_exactly(validator, read_chunk, write_chunk);
         }
 
-        Self::prepare_and_send_remainder(lut, range, mask, src, read_remainder, write_remainder);
+        Self::prepare_and_send_remainder(validator, read_remainder, write_remainder);
     }
 }

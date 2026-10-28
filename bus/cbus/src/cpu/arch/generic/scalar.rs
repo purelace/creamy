@@ -3,7 +3,7 @@ use cbus_core::Subscriber;
 use crate::{
     config::BusConfig,
     core::UntypedMessage,
-    cpu::{PipelineData, runner::InstructionRunner, set::InstructionSet},
+    cpu::{PipelineData, runner::InstructionRunner, set::InstructionSet, validator::Validator},
     lookup::LookupTable,
     sys::{SubscriberRange, subscriber::Mask},
 };
@@ -15,25 +15,11 @@ impl ScalarInstructionSet {
     // * Проверяем права доступа и корректность dst, если он некорректный, то обнуляется
     #[inline(always)]
     fn prepare_single_message<C: BusConfig>(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        mask: Mask,
-        src: u8,
+        validator: Validator<'_, C>,
         message: &mut UntypedMessage,
     ) {
-        let dst_in_valid_range = range.contains(message.dst);
-        let dst_not_equal_src = message.dst != src;
-        let exist = mask.get_bit(message.dst) != 0;
-
-        let src_index = src as usize * LookupTable::<C>::MAX_GROUPS + message.group as usize;
-        let consumer_group = unsafe { *lut.as_slice().get_unchecked(src_index) };
-
-        let is_valid =
-            u8::from(consumer_group != 0 && dst_in_valid_range && dst_not_equal_src && exist);
-        let final_dst = is_valid * message.dst;
-
-        // Устанавливаем актуальное значение
-        message.src = src;
+        let final_dst = validator.validate_dst(message.dst, message.group);
+        message.src = validator.src;
         message.dst = final_dst;
         message.group = consumer_group;
     }
@@ -53,10 +39,7 @@ impl ScalarInstructionSet {
 
     #[inline(always)]
     pub fn prepare_and_send_to<C: BusConfig>(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        mask: Mask,
-        src: u8,
+        validator: Validator<'_, C>,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
@@ -67,7 +50,7 @@ impl ScalarInstructionSet {
         for i in 0..len {
             unsafe {
                 *write.get_unchecked_mut(i) = *read.get_unchecked(i);
-                Self::prepare_single_message(lut, range, mask, src, write.get_unchecked_mut(i));
+                Self::prepare_single_message(validator, write.get_unchecked_mut(i));
             }
         }
     }
@@ -90,26 +73,20 @@ where
 
     #[inline(always)]
     fn prepare_and_send_exactly(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        mask: Mask,
-        src: u8,
+        validator: Validator<'_, C>,
         read: &[UntypedMessage; 1],
         write: &mut [UntypedMessage; 1],
     ) {
-        Self::prepare_and_send_to(lut, range, mask, src, read, write);
+        Self::prepare_and_send_to(validator, read, write);
     }
 
     #[inline(always)]
     fn prepare_and_send_remainder(
-        lut: &LookupTable<C>,
-        range: SubscriberRange,
-        mask: Mask,
-        src: u8,
+        validator: Validator<'_, C>,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        Self::prepare_and_send_to(lut, range, mask, src, read, write);
+        Self::prepare_and_send_to(validator, read, write);
     }
 }
 
@@ -143,7 +120,6 @@ where
             // Инкрементируем count если dst не равен 0
             // Это нужно чтобы все сообщения с dst == 0 отправлялись в мусорку (/dev/null)
             buffer.add_count(u32::from(message.dst != 0));
-            //buffer.set_count((buffer.count() + 1) * u32::from(message.dst != 0));
         }
     }
 

@@ -1,3 +1,8 @@
+mod offsets;
+mod runner;
+mod set;
+mod validator;
+
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
@@ -13,10 +18,6 @@ use crate::{
     lookup::LookupTable,
     sys::{MessagePool, SubscriberRange, subscriber::SubscriberList},
 };
-
-mod offsets;
-mod runner;
-mod set;
 
 #[derive(Debug)]
 struct PipelinePlan {

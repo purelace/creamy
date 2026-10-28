@@ -1,4 +1,4 @@
-use core::arch::x86_64::__m128i;
+use core::arch::x86_64::{__m128i, _mm_shuffle_epi8};
 #[cfg(target_feature = "avx2")]
 pub use core::arch::x86_64::_mm_blend_epi32;
 #[cfg(not(target_feature = "avx2"))]
@@ -30,7 +30,7 @@ use crate::{
         set::InstructionSet,
     },
     lookup::LookupTable,
-    sys::SubscriberRange,
+    sys::{SubscriberRange, subscriber::Mask},
 };
 
 const CHUNK_SIZE: usize = 4;
@@ -40,24 +40,28 @@ impl Sse41InstructionSet {
     // Проверяем, находится ли dst в допустимом диапазоне
     // Validate dst (1)
     #[inline(always)]
-    fn validate_dst(range: SubscriberRange, src: u8, xmm_dst: __m128i) -> __m128i {
+    fn validate_dst(range: SubscriberRange, mask: Mask, src: u8, xmm_dst: __m128i) -> __m128i {
         unsafe {
             let min = _mm_set1_epi32(i32::from(range.start().cast_signed()));
             let max = _mm_set1_epi32(i32::from(range.end().cast_signed()));
 
-            let xmm_dst_in_valid_range_mask =
+            let in_valid_range_mask =
                 _mm_cmpeq_epi32(_mm_min_epi32(_mm_max_epi32(xmm_dst, min), max), xmm_dst);
 
-            let xmm_dst = _mm_and_si128(xmm_dst, xmm_dst_in_valid_range_mask);
+            let xmm_dst = _mm_and_si128(xmm_dst, in_valid_range_mask);
 
             let src = i32::from(src.cast_signed());
             let xmm_src = _mm_set1_epi32(src);
 
             let xmm_mask = _mm_cmpeq_epi32(xmm_dst, xmm_src);
             let all_ones = _mm_cmpeq_epi32(xmm_mask, xmm_mask);
-            let xmm_dst_not_equal_src = _mm_andnot_si128(xmm_mask, all_ones);
+            let not_equal_src = _mm_andnot_si128(xmm_mask, all_ones);
 
-            _mm_and_si128(xmm_dst, xmm_dst_not_equal_src)
+            _mm_shuffle_epi8(a, b)
+            //_mm_set1_epi32(i32::from(mask.get_bit(position).cast_signed()));
+            //mask.get_bit(position)
+
+            _mm_and_si128(xmm_dst, not_equal_src)
         }
     }
 
@@ -66,6 +70,7 @@ impl Sse41InstructionSet {
     fn get_valid_header<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         xmm_msg0: __m128i,
         xmm_msg1: __m128i,
@@ -137,14 +142,16 @@ impl Sse41InstructionSet {
     fn validate_messages<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         xmm_msg0: __m128i,
         xmm_msg1: __m128i,
         xmm_msg2: __m128i,
         xmm_msg3: __m128i,
     ) -> (__m128i, __m128i, __m128i, __m128i) {
-        let xmm_valid_header =
-            Self::get_valid_header(lut, range, src, xmm_msg0, xmm_msg1, xmm_msg2, xmm_msg3);
+        let xmm_valid_header = Self::get_valid_header(
+            lut, range, mask, src, xmm_msg0, xmm_msg1, xmm_msg2, xmm_msg3,
+        );
 
         unsafe {
             // H0 уже в начале [H3, H2, H1, H0]
@@ -195,6 +202,7 @@ impl Sse41InstructionSet {
     fn validate_and_write_messages<C: BusConfig>(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         messages: &XmmMessages,
     ) {
@@ -209,8 +217,9 @@ impl Sse41InstructionSet {
             let mut xmm_msg2 = _mm_load_si128(messages.messages_part1[2]);
             let mut xmm_msg3 = _mm_load_si128(messages.messages_part1[3]);
 
-            (xmm_msg0, xmm_msg1, xmm_msg2, xmm_msg3) =
-                Self::validate_messages(lut, range, src, xmm_msg0, xmm_msg1, xmm_msg2, xmm_msg3);
+            (xmm_msg0, xmm_msg1, xmm_msg2, xmm_msg3) = Self::validate_messages(
+                lut, range, mask, src, xmm_msg0, xmm_msg1, xmm_msg2, xmm_msg3,
+            );
 
             _mm_store_si128(messages.dst_part1[0], xmm_msg0);
             _mm_store_si128(messages.dst_part1[1], xmm_msg1);
@@ -318,23 +327,25 @@ where
     fn prepare_and_send_exactly(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage; CHUNK_SIZE],
         write: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
         let messages = XmmMessages::new(read, write);
-        Self::validate_and_write_messages(lut, range, src, &messages);
+        Self::validate_and_write_messages(lut, range, mask, src, &messages);
     }
 
     #[inline(always)]
     fn prepare_and_send_remainder(
         lut: &LookupTable<C>,
         range: SubscriberRange,
+        mask: Mask,
         src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        ScalarInstructionSet::prepare_and_send_to(lut, range, src, read, write);
+        ScalarInstructionSet::prepare_and_send_to(lut, range, mask, src, read, write);
     }
 }
 

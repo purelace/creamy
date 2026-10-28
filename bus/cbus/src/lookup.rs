@@ -49,7 +49,7 @@ impl<C: BusConfig> LookupTable<C> {
         }
     }
 
-    fn set_values(&mut self, id: usize, data: SubscriberLookupData) {
+    const fn set_values(&mut self, id: usize, data: SubscriberLookupData) {
         let slice = id * Self::MAX_GROUPS;
         let src_index = slice + data.consumer_group_id as usize;
         self.input[src_index] = data.provider_group_id;
@@ -65,7 +65,13 @@ impl<C: BusConfig> LookupTable<C> {
         in_slice.fill(0);
     }
 
-    pub const fn as_slice(&self) -> &[u8] {
-        &self.input
+    pub fn transform_group(&self, group: u8, src: u8) -> u8 {
+        let src_index = src as usize * LookupTable::<C>::MAX_GROUPS + group as usize;
+        unsafe { *self.input.get_unchecked(src_index) }
+    }
+
+    /// SAFETY: Pointer is not null
+    pub const fn slice_ptr(&self) -> *const u8 {
+        &raw const self.input[0]
     }
 }
