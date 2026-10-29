@@ -377,7 +377,7 @@ impl Codegen {
                             pool,
                             model.table(),
                             fields.iter().copied(),
-                            0,
+                            8,
                         ),
                     };
                     generator.generate_struct(symbol);
