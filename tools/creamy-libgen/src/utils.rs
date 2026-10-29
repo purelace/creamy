@@ -20,7 +20,7 @@ impl<'a> FromIterator<&'a str> for AbsolutePath {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Path {
     Global { name: String },
     Absolute { components: Vec<String> },

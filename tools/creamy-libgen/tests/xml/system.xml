@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<protocol name="system" version="1.0.0">
+    <group name="builtin" access="Public">
+
+        <struct name="SpanId">
+            <field name="value" type="u64"/>
+        </struct>
+
+    </group>
+</protocol>

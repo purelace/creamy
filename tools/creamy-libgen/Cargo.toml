@@ -12,3 +12,6 @@ creamy-plugin-package = { path = "../../core/creamy-plugin-package", features = 
 creamy-phf.workspace = true
 creamy-xmlc.workspace = true
 anyhow.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

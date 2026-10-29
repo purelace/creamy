@@ -11,7 +11,7 @@ use creamy_xmlc::model::{
 
 use crate::{Path, SymbolIterator, utils::AbsolutePath};
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EnrichedFieldType<'s> {
     Type { name: Path },
     Array { kind: Cow<'s, str>, len: u8 },
@@ -30,26 +30,7 @@ fn get_padding_kind<'a>(padding: u8) -> EnrichedFieldType<'a> {
     }
 }
 
-//fn get_field_kind<'a>(
-//    kind: FieldType,
-//    tt: &FinishedTypeTable,
-//    pool: &'a StringPool,
-//) -> EnrichedFieldType<'a> {
-//    match kind {
-//        FieldType::Type(id) => EnrichedFieldType::Type {
-//            name: Cow::Borrowed(tt.get_type(id).ident().resolve(pool)),
-//        },
-//        FieldType::Array(symbol) => {
-//            let kind = tt.get_type(symbol.kind()).ident().resolve(pool);
-//            EnrichedFieldType::Array {
-//                kind: Cow::Borrowed(kind),
-//                len: symbol.len().value(),
-//            }
-//        }
-//    }
-//}
-
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnrichedFieldSymbol<'s> {
     pub name: Cow<'s, str>,
     pub kind: EnrichedFieldType<'s>,
