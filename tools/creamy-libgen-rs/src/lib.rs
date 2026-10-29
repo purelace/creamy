@@ -3,7 +3,7 @@
 #![allow(clippy::missing_errors_doc)]
 
 pub mod libgen {
-    pub use creamy_libgen::*;
+    pub use creamy_libgen::prelude::*;
 }
 
 mod binary_utils;
@@ -16,17 +16,9 @@ mod utils;
 
 use std::{borrow::Cow, fmt::Write as FmtWrite, io::Write as IoWrite};
 
-use creamy_libgen::{package::model::symbols::PrimitiveRepr, proxy::EnrichedStreamFieldSymbol};
+use creamy_libgen::prelude::*;
 use heck::ToSnakeCase;
 pub use libgen::Target;
-use libgen::{
-    CodeGenerator, EnrichedSingleMessageSymbol, EnrichedStreamMessageSymbol, EnrichedStructSymbol,
-    GenResult, Path, PerfectHashTable, SymbolIterator,
-    proxy::{
-        EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol, EnrichedFieldSymbol,
-        EnrichedFieldType, EnrichedFlagsSymbol, EnrichedVariantSymbol, FlagUnderlyingType,
-    },
-};
 
 use self::{
     binary_utils::generate_binary_writer_trait_impl,

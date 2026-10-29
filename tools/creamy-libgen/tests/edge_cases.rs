@@ -1,9 +1,6 @@
 use std::{fs::File, io::Write};
 
-use creamy_libgen::{
-    CodeGenerator, Codegen, ProtocolLibrary, Target,
-    proxy::{EnrichedFieldSymbol, EnrichedFieldType},
-};
+use creamy_libgen::prelude::*;
 use tempfile::TempDir;
 
 const MANIFEST: &str = r#"
@@ -33,44 +30,40 @@ struct Mock;
 impl<'s> CodeGenerator<'s> for Mock {
     fn start_group(&mut self, _: &'s str, _: Option<u8>) {}
 
-    fn generate_single_message<I>(&mut self, _: creamy_libgen::EnrichedSingleMessageSymbol<'s, I>)
+    fn generate_single_message<I>(&mut self, _: EnrichedSingleMessageSymbol<'s, I>)
     where
-        I: creamy_libgen::SymbolIterator<creamy_libgen::proxy::EnrichedFieldSymbol<'s>>,
+        I: SymbolIterator<EnrichedFieldSymbol<'s>>,
     {
     }
 
-    fn generate_stream_message<F, C>(
-        &mut self,
-        _: creamy_libgen::EnrichedStreamMessageSymbol<'s, F, C>,
-    ) where
-        F: creamy_libgen::SymbolIterator<creamy_libgen::proxy::EnrichedFieldSymbol<'s>>,
-        C: creamy_libgen::SymbolIterator<creamy_libgen::proxy::EnrichedStreamFieldSymbol<'s>>,
+    fn generate_stream_message<F, C>(&mut self, _: EnrichedStreamMessageSymbol<'s, F, C>)
+    where
+        F: SymbolIterator<EnrichedFieldSymbol<'s>>,
+        C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
     {
     }
 
-    fn generate_bitset<I>(&mut self, _: creamy_libgen::proxy::EnrichedBitsetSymbol<'s, I>)
+    fn generate_bitset<I>(&mut self, _: EnrichedBitsetSymbol<'s, I>)
     where
-        I: creamy_libgen::SymbolIterator<creamy_libgen::proxy::EnrichedBitsetValueSymbol<'s>>,
-    {
-        todo!()
-    }
-
-    fn generate_flags<I>(&mut self, _: creamy_libgen::proxy::EnrichedFlagsSymbol<'s, I>)
-    where
-        I: creamy_libgen::SymbolIterator<&'s str>,
-    {
-        todo!()
-    }
-
-    fn generate_enum<I>(&mut self, _: creamy_libgen::proxy::EnrichedEnumSymbol<'s, I>)
-    where
-        I: creamy_libgen::SymbolIterator<creamy_libgen::proxy::EnrichedVariantSymbol<'s>>,
+        I: SymbolIterator<EnrichedBitsetValueSymbol<'s>>,
     {
     }
 
-    fn generate_struct<I>(&mut self, symbol: creamy_libgen::EnrichedStructSymbol<'s, I>)
+    fn generate_flags<I>(&mut self, _: EnrichedFlagsSymbol<'s, I>)
     where
-        I: creamy_libgen::SymbolIterator<creamy_libgen::proxy::EnrichedFieldSymbol<'s>>,
+        I: SymbolIterator<&'s str>,
+    {
+    }
+
+    fn generate_enum<I>(&mut self, _: EnrichedEnumSymbol<'s, I>)
+    where
+        I: SymbolIterator<EnrichedVariantSymbol<'s>>,
+    {
+    }
+
+    fn generate_struct<I>(&mut self, symbol: EnrichedStructSymbol<'s, I>)
+    where
+        I: SymbolIterator<EnrichedFieldSymbol<'s>>,
     {
         /*
          * struct SpanId:
@@ -107,19 +100,19 @@ impl<'s> CodeGenerator<'s> for Mock {
 
     fn generate_dispatcher<I>(&mut self, _: I)
     where
-        I: Iterator<Item = creamy_libgen::Path>,
+        I: Iterator<Item = Path>,
     {
     }
 
     fn generate_group_lifecycle_hook<I>(&mut self, _: I)
     where
-        I: Iterator<Item = creamy_libgen::Path>,
+        I: Iterator<Item = Path>,
     {
     }
 
-    fn generate_plugin_group_table(&mut self, _: creamy_phf::PerfectHashTable) {}
+    fn generate_plugin_group_table(&mut self, _: PerfectHashTable) {}
 
-    fn generate_host_group_table(&mut self, _: creamy_phf::PerfectHashTable) {}
+    fn generate_host_group_table(&mut self, _: PerfectHashTable) {}
 
     fn generate_host_package(&mut self, _: Vec<u8>) {}
 

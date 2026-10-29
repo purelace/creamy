@@ -6,12 +6,26 @@ pub mod package {
     pub use creamy_plugin_package::*;
 }
 
+pub mod prelude {
+    pub use creamy_phf::PerfectHashTable;
+    pub use creamy_plugin_package::model::symbols::PrimitiveRepr;
+
+    pub use crate::{
+        CodeGenerator, Codegen, EnrichedSingleMessageSymbol, EnrichedStreamMessageSymbol,
+        EnrichedStructSymbol, GenResult, Path, ProtocolLibrary, SymbolIterator, Target,
+        proxy::{
+            EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
+            EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStreamFieldSymbol,
+            EnrichedVariantSymbol, FlagUnderlyingType,
+        },
+    };
+}
+
 pub mod proxy;
 mod utils;
 use std::{borrow::Cow, collections::HashMap, ffi::OsString, path::PathBuf, str::FromStr};
 
-pub use creamy_phf::PerfectHashTable;
-use creamy_phf::generate_perfect_hash_table;
+use creamy_phf::{PerfectHashTable, generate_perfect_hash_table};
 use creamy_plugin_package::manifest::Manifest;
 use creamy_xmlc::{
     compile,
