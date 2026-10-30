@@ -39,14 +39,6 @@ impl StreamFieldTypeNode {
             }
         }
     }
-
-    pub const fn type_name(self) -> StringId {
-        match self {
-            StreamFieldTypeNode::Type(id) => id,
-            StreamFieldTypeNode::StaticArray(node) => node.kind(),
-            StreamFieldTypeNode::DynamicArray(node) => node.kind,
-        }
-    }
 }
 
 define_node!("stream.field.node", StreamFieldNode, false);

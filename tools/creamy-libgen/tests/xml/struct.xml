@@ -2,10 +2,6 @@
 <protocol name="system" version="1.0.0">
     <group name="builtin" access="Public">
 
-        <struct name="SpanId">
-            <field name="value" type="u64"/>
-        </struct>
-
         <enum name="Level" repr="u8">
             <variant name="Trace" value="0"/>
             <variant name="Debug" value="1"/>
@@ -43,6 +39,10 @@
             <field name="level" type="Level"/>
             <field name="content" type="Array[u8]"/>
         </stream>
+
+        <struct name="SpanId">
+            <field name="value" type="u64"/>
+        </struct>
 
     </group>
 </protocol>

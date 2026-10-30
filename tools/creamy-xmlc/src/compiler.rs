@@ -350,7 +350,7 @@ impl<'a> Resolver<'a> {
                     let meta =
                         ProtocolModel::get_struct_meta(self.storage.get_symbol_range(new_range))
                             .or_recover(self.diag);
-                    let s = StructSymbol::new(s.name(), s.fields());
+                    let s = StructSymbol::new(s.name(), new_range);
 
                     self.tt.register_type(self.group, meta, Type::Struct(s));
                 }
@@ -402,8 +402,7 @@ impl<'a> Resolver<'a> {
             ProtocolModel::get_message_meta(self.storage.get_symbol_range(new_range))
                 .or_recover(self.diag);
 
-            //TODO: я зачем то передаю range из node, а не new_range. надо это проверить и лучше заменить на другой тип.
-            MessageSymbol::new(m.name(), m.fields(), m.direction(), m.kind())
+            MessageSymbol::new(m.name(), new_range, m.direction(), m.kind())
         }
     }
 
