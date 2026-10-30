@@ -1,6 +1,5 @@
+//#![deny(clippy::unwrap_used)]
 #![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::cast_possible_truncation)]
 
 pub mod package {
     pub use creamy_plugin_package::*;
@@ -23,7 +22,7 @@ pub mod prelude {
 
 pub mod proxy;
 mod utils;
-use std::{borrow::Cow, collections::HashMap, ffi::OsString, path::PathBuf, str::FromStr};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 
 use creamy_phf::{PerfectHashTable, generate_perfect_hash_table};
 use creamy_plugin_package::manifest::Manifest;
@@ -123,11 +122,16 @@ pub struct ProtocolLibrary {
 }
 
 impl ProtocolLibrary {
+    /// Creates a new [`ProtocolLibrary`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if manifest deserialization is failed
     #[must_use]
     pub fn new(manifest: &str, creamy_dir: PathBuf) -> Self {
         Self {
             pool: StringPool::default(),
-            manifest: Manifest::read_manifest(manifest).unwrap(),
+            manifest: Manifest::read_manifest(manifest).expect("Cannot read manifest"),
             inner: HashMap::new(),
             creamy_dir,
         }
@@ -138,19 +142,34 @@ impl ProtocolLibrary {
         &self.manifest
     }
 
+    fn filter(
+        result: Result<std::fs::DirEntry, std::io::Error>,
+    ) -> Option<Result<std::fs::DirEntry, std::io::Error>> {
+        let result = result.map(|e| {
+            if e.path().extension().is_some_and(|e| e == "xml") {
+                Some(e)
+            } else {
+                None
+            }
+        });
+        result.transpose()
+    }
+
+    /// Reads all xml files from the given path and compiles them
+    ///
+    /// # Panics
+    ///
+    /// Panics if compilation is failed
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if path is not exist.
     pub fn load_all(
         &mut self,
         path: impl AsRef<std::path::Path>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        for entry in std::fs::read_dir(path).unwrap().filter_map(|result| {
-            if let Ok(entry) = result
-                && entry.path().extension() == Some(&OsString::from_str("xml").unwrap())
-            {
-                return Some(entry);
-            }
-
-            None
-        }) {
+        for entry in std::fs::read_dir(path)?.filter_map(Self::filter) {
+            let entry = entry?;
             let content = std::fs::read_to_string(entry.path())?;
             let definition = match compile(&mut self.pool, &content) {
                 Ok(v) => v,

@@ -91,7 +91,7 @@ impl Manifest {
 
     /// # Errors
     ///
-    /// This function will return an error if manifest has errors.
+    /// This function will return an error if manifest deserialization is failed
     pub fn read_manifest(manifest: &str) -> Result<Self, ManifestError> {
         let manifest: ParsedManifest = toml::from_str(manifest)?;
 
