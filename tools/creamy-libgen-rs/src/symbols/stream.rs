@@ -72,6 +72,7 @@ where
 {
     let name = symbol.name;
     let derive = generate_derive(args, &[]);
+    //TODO: iterate over fields
     let header = message_header();
     let const_block = generate_message_const_block(
         &args.message_size_path(),

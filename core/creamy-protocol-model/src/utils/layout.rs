@@ -1,4 +1,4 @@
-use crate::symbols::{Field, FieldSymbol, FieldType};
+use crate::symbols::{Field, FieldSymbol};
 
 #[derive(Debug, Copy, Clone)]
 pub struct LayoutStep {
@@ -9,7 +9,6 @@ pub struct LayoutStep {
 }
 
 impl LayoutStep {
-    // TODO: const
     fn new<F: Field>(symbol: &F, total_size: u8) -> Self {
         let type_id = symbol.type_id();
         let align = type_id.align().size();

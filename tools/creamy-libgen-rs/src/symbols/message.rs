@@ -149,6 +149,4 @@ where
 
         $builder_impl
     }
-
-    //fields[4].comment = Some(Cow::Borrowed("-------- PAYLOAD --------"));
 }

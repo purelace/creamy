@@ -51,7 +51,6 @@ pub struct StreamFieldList<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> {
     layout: LayoutCalculator<I::Item, I>,
     padding_index: u8,
     prev: Option<(StreamFieldSymbol, FieldMetadata)>,
-    remainder: bool,
 }
 
 impl<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> StreamFieldList<'s, I> {
@@ -100,7 +99,6 @@ impl<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> StreamFieldList<'s, I> {
             layout: LayoutCalculator::new(reserved_bytes, fields),
             padding_index: 0,
             prev: None,
-            remainder: false,
         }
     }
 }
@@ -152,33 +150,6 @@ impl<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> Iterator for StreamField
                     Some(field)
                 }
             }
-            //None if !self.remainder => {
-            //    //TODO: это костыль ебучий
-            //    if self.layout.total_size() > 32 {
-            //        self.remainder = true;
-            //        return None;
-            //    }
-            //    self.remainder = true;
-            //    let diff = 32 - self.layout.total_size();
-            //    if diff != 0 {
-            //        let name = Cow::Owned(format!("__padding{}", self.padding_index));
-            //        Some(EnrichedStreamFieldSymbol {
-            //            name,
-            //            //TODO: use get_padding_kind function
-            //            kind: self.get_field_kind(StreamFieldType::StaticArray(ArraySymbol::new(
-            //                T_U8_ID,
-            //                Size::try_new(diff).expect("Unreachable!"),
-            //            ))),
-            //            is_padding: true,
-            //            metadata: FieldMetadata {
-            //                offset: 32 - diff as usize,
-            //                size: diff as usize,
-            //            },
-            //        })
-            //    } else {
-            //        None
-            //    }
-            //}
             None => None,
         }
     }
