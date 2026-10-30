@@ -34,6 +34,8 @@ where
         })
         .collect::<Vec<_>>();
 
+    let mut offset: Vec<String> = vec![String::from("0")];
+
     let functions = iter
         .clone()
         .filter_map(|f| {
@@ -43,16 +45,16 @@ where
 
             let name = &f.name;
             let kind = &kind;
-            //let read = format!("read_{name}");
+            let calculated_offset = offset.join("+");
 
-            //TODO: calculate offsets
-            if kind == "u8" {
+            let result = if kind == "u8" {
                 Some(quote! {
                     pub fn read_$name(&self) -> &[u8] {
                         let len = self.$name.count() as usize;
+                        let offset = $calculated_offset;
                         unsafe {
-                            let ptr = core::ptr::from_ref(self) as *const u8;
-                            let additional = ptr.add(core::mem::size_of::<Self>());
+                            let ptr = core::ptr::from_ref(self).cast::<u8>();
+                            let additional = ptr.add(core::mem::size_of::<Self>() + offset);
                             core::slice::from_raw_parts(additional, len)
                         }
                     }
@@ -78,7 +80,11 @@ where
                 //        }
                 //    }
                 //})
-            }
+            };
+
+            offset.push(format!("self.{name}.count() as usize"));
+
+            result
         })
         .collect::<Vec<_>>();
 
@@ -126,6 +132,7 @@ where
             fn new(data: &mut [u8]) -> &Self {
                 const SIZE: usize = core::mem::size_of::<$new_target>();
 
+                //TODO: wtf??
                 unsafe {
                     let main_slice = &mut *(&mut data[0] as *mut u8 as *mut [u8; SIZE]);
                     core::mem::transmute::<&mut [u8; SIZE], &mut Self>(main_slice)
