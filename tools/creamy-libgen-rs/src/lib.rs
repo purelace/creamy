@@ -6,396 +6,24 @@ pub mod libgen {
     pub use creamy_libgen::prelude::*;
 }
 
+mod args;
 mod binary_utils;
-mod bit_trait_impls;
-mod bitset;
-mod builder;
-mod generator;
+mod derive;
 pub mod script;
-mod stream;
+mod symbols;
 mod utils;
 
-use std::{borrow::Cow, fmt::Write as FmtWrite, io::Write as IoWrite};
+use std::{
+    borrow::Cow,
+    fmt::{Display, Write as FmtWrite},
+    io::Write as IoWrite,
+};
 
+pub use args::Args;
 use creamy_libgen::prelude::*;
+use genco::{lang::rust::Tokens, quote};
 use heck::ToSnakeCase;
 pub use libgen::Target;
-
-use self::{
-    binary_utils::generate_binary_writer_trait_impl,
-    builder::generate_builder_pattern,
-    generator::{FunctionDefinition, Static, Trait, UnsafeNoMangleAttribute},
-    utils::{generate_const_size_assert, generate_message_consts},
-};
-use crate::{
-    bit_trait_impls::{generate_bitor_impl, generate_bitxor_impl},
-    generator::{
-        Access, Argument, Body, BodyLine, CodeBlock, Const, DeriveList, Enum, EnumVariant, Field,
-        Function, Impl, Module, Pass, Repr, Struct, StructContent, TraitImpl,
-    },
-};
-
-#[derive(Clone)]
-#[allow(clippy::struct_excessive_bools)]
-pub struct Args {
-    pub eq: bool,
-    pub ord: bool,
-    pub hash: bool,
-    pub debug_asserts: bool,
-    pub target: Target,
-    pub creamy_sdk_path: &'static str,
-}
-
-impl Default for Args {
-    fn default() -> Self {
-        Self {
-            eq: true,
-            ord: true,
-            hash: true,
-            debug_asserts: true,
-            creamy_sdk_path: "creamy_sdk",
-            target: Target::Plugin,
-        }
-    }
-}
-
-impl Args {
-    #[doc(hidden)]
-    #[must_use]
-    pub fn sdk() -> Self {
-        Self {
-            creamy_sdk_path: "crate",
-            target: Target::Sdk,
-            ..Default::default()
-        }
-    }
-
-    #[must_use]
-    pub fn host() -> Self {
-        Self {
-            creamy_sdk_path: "creamy::sdk",
-            target: Target::Host,
-            ..Default::default()
-        }
-    }
-
-    #[must_use]
-    pub fn plugin() -> Self {
-        Self {
-            creamy_sdk_path: "creamy_sdk",
-            target: Target::Plugin,
-            ..Default::default()
-        }
-    }
-
-    #[doc(hidden)]
-    #[must_use]
-    pub fn engine() -> Self {
-        Self {
-            creamy_sdk_path: "creamy_sdk",
-            target: Target::Engine,
-            ..Default::default()
-        }
-    }
-
-    pub(crate) fn typed_message_trait_path(&self) -> String {
-        format!("{}::message::TypedMessage", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn untyped_message_path(&self) -> String {
-        format!("{}::message::UntypedMessage", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn message_trait_path(&self) -> String {
-        format!("{}::message::Message", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn message_size_path(&self) -> String {
-        format!("{}::defines::MESSAGE_SIZE", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn cast_message_fn_path(&self) -> String {
-        format!("{}::message::cast_message", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn custom_message_handler_trait_path(&self) -> String {
-        format!("{}::api::CustomHandler", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn stream_id_path(&self) -> String {
-        format!("{}::stream::StreamId", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn stream_type_path(&self) -> String {
-        format!("{}::stream::StreamType", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn stream_message_trait_path(&self) -> String {
-        format!("{}::stream::StreamMessage", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn stream_content_trait(&self) -> String {
-        format!("{}::stream::StreamContent", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn stream_max_payload_size_path(&self) -> String {
-        format!("{}::stream::MAX_STREAM_PAYLOAD", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn array_path(&self) -> String {
-        format!("{}::stream::Array", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn stream_lightweight_content_path(&self) -> String {
-        format!("{}::stream::StreamLightweightContent", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn binary_writer_trait_path(&self) -> String {
-        format!("{}::binary::BinaryWriter", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn binary_reader_trait_path(&self) -> String {
-        format!("{}::binary::BinaryReader", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn binary_write_error_path(&self) -> String {
-        format!("{}::binary::WriteError", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn binary_read_error_path(&self) -> String {
-        format!("{}::binary::ReadError", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn binary_write_trait_path(&self) -> String {
-        format!("{}::binary::Write", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn binary_endianness_trait_path(&self) -> String {
-        format!("{}::binary::Endianness", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn binary_read_trait_path(&self) -> String {
-        format!("{}::binary::Read", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn binary_read_derive_path(&self) -> String {
-        format!("{}::binary::BinRead", self.creamy_sdk_path)
-    }
-
-    pub(crate) fn binary_write_derive_path(&self) -> String {
-        format!("{}::binary::BinWrite", self.creamy_sdk_path)
-    }
-}
-
-fn extend_derive(list: &mut DeriveList, args: &Args) {
-    list.inner
-        .extend_from_slice(&["Debug".into(), "Copy".into(), "Clone".into()]);
-
-    if args.eq {
-        list.inner
-            .extend_from_slice(&["PartialEq".into(), "Eq".into()]);
-    }
-
-    if args.ord {
-        list.inner
-            .extend_from_slice(&["PartialOrd".into(), "Ord".into()]);
-    }
-
-    if args.hash {
-        list.inner.push("Hash".into());
-    }
-}
-
-fn message_header<'a>() -> Vec<Field<'a>> {
-    vec![
-        Field {
-            access: Access::Pub,
-            name: Cow::Borrowed("dst"),
-            kind: Cow::Borrowed("u8"),
-            comment: Some(Cow::Borrowed("-------- HEADER --------")),
-        },
-        Field {
-            access: Access::Pub,
-            name: Cow::Borrowed("group"),
-            kind: Cow::Borrowed("u8"),
-            comment: None,
-        },
-        Field {
-            access: Access::Pub,
-            name: Cow::Borrowed("src"),
-            kind: Cow::Borrowed("u8"),
-            comment: None,
-        },
-        Field {
-            access: Access::Pub,
-            name: Cow::Borrowed("kind"),
-            kind: Cow::Borrowed("u8"),
-            comment: None,
-        },
-    ]
-}
-
-fn generate_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'a> {
-    TraitImpl {
-        trait_name: Cow::Owned(args.message_trait_path()),
-        target: Cow::Borrowed(message),
-        associated_types: vec![],
-        constants: vec![
-            Const {
-                access: Access::None,
-                ident: Cow::Borrowed("GROUP"),
-                kind: Cow::Borrowed("core::num::NonZeroU8"),
-                value: Cow::Borrowed("core::num::NonZeroU8::new(Self::GROUP).unwrap()"),
-            },
-            Const {
-                access: Access::None,
-                ident: Cow::Borrowed("KIND"),
-                kind: Cow::Borrowed("u8"),
-                value: Cow::Borrowed("Self::KIND"),
-            },
-        ],
-        functions: vec![],
-    }
-}
-
-fn generate_typed_message_trait_impl<'a>(args: &Args, message: &'a str) -> TraitImpl<'a> {
-    TraitImpl {
-        trait_name: Cow::Owned(args.typed_message_trait_path()),
-        target: message.into(),
-        associated_types: vec![],
-        functions: vec![
-            Function::default()
-                .with_name("dst")
-                .with_self_pass(Pass::Ref)
-                .with_ret("u8")
-                .with_body(Body {
-                    lines: vec![BodyLine {
-                        content: Cow::Borrowed("self.dst"),
-                        depth: 0,
-                    }],
-                }),
-            Function {
-                access: Access::None,
-                is_const: false,
-                is_extern: false,
-                name: Cow::Borrowed("with_dst"),
-                generics: vec![],
-                self_pass: Some(Pass::Mut),
-                args: vec![Argument {
-                    name: "value".into(),
-                    kind: Cow::Borrowed("u8"),
-                    pass: Pass::Move,
-                }],
-                ret: Some(Cow::Borrowed("&mut Self")),
-                body: Body {
-                    lines: vec![
-                        BodyLine {
-                            content: Cow::Borrowed("self.dst = value;"),
-                            depth: 0,
-                        },
-                        BodyLine {
-                            content: Cow::Borrowed("self"),
-                            depth: 0,
-                        },
-                    ],
-                },
-                inline: false,
-            },
-            Function::default()
-                .with_name("src")
-                .with_self_pass(Pass::Ref)
-                .with_ret("u8")
-                .with_body(Body {
-                    lines: vec![BodyLine {
-                        content: Cow::Borrowed("self.src"),
-                        depth: 0,
-                    }],
-                }),
-            Function::default()
-                .with_name("group")
-                .with_self_pass(Pass::Ref)
-                .with_ret("u8")
-                .with_body(Body {
-                    lines: vec![BodyLine {
-                        content: Cow::Borrowed("self.group"),
-                        depth: 0,
-                    }],
-                }),
-            Function {
-                access: Access::None,
-                is_const: false,
-                is_extern: false,
-                name: Cow::Borrowed("with_group"),
-                generics: vec![],
-                self_pass: Some(Pass::Mut),
-                args: vec![Argument {
-                    name: "value".into(),
-                    kind: Cow::Borrowed("u8"),
-                    pass: Pass::Move,
-                }],
-                ret: Some(Cow::Borrowed("&mut Self")),
-                body: Body {
-                    lines: vec![
-                        BodyLine {
-                            content: Cow::Borrowed("self.group = value;"),
-                            depth: 0,
-                        },
-                        BodyLine {
-                            content: Cow::Borrowed("self"),
-                            depth: 0,
-                        },
-                    ],
-                },
-                inline: false,
-            },
-            Function {
-                access: Access::None,
-                is_const: false,
-                is_extern: false,
-                name: Cow::Borrowed("kind"),
-                generics: vec![],
-                self_pass: Some(Pass::Ref),
-                args: vec![],
-                ret: Some(Cow::Borrowed("u8")),
-                body: Body {
-                    lines: vec![BodyLine {
-                        content: Cow::Borrowed("self.kind"),
-                        depth: 0,
-                    }],
-                },
-                inline: false,
-            },
-            Function {
-                access: Access::None,
-                is_const: false,
-                is_extern: false,
-                name: Cow::Borrowed("with_kind"),
-                generics: vec![],
-                self_pass: Some(Pass::Mut),
-                args: vec![Argument {
-                    name: "value".into(),
-                    kind: Cow::Borrowed("u8"),
-                    pass: Pass::Move,
-                }],
-                ret: Some(Cow::Borrowed("&mut Self")),
-                body: Body {
-                    lines: vec![
-                        BodyLine {
-                            content: Cow::Borrowed("self.kind = value;"),
-                            depth: 0,
-                        },
-                        BodyLine {
-                            content: Cow::Borrowed("self"),
-                            depth: 0,
-                        },
-                    ],
-                },
-                inline: false,
-            },
-        ],
-        constants: vec![],
-    }
-}
 
 const fn repr_to_string(repr: PrimitiveRepr) -> Cow<'static, str> {
     Cow::Borrowed(match repr {
@@ -410,13 +38,45 @@ const fn repr_to_string(repr: PrimitiveRepr) -> Cow<'static, str> {
     })
 }
 
-pub struct RustGen<'s, W: IoWrite> {
+enum Access {
+    Pub,
+    Crate,
+}
+impl Display for Access {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Access::Pub => write!(f, "pub"),
+            Access::Crate => write!(f, "pub(crate)"),
+        }
+    }
+}
+
+struct Module {
+    access: Access,
+    name: String,
+    tokens: Vec<Tokens>,
+}
+
+impl Module {
+    fn into_tokens(self) -> Tokens {
+        let a = self.access.to_string();
+        let n = self.name;
+        let t = self.tokens;
+        quote! {
+            $a mod $n {
+                $t
+            }
+        }
+    }
+}
+
+pub struct RustGen<W: IoWrite> {
     args: Args,
-    modules: Vec<Module<'s, W>>,
+    modules: Vec<Module>,
     writer: W,
 }
 
-impl<'s, W: IoWrite> RustGen<'s, W> {
+impl<W: IoWrite> RustGen<W> {
     pub fn new(args: Args, mut writer: W) -> Self {
         let _ = writer.write("#[allow(unused)]\n".as_bytes());
         Self {
@@ -426,102 +86,39 @@ impl<'s, W: IoWrite> RustGen<'s, W> {
         }
     }
 
-    fn push_struct(&mut self, struct_: Struct<'s, W>) {
-        self.modules.last_mut().unwrap().structs.push(struct_);
-    }
-
-    fn push_enum(&mut self, enum_: Enum<'s>) {
-        self.modules.last_mut().unwrap().enums.push(enum_);
-    }
-
-    fn push_module(&mut self, module: Module<'s, W>) {
-        if let Some(parent) = self.modules.last_mut() {
-            parent.modules.push(module);
-        } else {
-            self.modules.push(module);
-        }
-    }
-
-    fn push_other(&mut self, other: Box<dyn CodeBlock<W> + 's>) {
-        self.modules.last_mut().unwrap().other.push(other);
+    fn push_tokens(&mut self, tokens: Tokens) {
+        self.modules.last_mut().unwrap().tokens.push(tokens);
     }
 }
 
-struct ExternCrateAlloc;
-impl<W: std::io::Write> CodeBlock<W> for ExternCrateAlloc {
-    fn write_to(&self, writer: &mut W, _depth: usize) -> Result<(), std::io::Error> {
-        write!(writer, "extern crate alloc;")
-    }
-}
-
-impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
+impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
     fn start_group(&mut self, group: &'s str, id: Option<u8>) {
-        let mut module = Module::new(group);
-        if self.modules.is_empty() {
-            module.access = Access::Crate;
-            module.other = vec![Box::new(ExternCrateAlloc)];
+        let access = if self.modules.is_empty() {
+            Access::Crate
         } else {
-            module.access = Access::Pub;
-        }
+            Access::Pub
+        };
 
-        if let Some(id) = id {
-            module.other.push(Box::new(Const {
-                access: Access::Pub,
-                ident: Cow::Borrowed("ID"),
-                kind: Cow::Borrowed("u8"),
-                value: Cow::Owned(id.to_string()),
-            }));
-        }
-        self.modules.push(module);
+        let id = if let Some(id) = id {
+            quote! {
+                pub const ID: u8 = $id;
+            }
+        } else {
+            quote! {}
+        };
+
+        self.modules.push(Module {
+            access,
+            name: group.to_string(),
+            tokens: vec![id],
+        });
     }
 
     fn generate_single_message<I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
     where
         I: SymbolIterator<EnrichedFieldSymbol<'s>>,
     {
-        let mut struct_ = Struct::new(symbol.name);
-        struct_.access = Access::Pub;
-        struct_.repr = Repr::C { align: Some(32) };
-        extend_derive(&mut struct_.derives, &self.args);
-
-        let mut fields = symbol
-            .fields
-            .clone()
-            .map(|field| Field {
-                access: Access::Pub,
-                name: field.name,
-                kind: match field.kind {
-                    EnrichedFieldType::Type { name } => path_to_string(&name).into(),
-                    EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]").into(),
-                },
-                comment: None,
-            })
-            .collect::<Vec<_>>();
-
-        fields[4].comment = Some(Cow::Borrowed("-------- PAYLOAD --------"));
-
-        struct_.content = StructContent::Fields(fields);
-        struct_
-            .trait_impls
-            .push(generate_typed_message_trait_impl(&self.args, symbol.name));
-        struct_
-            .trait_impls
-            .push(generate_message_trait_impl(&self.args, symbol.name));
-        let mut impl_ = generate_builder_pattern(symbol.fields, symbol.name);
-        impl_.custom.extend(generate_message_consts(
-            &self.args,
-            symbol.group,
-            symbol.kind,
-            symbol.dispatch_value,
-        ));
-
-        struct_.impls.push(impl_);
-
-        self.push_other(generate_const_size_assert(
-            self.args.message_size_path(),
-            symbol.name.to_string(),
-        ));
-        self.push_struct(struct_);
+        self.push_tokens(symbols::generate_single_message(&self.args, &symbol));
     }
 
     fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
@@ -529,140 +126,37 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         F: SymbolIterator<EnrichedFieldSymbol<'s>>,
         C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
     {
-        let (stream, io_module) = stream::generate_stream_message::<W, F, C>(&symbol, &self.args);
-
-        self.push_other(generate_const_size_assert(
-            self.args.message_size_path(),
-            symbol.name.to_string(),
+        self.push_tokens(symbols::generate_stream_message::<F, C>(
+            &symbol, &self.args,
         ));
-        self.push_struct(stream);
-        self.push_module(io_module);
     }
 
     fn generate_bitset<I>(&mut self, symbol: EnrichedBitsetSymbol<'s, I>)
     where
         I: SymbolIterator<EnrichedBitsetValueSymbol<'s>>,
     {
-        self.push_struct(bitset::generate_bitset(&self.args, symbol));
+        self.push_tokens(symbols::generate_bitset(&self.args, symbol));
     }
 
     fn generate_flags<I>(&mut self, symbol: EnrichedFlagsSymbol<'s, I>)
     where
         I: Iterator<Item = &'s str>,
     {
-        let mut flags = Struct::new(symbol.name);
-        flags.access = Access::Pub;
-        flags.repr = Repr::Transparent;
-        flags
-            .derives
-            .inner
-            .push(self.args.binary_write_derive_path().into());
-        flags
-            .derives
-            .inner
-            .push(self.args.binary_read_derive_path().into());
-        extend_derive(&mut flags.derives, &self.args);
-
-        let kind = match symbol.underlying_type {
-            FlagUnderlyingType::U8 => "u8",
-            FlagUnderlyingType::U16 => "u16",
-            FlagUnderlyingType::U32 => "u32",
-            FlagUnderlyingType::U64 => "u64",
-            FlagUnderlyingType::U128 => "u128",
-        };
-        flags.content = StructContent::Tuple(vec![Cow::Borrowed(kind)]);
-
-        let custom = symbol
-            .options
-            .enumerate()
-            .map(|(i, s)| {
-                let shift = i + 1;
-                Box::new(Const {
-                    access: Access::Pub,
-                    ident: Cow::Borrowed(s),
-                    kind: Cow::Borrowed("Self"),
-                    value: Cow::Owned(format!("Self(1 << {shift})")),
-                }) as Box<dyn CodeBlock<W> + 's>
-            })
-            .collect::<Vec<_>>();
-
-        flags.impls.push(Impl {
-            target: symbol.name.into(),
-            functions: vec![],
-            custom,
-        });
-
-        flags
-            .trait_impls
-            .push(generate_bitor_impl(symbol.name, kind));
-
-        flags
-            .trait_impls
-            .push(generate_bitxor_impl(symbol.name, kind));
-
-        self.push_struct(flags);
+        self.push_tokens(symbols::generate_flags(&self.args, symbol));
     }
 
     fn generate_enum<I>(&mut self, symbol: EnrichedEnumSymbol<'s, I>)
     where
         I: Iterator<Item = EnrichedVariantSymbol<'s>>,
     {
-        let mut enum_ = Enum::new(symbol.name);
-        enum_
-            .derives
-            .inner
-            .push(self.args.binary_write_derive_path().into());
-        enum_
-            .derives
-            .inner
-            .push(self.args.binary_read_derive_path().into());
-
-        extend_derive(&mut enum_.derives, &self.args);
-        enum_.access = Access::Pub;
-        enum_.variants = symbol
-            .variants
-            .map(|v| EnumVariant {
-                name: v.name,
-                value: v.value,
-            })
-            .collect();
-
-        self.push_enum(enum_);
+        self.push_tokens(symbols::generate_enum(&self.args, symbol));
     }
 
     fn generate_struct<I>(&mut self, symbol: EnrichedStructSymbol<'s, I>)
     where
         I: Iterator<Item = EnrichedFieldSymbol<'s>>,
     {
-        let mut struct_ = Struct::new(symbol.name);
-        extend_derive(&mut struct_.derives, &self.args);
-        struct_.access = Access::Pub;
-        struct_.content = StructContent::Fields(
-            symbol
-                .fields
-                .map(|symbol| Field {
-                    access: Access::Pub,
-                    name: symbol.name,
-                    kind: {
-                        match symbol.kind {
-                            EnrichedFieldType::Type { name } => path_to_string(&name).into(),
-                            EnrichedFieldType::Array { kind, len } => {
-                                Cow::Owned(format!("[{kind}; {len}]"))
-                            }
-                        }
-                    },
-                    comment: None,
-                })
-                .collect(),
-        );
-
-        struct_.custom.push(Box::new(
-            generate_binary_writer_trait_impl(&self.args, symbol.name)
-                .to_string()
-                .unwrap(),
-        ));
-
-        self.push_struct(struct_);
+        self.push_tokens(symbols::generate_struct(&self.args, symbol));
     }
 
     fn end_group(&mut self) {
@@ -670,186 +164,109 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             return;
         }
 
-        let group = self.modules.pop().unwrap();
-        self.modules.last_mut().unwrap().modules.push(group);
+        let group = self.modules.pop().unwrap().into_tokens();
+        self.modules.last_mut().unwrap().tokens.push(group);
     }
 
     fn generate_dispatcher<I>(&mut self, messages: I)
     where
         I: Iterator<Item = ::creamy_libgen::Path>,
     {
-        let mut match_string = "match dispatch_value {".to_string();
-
-        let mut t = Trait::new("MessageHandler");
-        t.bound = Some(self.args.custom_message_handler_trait_path().into());
+        let mut trait_functions = vec![];
+        let mut match_branches = vec![];
 
         for path in messages {
-            let postfix = match &path {
+            let postfix = &match &path {
                 Path::Global { name } => name.to_snake_case(),
                 Path::Absolute { components } => components.last().unwrap().to_snake_case(),
             };
-            let function_name = format!("handle_{postfix}");
-            let mut function = FunctionDefinition::new(function_name.clone());
-            function.set_self(Pass::Mut);
-            function.add_argument(Argument {
-                name: "message".into(),
-                kind: path_to_string(&path).into(),
-                pass: Pass::Move,
+            let kind = &path_to_string(&path);
+            trait_functions.push(quote! {
+                fn handle_$postfix(&mut self, message: $kind);
             });
-            t.add_function(function);
 
             let cast_message = self.args.cast_message_fn_path();
-            let _ = write!(
-                match_string,
-                r"
-                {path}::DISPATCH_VALUE => {{
-                    handler.{function_name}({cast_message}(message));
-                }},
-                ",
-                path = path_to_string(&path)
-            );
+            match_branches.push(quote! {
+                $kind::DISPATCH_VALUE => {
+                    handler.handle_$postfix($cast_message(message))
+                }
+            });
         }
 
-        match_string.push_str("_ => handler.handle_unknown_message(dispatch_value, message) }");
+        let untyped_message = &self.args.untyped_message_path();
+        let trait_bound = self.args.custom_message_handler_trait_path();
+        let tokens = quote! {
+            pub trait MessageHandler:  $trait_bound {
+                $trait_functions
+                fn handle_unknown_message(&mut self, dispatch_value: u32, message: $untyped_message);
+            }
 
-        let mut last_function = FunctionDefinition::new("handle_unknown_message");
-        last_function.set_self(Pass::Mut);
-        last_function.add_argument(Argument {
-            name: "dispatch_value".into(),
-            kind: "u32".into(),
-            pass: Pass::Move,
-        });
-        last_function.add_argument(Argument {
-            name: "message".into(),
-            kind: self.args.untyped_message_path().into(),
-            pass: Pass::Move,
-        });
-
-        t.functions.push(last_function);
-
-        let function = Function {
-            access: Access::Pub,
-            is_const: false,
-            is_extern: false,
-            name: "dispatch_message".into(),
-            generics: vec![],
-            self_pass: None,
-            args: vec![
-                Argument::new("dispatch_value", "u32", Pass::Move),
-                Argument::new("message", self.args.untyped_message_path(), Pass::Move),
-                Argument::new("handler", "impl MessageHandler", Pass::Mut),
-            ],
-            ret: None,
-            body: Body {
-                lines: vec![BodyLine {
-                    content: match_string.into(),
-                    depth: 0,
-                }],
-            },
-            inline: true,
+            #[inline(always)]
+            pub fn dispatch_message(dispatch_value: u32, message: $untyped_message, handler: &mut impl MessageHandler) {
+                match dispatch_value {
+                    $match_branches
+                    _ => handler.handle_unknown_message(dispatch_value, message)
+                }
+            }
         };
 
-        self.push_other(Box::new(function));
-        self.push_other(Box::new(t));
+        self.push_tokens(tokens);
     }
 
     fn generate_group_lifecycle_hook<I>(&mut self, groups: I)
     where
         I: Iterator<Item = Path>,
     {
-        let mut enabled_event_match_string = "match group_id {".to_string();
-        let mut disabled_event_match_string = "match group_id {".to_string();
-
-        let mut t = Trait::new("GroupLifecycleHook");
-        t.bound = Some(self.args.custom_message_handler_trait_path().into());
+        let mut trait_functions = vec![];
+        let mut enable_match_branches = vec![];
+        let mut disable_match_branches = vec![];
 
         for path in groups {
-            let postfix = match &path {
+            let postfix = &match &path {
                 Path::Global { name } => name.to_snake_case(),
                 Path::Absolute { components } => components[components.len() - 2].to_snake_case(),
             };
 
-            let enabled_event_function_name = format!("on_{postfix}_group_enabled");
-            let mut function = FunctionDefinition::new(enabled_event_function_name.clone());
-            function.set_self(Pass::Mut);
-            t.add_function(function);
+            trait_functions.push(quote! {
+                fn on_$(postfix)_group_enabled(&mut self);
+                fn on_$(postfix)_group_disabled(&mut self);
+            });
 
-            let disabled_event_function_name = format!("on_{postfix}_group_disabled");
-            let mut function = FunctionDefinition::new(disabled_event_function_name.clone());
-            function.set_self(Pass::Mut);
-            t.add_function(function);
-
-            let _ = write!(
-                enabled_event_match_string,
-                r"
-            {path} => {{
-                handler.{enabled_event_function_name}();
-            }},
-            ",
-                path = path_to_string(&path)
-            );
-
-            let _ = write!(
-                disabled_event_match_string,
-                r"
-            {path} => {{
-                handler.{disabled_event_function_name}();
-            }},
-            ",
-                path = path_to_string(&path)
-            );
+            let path = &path_to_string(&path);
+            enable_match_branches.push(quote! {
+                $path => {
+                    handler.on_$(postfix)_group_enabled();
+                }
+            });
+            disable_match_branches.push(quote! {
+                $path => {
+                    handler.on_$(postfix)_group_disabled();
+                }
+            });
         }
 
-        enabled_event_match_string.push_str("_ => {} }");
-        disabled_event_match_string.push_str("_ => {} }");
+        let trait_bound = self.args.custom_message_handler_trait_path();
+        self.push_tokens(quote! {
+            pub trait GroupLifecycleHook: $trait_bound {
+                $trait_functions
+            }
 
-        let function = Function {
-            access: Access::Pub,
-            is_const: false,
-            is_extern: false,
-            name: "handle_on_group_enabled_event".into(),
-            generics: vec![],
-            self_pass: None,
-            args: vec![
-                Argument::new("group_id", "u8", Pass::Move),
-                Argument::new("handler", "impl GroupLifecycleHook", Pass::Mut),
-            ],
-            ret: None,
-            body: Body {
-                lines: vec![BodyLine {
-                    content: enabled_event_match_string.into(),
-                    depth: 0,
-                }],
-            },
-            inline: true,
-        };
+            #[inline(always)]
+            pub fn handle_on_group_enabled_event(group_id: u8, handler: &mut impl GroupLifecycleHook) {
+                match group_id {
+                    $enable_match_branches
+                    _ => {}
+                }
+            }
 
-        self.push_other(Box::new(function));
-
-        let function = Function {
-            access: Access::Pub,
-            is_const: false,
-            is_extern: false,
-            name: "handle_on_group_disabled_event".into(),
-            generics: vec![],
-            self_pass: None,
-            args: vec![
-                Argument::new("group_id", "u8", Pass::Move),
-                Argument::new("handler", "impl GroupLifecycleHook", Pass::Mut),
-            ],
-            ret: None,
-            body: Body {
-                lines: vec![BodyLine {
-                    content: disabled_event_match_string.into(),
-                    depth: 0,
-                }],
-            },
-            inline: true,
-        };
-
-        self.push_other(Box::new(function));
-
-        self.push_other(Box::new(t));
+            #[inline(always)]
+            pub fn handle_on_group_disabled_event(group_id: u8, handler: &mut impl GroupLifecycleHook) {
+                match group_id {
+                    $disable_match_branches
+                    _ => {}
+                }
+            }
+        });
     }
 
     fn generate_plugin_group_table(&mut self, pht: PerfectHashTable) {
@@ -860,44 +277,34 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         }
         t.push(']');
 
-        self.push_other(Box::new(UnsafeNoMangleAttribute));
-        self.push_other(Box::new(Static {
-            access: Access::None,
-            name: "__INTERNAL__TABLE".into(),
-            kind: format!("[u8; {}]", pht.table.len()).into(),
-            value: t.into(),
-        }));
-        self.push_other(Box::new(UnsafeNoMangleAttribute));
-        self.push_other(Box::new(Static {
-            access: Access::None,
-            name: "__INTERNAL__TABLE_SIZE".into(),
-            kind: "u8".into(),
-            value: pht.table.len().to_string().into(),
-        }));
+        let len = pht.table.len();
+        self.push_tokens(quote! {
+            #[unsafe(no_mangle)]
+            #[doc(hidden)]
+            static __INTERNAL__TABLE: [u8; $len] = $t;
+
+            #[unsafe(no_mangle)]
+            #[doc(hidden)]
+            static __INTERNAL__TABLE_SIZE: u8 = $len;
+        });
 
         let mut s = String::with_capacity(1024);
         s.push('[');
-
         for id in &pht.special_table {
             let _ = write!(&mut s, "{id}u64, ");
         }
-
         s.push(']');
 
-        self.push_other(Box::new(UnsafeNoMangleAttribute));
-        self.push_other(Box::new(Static {
-            access: Access::None,
-            name: "__INTERNAL__SPECIAL".into(),
-            kind: format!("[u64; {}]", pht.special_table.len()).into(),
-            value: s.into(),
-        }));
-        self.push_other(Box::new(UnsafeNoMangleAttribute));
-        self.push_other(Box::new(Static {
-            access: Access::None,
-            name: "__INTERNAL__SPECIAL_TABLE_SIZE".into(),
-            kind: "u8".into(),
-            value: pht.special_table.len().to_string().into(),
-        }));
+        let len = pht.special_table.len();
+        self.push_tokens(quote! {
+            #[unsafe(no_mangle)]
+            #[doc(hidden)]
+            static __INTERNAL__SPECIAL: [u64; $len] = $s;
+
+            #[unsafe(no_mangle)]
+            #[doc(hidden)]
+            static __INTERNAL__SPECIAL_TABLE_SIZE: u8 = $len;
+        });
     }
 
     fn generate_host_group_table(&mut self, pht: PerfectHashTable) {
@@ -908,12 +315,10 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
         }
         t.push(']');
 
-        self.push_other(Box::new(Static {
-            access: Access::Pub,
-            name: "TABLE".into(),
-            kind: format!("[u8; {}]", pht.table.len()).into(),
-            value: t.into(),
-        }));
+        let len = pht.table.len();
+        self.push_tokens(quote! {
+            pub static TABLE: [u8; $len] = $t;
+        });
 
         let mut s = String::with_capacity(1024);
         s.push('[');
@@ -924,12 +329,10 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
 
         s.push(']');
 
-        self.push_other(Box::new(Static {
-            access: Access::Pub,
-            name: "SPECIAL".into(),
-            kind: format!("[u64; {}]", pht.special_table.len()).into(),
-            value: s.into(),
-        }));
+        let len = pht.special_table.len();
+        self.push_tokens(quote! {
+            pub static SPECIAL: [u64; $len] = $s;
+        });
     }
 
     fn generate_host_package(&mut self, binary: Vec<u8>) {
@@ -940,18 +343,16 @@ impl<'s, W: IoWrite + 's> CodeGenerator<'s> for RustGen<'s, W> {
             let _ = write!(&mut content, "{byte}u8, ");
         }
 
-        self.push_other(Box::new(Static {
-            access: Access::Pub,
-            name: "PACKAGE".into(),
-            kind: format!("&[u8; {len}]").into(),
-            value: format!("&[{content}]").into(),
-        }));
+        self.push_tokens(quote! {
+            pub static PACKAGE: &[u8; $len] = &[$content];
+        });
     }
 
     fn flush(&mut self) -> GenResult {
         assert_eq!(self.modules.len(), 1);
         if let Some(global_module) = self.modules.pop() {
-            global_module.write_to(&mut self.writer, 0)?;
+            let content = global_module.into_tokens().to_string().unwrap();
+            self.writer.write_all(content.as_bytes())?;
             self.writer.flush()?;
             Ok(())
         } else {

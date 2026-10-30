@@ -1,5 +1,3 @@
-use std::{borrow::Cow, io::Write};
-
 use creamy_libgen::{
     SymbolIterator,
     package::model::symbols::PrimitiveRepr,
@@ -7,13 +5,7 @@ use creamy_libgen::{
 };
 use genco::{lang::rust::Tokens, quote};
 
-use crate::{
-    Args, extend_derive,
-    generator::{
-        Access, Argument, Body, BodyLine, Field, Function, Impl, Pass, Struct, StructContent,
-    },
-    repr_to_string,
-};
+use crate::{Args, derive::generate_derive, repr_to_string};
 
 fn build_reset_mask(bytes: u8, bits: u8, shift: u8, backing_type: PrimitiveRepr) -> String {
     let bytes = bytes as usize;
@@ -205,95 +197,54 @@ fn generate_set_body(symbol: EnrichedBitsetValueSymbol, add_debug_asserts: bool)
     }
 }
 
-pub fn generate_bitset<'s, I, W>(args: &Args, symbol: EnrichedBitsetSymbol<'s, I>) -> Struct<'s, W>
+pub fn generate_bitset<'s, I>(args: &Args, symbol: EnrichedBitsetSymbol<'s, I>) -> Tokens
 where
     I: SymbolIterator<EnrichedBitsetValueSymbol<'s>>,
-    W: Write,
 {
-    let mut bitset = Struct::new(symbol.name);
-    bitset.access = Access::Pub;
-    bitset
-        .derives
-        .inner
-        .push(args.binary_write_derive_path().into());
-    bitset
-        .derives
-        .inner
-        .push(args.binary_read_derive_path().into());
-    extend_derive(&mut bitset.derives, args);
-
-    let mut impl_block = Impl {
-        target: symbol.name.into(),
-        functions: vec![],
-        custom: vec![],
-    };
-
+    let mut functions = Vec::new();
     let mut bits = 0;
     for symbol in symbol.values {
         bits += symbol.bits;
 
         let name = symbol.name;
         let repr = &repr_to_string(symbol.repr);
-        let body = generate_read_body(symbol);
-        let read_fn = quote! {
+        let read_body = generate_read_body(symbol);
+        let set_body = generate_set_body(symbol, args.debug_asserts);
+        let fns = quote! {
             pub fn $name(&self) -> $repr {
-                $body
+                $read_body
             }
-        };
 
-        let body = generate_set_body(symbol, args.debug_asserts);
-        let set_fn = quote! {
             pub fn set_$name(&mut self, value: $repr) -> &mut Self{
-                $body
+                $set_body
+            }
+
+            pub fn with_$name(self, value: $repr) -> Self {
+                self.self_$name(value);
+                self
             }
         };
 
-        impl_block
-            .custom
-            .push(Box::new(read_fn.to_string().unwrap()));
-
-        impl_block
-            .custom
-            .push(Box::new(set_fn.to_string().unwrap()));
-
-        impl_block.functions.push(Function {
-            access: Access::Pub,
-            is_const: false,
-            is_extern: false,
-            name: Cow::Owned(format!("with_{}", symbol.name)),
-            generics: vec![],
-            self_pass: Some(Pass::MutMove),
-            args: vec![Argument {
-                name: "value".into(),
-                kind: repr_to_string(symbol.repr),
-                pass: Pass::Move,
-            }],
-            ret: Some(Cow::Borrowed("Self")),
-            body: Body {
-                lines: vec![
-                    BodyLine {
-                        content: format!("self.set_{}(value);", symbol.name).into(),
-                        depth: 0,
-                    },
-                    BodyLine {
-                        content: "self".into(),
-                        depth: 0,
-                    },
-                ],
-            },
-            inline: false,
-        });
+        functions.push(fns);
     }
 
-    bitset.impls.push(impl_block);
-
+    let name = symbol.name;
     let bytes = bits.div_ceil(8);
-    bitset.content = StructContent::Fields(vec![Field {
-        access: Access::Pub,
-        name: Cow::Borrowed("data"),
-        kind: Cow::Owned(format!("[u8; {bytes}]")),
-        comment: None,
-    }]);
+    let derives = generate_derive(
+        args,
+        &[
+            args.binary_write_derive_path(),
+            args.binary_read_derive_path(),
+        ],
+    );
+    quote! {
+        $derives
+        pub struct $name {
+            data: [u8; $bytes],
+        }
 
-    bitset
+        impl $name {
+            $functions
+        }
+    }
 }

@@ -43,6 +43,7 @@ impl<'s> CodeGenerator<'s> for Mock {
     {
     }
 
+    #[allow(clippy::too_many_lines)]
     fn generate_bitset<I>(&mut self, bitset: EnrichedBitsetSymbol<'s, I>)
     where
         I: SymbolIterator<EnrichedBitsetValueSymbol<'s>>,

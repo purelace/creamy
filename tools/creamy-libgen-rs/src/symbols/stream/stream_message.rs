@@ -10,7 +10,7 @@ pub fn generate_stream_trait_impl<'s>(
     target: impl Into<Cow<'s, str>>,
     content_type: impl Into<Cow<'s, str>>,
     lightweight_type: &str,
-) -> String {
+) -> Tokens {
     let trait_name = args.stream_message_trait_path();
     let target = target.into();
     let content_type = content_type.into();
@@ -18,7 +18,7 @@ pub fn generate_stream_trait_impl<'s>(
     let stream_id_path = &args.stream_id_path();
     let stream_type_path = &args.stream_type_path();
 
-    let tokens: Tokens = quote! {
+    quote! {
         impl $trait_name for $target {
             const PREPARED: Self = Self::PREPARED;
             const TIMEOUT: u8 = $timeout;
@@ -52,6 +52,5 @@ pub fn generate_stream_trait_impl<'s>(
                 }
             }
         }
-    };
-    tokens.to_string().unwrap()
+    }
 }
