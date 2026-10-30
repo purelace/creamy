@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<protocol name="system" version="1.0.0">
+    <group name="builtin" access="Public">
+
+        <struct name="SpanId">
+            <field name="value" type="u64"/>
+        </struct>
+
+        <enum name="Level" repr="u8">
+            <variant name="Trace" value="0"/>
+            <variant name="Debug" value="1"/>
+            <variant name="Info"  value="2"/>
+            <variant name="Warning" value="3"/>
+            <variant name="Error" value="4"/>
+        </enum>
+
+        <bitset name="TypeMeta">
+            <value name="is_valid" bits="1" repr="u8" /> <!-- TODO: bool -->
+            <value name="is_const" bits="1" repr="u8" /> <!-- TODO: bool -->
+
+            <value name="align" bits="3" repr="u16" />
+            <value name="size" bits="5" repr="u16" />
+
+            <value name="attributes_mask" bits="6" repr="u32" />
+            <value name="offset_modifier" bits="4" repr="i8" />
+            <value name="custom_type_id" bits="8" repr="u64" />
+            <value name="version" bits="4" repr="u8" />
+        </bitset>
+
+    </group>
+</protocol>

@@ -814,6 +814,7 @@ dependencies = [
  "creamy-phf",
  "creamy-plugin-package",
  "creamy-xmlc",
+ "pretty_assertions",
  "tempfile",
 ]
 
