@@ -8,7 +8,7 @@ pub mod package {
 
 pub mod prelude {
     pub use creamy_phf::PerfectHashTable;
-    pub use creamy_plugin_package::model::symbols::PrimitiveRepr;
+    pub use creamy_plugin_package::model::symbols::{PrimitiveRepr, VariantValue};
 
     pub use crate::{
         CodeGenerator, Codegen, EnrichedSingleMessageSymbol, EnrichedStreamMessageSymbol,

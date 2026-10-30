@@ -58,7 +58,7 @@ fn get_backing_type(type_id: TypeId, width: u8) -> PrimitiveRepr {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EnrichedBitsetValueSymbol<'s> {
     /// Width of the value in bytes.
     pub bytes: u8,
@@ -66,6 +66,7 @@ pub struct EnrichedBitsetValueSymbol<'s> {
     /// Width of the value in bits.
     pub bits: u8,
 
+    // TODO: this field has same value like the `backing_type` field
     /// This value indicates the number of bytes to read before applying the shift and/or cast operations
     pub read_window_bytes: u8,
 
@@ -93,12 +94,15 @@ impl<'s> Iterator for BitsetValueList<'s> {
         }
 
         let symbol = self.slice[self.current_index];
+
+        let prev_bits = self.bits;
         self.bits += symbol.bits();
+        let read_window_bytes = self.bits.div_ceil(8) - prev_bits.div_euclid(8);
 
         let bytes = symbol.bits().div_ceil(8);
-        let end_pos = self.bits.div_ceil(8).saturating_sub(1);
-        let start_pos = end_pos.saturating_sub(bytes);
-        let read_window_bytes = end_pos - start_pos + 1;
+
+        let end_pos = self.bits.div_ceil(8);
+        let start_pos = end_pos - read_window_bytes;
 
         let repr = match symbol.repr() {
             T_I8_ID => PrimitiveRepr::I8,
@@ -113,8 +117,10 @@ impl<'s> Iterator for BitsetValueList<'s> {
         };
 
         let backing_type = get_backing_type(symbol.repr(), read_window_bytes);
-        let shift = (read_window_bytes * 8) - (self.bits - (start_pos * 8));
 
+        let backend_width = read_window_bytes * 8;
+        let left_pad = (prev_bits - start_pos * 8) + symbol.bits();
+        let shift = backend_width - left_pad;
         self.current_index += 1;
 
         Some(EnrichedBitsetValueSymbol {

@@ -1,6 +1,6 @@
 use creamy_xmlc::model::symbols::{PrimitiveRepr, VariantValue};
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnrichedVariantSymbol<'s> {
     pub name: &'s str,
     pub value: VariantValue,
