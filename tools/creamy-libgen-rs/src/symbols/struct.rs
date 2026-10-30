@@ -33,7 +33,7 @@ where
 
     quote! {
         $derives
-        #[repr(C, align(24))]
+        #[repr(C)]
         pub struct $name {
             $fields
         }

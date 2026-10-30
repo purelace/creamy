@@ -111,7 +111,7 @@ impl<'s> CodeGenerator<'s> for Mock {
         assert_eq!(symbol.dispatch_value, 2u32 << 16 | 1u32);
         let message_fields = symbol.message_fields.collect::<Vec<_>>();
         assert_eq!(
-            message_fields.as_slice(),
+            message_fields,
             [
                 header_field("dst"),
                 header_field("group"),
@@ -137,7 +137,7 @@ impl<'s> CodeGenerator<'s> for Mock {
 
         let content_fields = symbol.content_fields.collect::<Vec<_>>();
         assert_eq!(
-            content_fields.as_slice(),
+            content_fields,
             [
                 EnrichedStreamFieldSymbol {
                     name: "level".into(),
@@ -176,7 +176,7 @@ impl<'s> CodeGenerator<'s> for Mock {
         let values = bitset.values.collect::<Vec<_>>();
         assert_eq!(bitset.name, "TypeMeta");
         assert_eq!(
-            values.as_slice(),
+            values,
             [
                 /* 10000000_000000000000000000000000 */
                 EnrichedBitsetValueSymbol {
@@ -285,7 +285,7 @@ impl<'s> CodeGenerator<'s> for Mock {
         let options = symbol.options.collect::<Vec<_>>();
         assert_eq!(symbol.name, "Permissions");
         assert_eq!(symbol.underlying_type, FlagUnderlyingType::U8);
-        assert_eq!(options.as_slice(), ["User", "Group", "Others", "All",]);
+        assert_eq!(options, ["User", "Group", "Others", "All",]);
     }
 
     fn generate_enum<I>(&mut self, symbol: EnrichedEnumSymbol<'s, I>)
@@ -296,7 +296,7 @@ impl<'s> CodeGenerator<'s> for Mock {
         assert_eq!(symbol.name, "Level");
         assert_eq!(symbol.repr, PrimitiveRepr::U8);
         assert_eq!(
-            variants.as_slice(),
+            variants,
             [
                 EnrichedVariantSymbol {
                     name: "Trace",
@@ -333,27 +333,15 @@ impl<'s> CodeGenerator<'s> for Mock {
          */
         let fields = symbol.fields.collect::<Vec<_>>();
         assert_eq!(symbol.name, "SpanId");
-        assert_eq!(fields.len(), 2);
         assert_eq!(
-            fields[0],
-            EnrichedFieldSymbol {
+            fields,
+            [EnrichedFieldSymbol {
                 name: "value".into(),
                 kind: EnrichedFieldType::Type {
                     name: creamy_libgen::Path::from_global("u64")
                 },
                 is_padding: false,
-            }
-        );
-        assert_eq!(
-            fields[1],
-            EnrichedFieldSymbol {
-                name: "__padding0".into(),
-                kind: EnrichedFieldType::Array {
-                    kind: "u8".into(),
-                    len: 16
-                },
-                is_padding: true,
-            }
+            }]
         );
     }
 

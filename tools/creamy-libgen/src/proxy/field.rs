@@ -80,6 +80,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
         tt: &'s FinishedTypeTable,
         fields: I,
         reserved_bytes: u8,
+        disable_remainder: bool,
     ) -> Self {
         Self {
             module_path,
@@ -88,7 +89,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
             layout: LayoutCalculator::new(reserved_bytes, fields),
             padding_index: 0,
             prev: None,
-            remainder: false,
+            remainder: disable_remainder,
         }
     }
 }

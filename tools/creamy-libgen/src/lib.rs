@@ -408,6 +408,7 @@ impl Codegen {
                             model.table(),
                             fields.iter().copied(),
                             8,
+                            true,
                         ),
                     };
                     generator.generate_struct(symbol);
@@ -486,6 +487,7 @@ impl Codegen {
                                 model.table(),
                                 model.fields_range(symbol.fields()).iter().copied(),
                                 HEADER_BYTES,
+                                false,
                             ),
                         ),
                     };
