@@ -37,15 +37,12 @@ use creamy_xmlc::{
         symbols::{MessageSymbolType, Type},
     },
 };
-pub use utils::Path;
+pub use utils::{AbsolutePath, Path};
 
-use self::{
-    proxy::{
-        BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
-        EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStreamFieldSymbol,
-        EnrichedVariantSymbol, FieldList, FlagUnderlyingType, OptionList, StreamFieldList,
-    },
-    utils::AbsolutePath,
+use self::proxy::{
+    BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
+    EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStreamFieldSymbol,
+    EnrichedVariantSymbol, FieldList, FlagUnderlyingType, OptionList, StreamFieldList,
 };
 
 #[derive(Clone, Copy)]
@@ -485,10 +482,7 @@ impl Codegen {
                         kind: symbol.kind(),
                         dispatch_value,
 
-                        message_fields: std::iter::chain(
-                            message_header(),
-                            std::iter::once(data_array()),
-                        ),
+                        message_fields: std::iter::chain(message_header(), data_array()),
                         content_fields: StreamFieldList::new(
                             module_path.clone(),
                             pool,
@@ -568,16 +562,25 @@ fn message_header() -> [EnrichedFieldSymbol<'static>; 4] {
     ]
 }
 
-const fn data_array() -> EnrichedFieldSymbol<'static> {
-    EnrichedFieldSymbol {
-        name: Cow::Borrowed("data"),
-        kind: EnrichedFieldType::Array {
-            kind: Cow::Borrowed("u8"),
-            #[allow(clippy::cast_possible_truncation)]
-            len: MAX_PAYLOAD as u8,
+fn data_array() -> [EnrichedFieldSymbol<'static>; 2] {
+    [
+        EnrichedFieldSymbol {
+            name: Cow::Borrowed("meta"),
+            kind: EnrichedFieldType::Type {
+                name: Path::from_global("u8"),
+            },
+            is_padding: false,
         },
-        is_padding: false,
-    }
+        EnrichedFieldSymbol {
+            name: Cow::Borrowed("data"),
+            kind: EnrichedFieldType::Array {
+                kind: Cow::Borrowed("u8"),
+                #[allow(clippy::cast_possible_truncation)]
+                len: MAX_PAYLOAD as u8 - 1,
+            },
+            is_padding: false,
+        },
+    ]
 }
 
 pub trait SymbolIterator<S>: Iterator<Item = S> + Clone {}

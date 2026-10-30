@@ -27,5 +27,22 @@
             <value name="version" bits="4" repr="u8" />
         </bitset>
 
+        <flags name="Permissions">
+            <option name="User"/>
+            <option name="Group"/>
+            <option name="Others"/>
+            <option name="All"/>
+        </flags>
+
+        <message name="SetPermissions" kind="0" direction="Incoming">
+            <field name="permissions" type="Permissions"/>
+            <field name="class" type="u16"/>
+        </message>
+
+        <stream name="Log" kind="1" direction="Outgoing" timeout="60">
+            <field name="level" type="Level"/>
+            <field name="content" type="Array[u8]"/>
+        </stream>
+
     </group>
 </protocol>

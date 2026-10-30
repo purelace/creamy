@@ -1,6 +1,11 @@
-use std::{fs::File, io::Write};
+use std::{borrow::Cow, fs::File, io::Write};
 
-use creamy_libgen::prelude::*;
+use creamy_libgen::{
+    AbsolutePath,
+    prelude::*,
+    proxy::{EnrichedStreamFieldType, FieldMetadata},
+};
+use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
 const MANIFEST: &str = r#"
@@ -26,21 +31,141 @@ fn setup_root() -> std::io::Result<TempDir> {
     Ok(dir)
 }
 
+fn header_field<'s>(name: impl Into<Cow<'s, str>>) -> EnrichedFieldSymbol<'s> {
+    EnrichedFieldSymbol {
+        name: name.into(),
+        kind: EnrichedFieldType::Type {
+            name: Path::from_global("u8"),
+        },
+        is_padding: false,
+    }
+}
+
 struct Mock;
 impl<'s> CodeGenerator<'s> for Mock {
     fn start_group(&mut self, _: &'s str, _: Option<u8>) {}
 
-    fn generate_single_message<I>(&mut self, _: EnrichedSingleMessageSymbol<'s, I>)
+    fn generate_single_message<I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
     where
         I: SymbolIterator<EnrichedFieldSymbol<'s>>,
     {
+        let fields = symbol.fields.collect::<Vec<_>>();
+        assert_eq!(symbol.name, "SetPermissions");
+        assert_eq!(symbol.group, 2);
+        assert_eq!(symbol.kind, 0);
+        assert_eq!(symbol.dispatch_value, 2u32 << 16);
+        assert_eq!(
+            fields,
+            [
+                header_field("dst"),
+                header_field("group"),
+                header_field("src"),
+                header_field("kind"),
+                EnrichedFieldSymbol {
+                    name: "permissions".into(),
+                    kind: EnrichedFieldType::Type {
+                        name: Path::from_absolute(AbsolutePath::from_iter([
+                            "system",
+                            "builtin",
+                            "Permissions"
+                        ]))
+                    },
+                    is_padding: false
+                },
+                EnrichedFieldSymbol {
+                    name: "__padding0".into(),
+                    kind: EnrichedFieldType::Type {
+                        name: Path::from_global("u8")
+                    },
+                    is_padding: true,
+                },
+                EnrichedFieldSymbol {
+                    name: "class".into(),
+                    kind: EnrichedFieldType::Type {
+                        name: Path::from_global("u16"),
+                    },
+                    is_padding: false
+                },
+                EnrichedFieldSymbol {
+                    name: "__padding1".into(),
+                    kind: EnrichedFieldType::Array {
+                        kind: "u8".into(),
+                        len: 24,
+                    },
+                    is_padding: true,
+                },
+            ]
+        );
     }
 
-    fn generate_stream_message<F, C>(&mut self, _: EnrichedStreamMessageSymbol<'s, F, C>)
+    #[allow(clippy::too_many_lines)]
+    fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
     where
         F: SymbolIterator<EnrichedFieldSymbol<'s>>,
         C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
     {
+        assert_eq!(symbol.name, "Log");
+        assert_eq!(symbol.group, 2);
+        assert_eq!(symbol.kind, 1);
+        assert_eq!(symbol.timeout, 60);
+        assert_eq!(symbol.dispatch_value, 2u32 << 16 | 1u32);
+        let message_fields = symbol.message_fields.collect::<Vec<_>>();
+        assert_eq!(
+            message_fields.as_slice(),
+            [
+                header_field("dst"),
+                header_field("group"),
+                header_field("src"),
+                header_field("kind"),
+                EnrichedFieldSymbol {
+                    name: "meta".into(),
+                    kind: EnrichedFieldType::Type {
+                        name: Path::from_global("u8")
+                    },
+                    is_padding: false
+                },
+                EnrichedFieldSymbol {
+                    name: "data".into(),
+                    kind: EnrichedFieldType::Array {
+                        kind: "u8".into(),
+                        len: 27
+                    },
+                    is_padding: false
+                }
+            ]
+        );
+
+        let content_fields = symbol.content_fields.collect::<Vec<_>>();
+        assert_eq!(
+            content_fields.as_slice(),
+            [
+                EnrichedStreamFieldSymbol {
+                    name: "level".into(),
+                    kind: EnrichedStreamFieldType::Type {
+                        name: Path::from_absolute(AbsolutePath::from_iter([
+                            "system", "builtin", "Level"
+                        ])),
+                    },
+                    metadata: FieldMetadata { offset: 0, size: 1 },
+                    is_padding: false,
+                },
+                EnrichedStreamFieldSymbol {
+                    name: "__padding0".into(),
+                    kind: EnrichedStreamFieldType::StaticArray {
+                        kind: "u8".into(),
+                        len: 3
+                    },
+                    metadata: FieldMetadata { offset: 1, size: 3 },
+                    is_padding: true
+                },
+                EnrichedStreamFieldSymbol {
+                    name: "content".into(),
+                    kind: EnrichedStreamFieldType::DynamicArray { kind: "u8".into() },
+                    metadata: FieldMetadata { offset: 4, size: 8 },
+                    is_padding: false
+                }
+            ]
+        );
     }
 
     #[allow(clippy::too_many_lines)]
@@ -49,8 +174,8 @@ impl<'s> CodeGenerator<'s> for Mock {
         I: SymbolIterator<EnrichedBitsetValueSymbol<'s>>,
     {
         let values = bitset.values.collect::<Vec<_>>();
-        pretty_assertions::assert_eq!(bitset.name, "TypeMeta");
-        pretty_assertions::assert_eq!(
+        assert_eq!(bitset.name, "TypeMeta");
+        assert_eq!(
             values.as_slice(),
             [
                 /* 10000000_000000000000000000000000 */
@@ -153,10 +278,14 @@ impl<'s> CodeGenerator<'s> for Mock {
         );
     }
 
-    fn generate_flags<I>(&mut self, _: EnrichedFlagsSymbol<'s, I>)
+    fn generate_flags<I>(&mut self, symbol: EnrichedFlagsSymbol<'s, I>)
     where
         I: SymbolIterator<&'s str>,
     {
+        let options = symbol.options.collect::<Vec<_>>();
+        assert_eq!(symbol.name, "Permissions");
+        assert_eq!(symbol.underlying_type, FlagUnderlyingType::U8);
+        assert_eq!(options.as_slice(), ["User", "Group", "Others", "All",]);
     }
 
     fn generate_enum<I>(&mut self, symbol: EnrichedEnumSymbol<'s, I>)

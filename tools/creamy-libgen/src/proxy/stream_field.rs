@@ -9,12 +9,13 @@ use creamy_xmlc::model::{
 
 use crate::{Path, SymbolIterator, utils::AbsolutePath};
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FieldMetadata {
     pub offset: usize,
     pub size: usize,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum EnrichedStreamFieldType<'s> {
     Type { name: Path },
     StaticArray { kind: Cow<'s, str>, len: u8 },
@@ -34,6 +35,7 @@ fn get_padding_kind<'a>(padding: u8) -> EnrichedStreamFieldType<'a> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct EnrichedStreamFieldSymbol<'s> {
     pub name: Cow<'s, str>,
     pub kind: EnrichedStreamFieldType<'s>,

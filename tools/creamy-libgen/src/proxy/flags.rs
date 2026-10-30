@@ -5,6 +5,7 @@ use creamy_xmlc::model::{
 
 use crate::SymbolIterator;
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum FlagUnderlyingType {
     U8,
     U16,
@@ -37,11 +38,6 @@ impl<'s> OptionList<'s> {
             slice,
             index: 0,
         }
-    }
-
-    #[must_use]
-    pub const fn item_count(&self) -> usize {
-        self.slice.len()
     }
 }
 
