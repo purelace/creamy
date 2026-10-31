@@ -478,6 +478,8 @@ impl<
         self.resolve_dependencies(context.models, context.id);
         self.get_system_mut()
             .add_plugin_name(context.id, context.name);
+        self.get_system_mut()
+            .send_group_declared(SYSTEM_PLUGIN, SYSTEM_GROUP, context.id);
     }
 
     fn unregister_plugin(&mut self, id: SubscriberId) -> Result<(), Error> {
