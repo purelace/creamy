@@ -120,18 +120,14 @@ impl ProtocolModel {
 }
 
 impl ProtocolModel {
-    #[must_use]
-    pub fn get_struct_paddings(fields: &[FieldSymbol]) -> u8 {
-        let mut paddings = 0;
-        compute_layout(HEADER_BYTES, fields, |_, l| {
-            paddings += l.padding;
-        });
-        paddings
-    }
-
-    fn get_meta(fields: &[FieldSymbol], reserved: u8) -> Result<TypeMeta, SemanticError> {
+    fn get_meta(
+        reserved: u8,
+        //TODO: align
+        max_size: Option<u8>,
+        fields: &[FieldSymbol],
+    ) -> Result<TypeMeta, SemanticError> {
         let mut max_align = 1usize;
-        let mut total_size = compute_layout(reserved, fields, |_, l| {
+        let mut total_size = compute_layout(reserved, max_size, fields, |_, l| {
             if l.align as usize > max_align {
                 max_align = l.align as usize;
             }
@@ -157,7 +153,7 @@ impl ProtocolModel {
     /// This function will return an error if:
     /// * calculated size > [`MAX_PAYLOAD`]
     pub fn get_message_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
-        Self::get_meta(fields, HEADER_BYTES)
+        Self::get_meta(HEADER_BYTES, Some(32), fields)
     }
 
     /// Calculates [`TypeMeta`] for the given slice of fields with no bytes reservation.
@@ -167,7 +163,7 @@ impl ProtocolModel {
     /// This function will return an error if:
     /// * calculated size > [`MAX_PAYLOAD`]
     pub fn get_struct_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
-        Self::get_meta(fields, 0)
+        Self::get_meta(0, None, fields)
     }
 
     pub fn replace_identifiers(&mut self, from: &StringPool, to: &mut StringPool) {

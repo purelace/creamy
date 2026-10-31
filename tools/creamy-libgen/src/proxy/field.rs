@@ -1,12 +1,9 @@
 use std::borrow::Cow;
 
 use creamy_xmlc::model::{
-    FinishedTypeTable, Size,
-    layout::LayoutCalculator,
+    FinishedTypeTable,
     strpool::{StringPool, StringPoolResolver},
-    symbols::{
-        ArraySymbol, FieldSymbol, FieldType, T_U8_ID, get_builtin_type_name, is_builtin_type,
-    },
+    symbols::{FieldSymbol, FieldType, get_builtin_type_name, is_builtin_type},
 };
 
 use crate::{Path, SymbolIterator, utils::AbsolutePath};
@@ -15,19 +12,6 @@ use crate::{Path, SymbolIterator, utils::AbsolutePath};
 pub enum EnrichedFieldType<'s> {
     Type { name: Path },
     Array { kind: Cow<'s, str>, len: u8 },
-}
-
-fn get_padding_kind<'a>(padding: u8) -> EnrichedFieldType<'a> {
-    if padding <= 1 {
-        EnrichedFieldType::Type {
-            name: Path::from_global("u8"),
-        }
-    } else {
-        EnrichedFieldType::Array {
-            kind: Cow::Borrowed("u8"),
-            len: padding,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,12 +24,9 @@ pub struct EnrichedFieldSymbol<'s> {
 #[derive(Clone)]
 pub struct FieldList<'s, I: Iterator<Item = FieldSymbol> + Clone> {
     module_path: AbsolutePath,
-    pool: &'s StringPool,
     tt: &'s FinishedTypeTable,
-    layout: LayoutCalculator<I::Item, I>,
-    padding_index: u8,
-    prev: Option<FieldSymbol>,
-    remainder: bool,
+    pool: &'s StringPool,
+    fields: I,
 }
 
 impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
@@ -79,17 +60,12 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
         pool: &'s StringPool,
         tt: &'s FinishedTypeTable,
         fields: I,
-        reserved_bytes: u8,
-        disable_remainder: bool,
     ) -> Self {
         Self {
             module_path,
-            pool,
             tt,
-            layout: LayoutCalculator::new(reserved_bytes, fields),
-            padding_index: 0,
-            prev: None,
-            remainder: disable_remainder,
+            pool,
+            fields,
         }
     }
 }
@@ -98,52 +74,14 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
     type Item = EnrichedFieldSymbol<'s>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(prev) = self.prev.take() {
-            return Some(EnrichedFieldSymbol {
-                name: Cow::Borrowed(prev.ident().resolve(self.pool)),
-                kind: self.get_field_kind(prev.kind()),
-                is_padding: false,
-            });
-        }
-
-        match self.layout.next() {
-            Some((field, step)) => {
-                if step.padding == 0 {
-                    Some(EnrichedFieldSymbol {
-                        name: Cow::Borrowed(field.ident().resolve(self.pool)),
-                        kind: self.get_field_kind(field.kind()),
-                        is_padding: false,
-                    })
-                } else {
-                    self.prev = Some(field);
-                    let field = EnrichedFieldSymbol {
-                        name: Cow::Owned(format!("__padding{}", self.padding_index)),
-                        kind: get_padding_kind(step.padding),
-                        is_padding: true,
-                    };
-                    self.padding_index += 1;
-                    Some(field)
-                }
-            }
-            None if !self.remainder => {
-                self.remainder = true;
-                let diff = 32 - self.layout.total_size();
-                if diff != 0 {
-                    let name = Cow::Owned(format!("__padding{}", self.padding_index));
-                    Some(EnrichedFieldSymbol {
-                        name,
-                        //TODO: use get_padding_kind function
-                        kind: self.get_field_kind(FieldType::Array(ArraySymbol::new(
-                            T_U8_ID,
-                            Size::try_new(diff).expect("Unreachable!"),
-                        ))),
-                        is_padding: true,
-                    })
-                } else {
-                    None
-                }
-            }
-            None => None,
+        if let Some(field) = self.fields.next() {
+            Some(EnrichedFieldSymbol {
+                name: Cow::Borrowed(field.ident().resolve(self.pool)),
+                kind: self.get_field_kind(field.kind()),
+                is_padding: field.is_padding(),
+            })
+        } else {
+            None
         }
     }
 }

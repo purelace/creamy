@@ -1,10 +1,6 @@
 use std::{borrow::Cow, fs::File, io::Write};
 
-use creamy_libgen::{
-    AbsolutePath,
-    prelude::*,
-    proxy::{EnrichedStreamFieldType, FieldMetadata},
-};
+use creamy_libgen::{AbsolutePath, prelude::*, proxy::EnrichedStreamFieldType};
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
@@ -74,8 +70,9 @@ impl<'s> CodeGenerator<'s> for Mock {
                 },
                 EnrichedFieldSymbol {
                     name: "__padding0".into(),
-                    kind: EnrichedFieldType::Type {
-                        name: Path::from_global("u8")
+                    kind: EnrichedFieldType::Array {
+                        kind: "u8".into(),
+                        len: 1,
                     },
                     is_padding: true,
                 },
@@ -136,6 +133,9 @@ impl<'s> CodeGenerator<'s> for Mock {
         );
 
         let content_fields = symbol.content_fields.collect::<Vec<_>>();
+        let t0 = content_fields[0].type_id;
+        let t1 = content_fields[1].type_id;
+        let t2 = content_fields[2].type_id;
         assert_eq!(
             content_fields,
             [
@@ -146,7 +146,7 @@ impl<'s> CodeGenerator<'s> for Mock {
                             "system", "builtin", "Level"
                         ])),
                     },
-                    metadata: FieldMetadata { offset: 0, size: 1 },
+                    type_id: t0,
                     is_padding: false,
                 },
                 EnrichedStreamFieldSymbol {
@@ -155,13 +155,13 @@ impl<'s> CodeGenerator<'s> for Mock {
                         kind: "u8".into(),
                         len: 3
                     },
-                    metadata: FieldMetadata { offset: 1, size: 3 },
+                    type_id: t1,
                     is_padding: true
                 },
                 EnrichedStreamFieldSymbol {
                     name: "content".into(),
                     kind: EnrichedStreamFieldType::DynamicArray { kind: "u8".into() },
-                    metadata: FieldMetadata { offset: 4, size: 8 },
+                    type_id: t2,
                     is_padding: false
                 }
             ]

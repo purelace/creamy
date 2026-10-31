@@ -30,7 +30,7 @@ use creamy_xmlc::{
     compile,
     model::{
         Direction,
-        constraints::{HEADER_BYTES, MAX_PAYLOAD},
+        constraints::MAX_PAYLOAD,
         definition::{BinaryWriter, ProtocolModel},
         strpool::{StringId, StringPool, StringPoolResolver},
         symbols::{MessageSymbolType, Type},
@@ -407,8 +407,6 @@ impl Codegen {
                             pool,
                             model.table(),
                             fields.iter().copied(),
-                            8,
-                            true,
                         ),
                     };
                     generator.generate_struct(symbol);
@@ -486,8 +484,6 @@ impl Codegen {
                                 pool,
                                 model.table(),
                                 model.fields_range(symbol.fields()).iter().copied(),
-                                HEADER_BYTES,
-                                false,
                             ),
                         ),
                     };
@@ -509,7 +505,6 @@ impl Codegen {
                             pool,
                             model.table(),
                             model.stream_fields_range(symbol.content()).iter().copied(),
-                            0,
                         ),
                     };
                     generator.generate_stream_message(symbol);

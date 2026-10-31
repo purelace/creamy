@@ -3,9 +3,10 @@ use std::{cell::RefCell, num::NonZeroU8};
 use as_guard::AsGuard;
 use creamy_protocol_model::{
     BitsetValuesRange, Direction, FieldsRange, Range, Size, TypeMeta, TypeTable, TypesRange,
-    constraints::MAX_PAYLOAD,
+    constraints::{HEADER_BYTES, MAX_PAYLOAD},
     definition::ProtocolModel,
     error::SemanticError,
+    layout::{LayoutCalculator, LayoutItem},
     storage::SymbolStorage,
     symbols::{
         ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID, FieldSymbol,
@@ -13,7 +14,7 @@ use creamy_protocol_model::{
         I32_ID, I64_ID, I128_ID, MessageSymbol, MessageSymbolType,
         NumericSymbol::{self},
         OptionSymbol, PrimitiveRepr, StreamFieldSymbol, StreamFieldType, StreamSymbol,
-        StructSymbol, Type, U8_ID, U16_ID, U32_ID, U64_ID, U128_ID, VariantSymbol,
+        StructSymbol, T_U8_ID, Type, U8_ID, U16_ID, U32_ID, U64_ID, U128_ID, VariantSymbol,
     },
 };
 use creamy_utils::strpool::{StringPool, StringPoolResolver};
@@ -77,11 +78,11 @@ pub fn compile(pool: &mut StringPool, content: &str) -> Result<ProtocolModel, Di
 pub struct DefinitionBuilder<'a> {
     storage: SymbolStorage,
     diag: &'a mut Diagnostics,
-    pool: &'a StringPool,
+    pool: &'a mut StringPool,
 }
 
 impl<'a> DefinitionBuilder<'a> {
-    fn new(diag: &'a mut Diagnostics, pool: &'a StringPool) -> Self {
+    fn new(diag: &'a mut Diagnostics, pool: &'a mut StringPool) -> Self {
         Self {
             storage: SymbolStorage::default(),
             diag,
@@ -184,7 +185,7 @@ impl<'a> DefinitionBuilder<'a> {
     }
 }
 
-fn run(diag: &mut Diagnostics, pool: &StringPool, tree: ProtocolTree) -> ProtocolModel {
+fn run(diag: &mut Diagnostics, pool: &mut StringPool, tree: ProtocolTree) -> ProtocolModel {
     let mut tt = TypeTable::new(tree.storage.len_of::<GroupNode>() as u8, tree.type_count());
     let mut builder = DefinitionBuilder::new(diag, pool);
 
@@ -214,7 +215,7 @@ struct Resolver<'a> {
     diag: &'a mut Diagnostics,
     tt: &'a mut TypeTable,
     storage: &'a mut SymbolStorage,
-    pool: &'a StringPool,
+    pool: &'a mut StringPool,
     group: NonZeroU8,
 }
 
@@ -223,7 +224,7 @@ impl<'a> Resolver<'a> {
         diag: &'a mut Diagnostics,
         tt: &'a mut TypeTable,
         storage: &'a mut SymbolStorage,
-        pool: &'a StringPool,
+        pool: &'a mut StringPool,
         group: NonZeroU8,
     ) -> Self {
         Self {
@@ -235,28 +236,58 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn resolve_field(&mut self, node: FieldNode) -> FieldSymbol {
+    fn resolve_field(diag: &mut Diagnostics, tt: &TypeTable, node: FieldNode) -> FieldSymbol {
         let kind = match node.kind() {
-            FieldTypeNode::Type(name) => FieldType::Type(self.tt.get_type_by_name(name).unwrap()),
+            FieldTypeNode::Type(name) => FieldType::Type(tt.get_type_by_name(name).unwrap()),
             FieldTypeNode::Array(array) => {
-                let kind = self.tt.get_type_by_name(array.kind()).unwrap();
+                let kind = tt.get_type_by_name(array.kind()).unwrap();
                 let size = Size::try_new(array.size());
-                FieldType::Array(ArraySymbol::new(kind, size.or_recover(self.diag)))
+                FieldType::Array(ArraySymbol::new(kind, size.or_recover(diag)))
             }
         };
-        FieldSymbol::new(node.name(), kind)
+        FieldSymbol::new(node.name(), kind, false)
     }
 
     /// Returns a range of resolved fields
-    fn resolve_fields(&mut self, fields: &[FieldNode], range: FieldsRange) -> FieldsRange {
+    fn resolve_fields(
+        &mut self,
+        fields: &[FieldNode],
+        reserved: u8,
+        max_align: Option<u8>,
+        range: FieldsRange,
+    ) -> FieldsRange {
+        let Self {
+            diag,
+            tt,
+            storage,
+            pool,
+            ..
+        } = self;
+
+        let slice_len_before = storage.get_symbol_slice::<FieldSymbol>().len() as u16;
+
         let slice = &fields[range.as_range()];
-        for field in slice {
-            let symbol = self.resolve_field(*field);
-            assert!(self.storage.add_symbol(symbol));
+        let calc = LayoutCalculator::new(
+            reserved,
+            max_align,
+            slice.iter().map(|f| Self::resolve_field(diag, tt, *f)),
+        );
+
+        for (item, _) in calc {
+            let symbol = match item {
+                LayoutItem::Field(s) => s,
+                LayoutItem::Padding { index, size } => FieldSymbol::new(
+                    pool.get_id_or_add(&format!("__padding{index}")),
+                    FieldType::Array(ArraySymbol::new(T_U8_ID, size)),
+                    true,
+                ),
+            };
+            assert!(storage.add_symbol(symbol));
         }
 
-        let len = self.storage.get_symbol_slice::<FieldSymbol>().len() as u16;
-        FieldsRange::new(len - u16::from(range.len()), range.len())
+        let slice_len_after = storage.get_symbol_slice::<FieldSymbol>().len() as u16;
+        let len = slice_len_after - slice_len_before;
+        FieldsRange::new(slice_len_before, len as u8)
     }
 
     fn resolve_enums(&mut self, from: &[EnumNode], variants: &[VariantNode]) {
@@ -329,7 +360,6 @@ impl<'a> Resolver<'a> {
                     //} else if messages.iter().any(|m| m.name() == kind) {
                     //    ProtocolError::MessageReference(name.to_string())
                     } else {
-                        dbg!(self.pool);
                         SemanticError::CannotResolveTypeFieldNotFound {
                             from: name.to_string(),
                             kind: kind.resolve(self.pool).to_string(),
@@ -346,7 +376,7 @@ impl<'a> Resolver<'a> {
                         Type::Struct(StructSymbol::new(s.name(), FieldsRange::new(0, 0))),
                     );
                 } else {
-                    let new_range = self.resolve_fields(fields, s.fields());
+                    let new_range = self.resolve_fields(fields, 0, None, s.fields());
                     let meta =
                         ProtocolModel::get_struct_meta(self.storage.get_symbol_range(new_range))
                             .or_recover(self.diag);
@@ -396,7 +426,7 @@ impl<'a> Resolver<'a> {
                 m.kind(),
             )
         } else {
-            let new_range = self.resolve_fields(fields, m.fields());
+            let new_range = self.resolve_fields(fields, HEADER_BYTES, Some(32), m.fields());
 
             // Check size and align
             ProtocolModel::get_message_meta(self.storage.get_symbol_range(new_range))
@@ -406,22 +436,26 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn resolve_stream_field(&mut self, node: StreamFieldNode) -> StreamFieldSymbol {
+    fn resolve_stream_field(
+        diag: &mut Diagnostics,
+        tt: &TypeTable,
+        node: StreamFieldNode,
+    ) -> StreamFieldSymbol {
         let kind = match node.kind() {
             StreamFieldTypeNode::Type(name) => {
-                StreamFieldType::Type(self.tt.get_type_by_name(name).unwrap())
+                StreamFieldType::Type(tt.get_type_by_name(name).unwrap())
             }
             StreamFieldTypeNode::StaticArray(array) => {
-                let kind = self.tt.get_type_by_name(array.kind()).unwrap();
+                let kind = tt.get_type_by_name(array.kind()).unwrap();
                 let size = Size::try_new(array.size());
-                StreamFieldType::StaticArray(ArraySymbol::new(kind, size.or_recover(self.diag)))
+                StreamFieldType::StaticArray(ArraySymbol::new(kind, size.or_recover(diag)))
             }
             StreamFieldTypeNode::DynamicArray(array) => {
-                let kind = self.tt.get_type_by_name(array.kind()).unwrap();
+                let kind = tt.get_type_by_name(array.kind()).unwrap();
                 StreamFieldType::DynamicArray(HeapArraySymbol::new(kind))
             }
         };
-        StreamFieldSymbol::new(node.name(), kind)
+        StreamFieldSymbol::new(node.name(), kind, false)
     }
 
     /// Returns a range of resolved fields
@@ -430,14 +464,40 @@ impl<'a> Resolver<'a> {
         fields: &[StreamFieldNode],
         range: FieldsRange,
     ) -> FieldsRange {
+        let Self {
+            diag,
+            tt,
+            storage,
+            pool,
+            ..
+        } = self;
+
+        let slice_len_before = storage.get_symbol_slice::<StreamFieldSymbol>().len() as u16;
+
         let slice = &fields[range.as_range()];
-        for field in slice {
-            let symbol = self.resolve_stream_field(*field);
-            assert!(self.storage.add_symbol(symbol));
+        let calc = LayoutCalculator::new(
+            0,
+            None,
+            slice
+                .iter()
+                .map(|f| Self::resolve_stream_field(diag, tt, *f)),
+        );
+
+        for (item, _) in calc {
+            let symbol = match item {
+                LayoutItem::Field(s) => s,
+                LayoutItem::Padding { index, size } => StreamFieldSymbol::new(
+                    pool.get_id_or_add(&format!("__padding{index}")),
+                    StreamFieldType::StaticArray(ArraySymbol::new(T_U8_ID, size)),
+                    true,
+                ),
+            };
+            assert!(storage.add_symbol(symbol));
         }
 
-        let len = self.storage.get_symbol_slice::<StreamFieldSymbol>().len() as u16;
-        FieldsRange::new(len - u16::from(range.len()), range.len())
+        let slice_len_after = storage.get_symbol_slice::<StreamFieldSymbol>().len() as u16;
+        let len = slice_len_after - slice_len_before;
+        FieldsRange::new(slice_len_before, len as u8)
     }
 
     fn resolve_stream_message(&mut self, m: StreamNode, from: &[StreamFieldNode]) -> StreamSymbol {

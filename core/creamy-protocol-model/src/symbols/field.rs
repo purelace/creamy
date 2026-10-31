@@ -26,6 +26,7 @@ pub struct FieldSymbol {
     #[token(ident)]
     ident: StringId,
     kind: FieldType,
+    is_padding: bool,
 }
 
 impl Field for FieldSymbol {

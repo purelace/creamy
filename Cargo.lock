@@ -883,6 +883,7 @@ dependencies = [
  "creamy-utils",
  "hashbrown 0.17.1",
  "miette",
+ "pretty_assertions",
  "semver",
  "strum",
  "thiserror 2.0.21",

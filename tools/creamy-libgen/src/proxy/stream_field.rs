@@ -2,18 +2,11 @@ use std::borrow::Cow;
 
 use creamy_plugin_package::pool::{StringPool, StringPoolResolver};
 use creamy_xmlc::model::{
-    FinishedTypeTable,
-    layout::LayoutCalculator,
+    FinishedTypeTable, TypeId,
     symbols::{StreamFieldSymbol, StreamFieldType, get_builtin_type_name, is_builtin_type},
 };
 
 use crate::{Path, SymbolIterator, utils::AbsolutePath};
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FieldMetadata {
-    pub offset: usize,
-    pub size: usize,
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EnrichedStreamFieldType<'s> {
@@ -22,35 +15,20 @@ pub enum EnrichedStreamFieldType<'s> {
     DynamicArray { kind: Cow<'s, str> },
 }
 
-fn get_padding_kind<'a>(padding: u8) -> EnrichedStreamFieldType<'a> {
-    if padding <= 1 {
-        EnrichedStreamFieldType::Type {
-            name: Path::from_global("u8"),
-        }
-    } else {
-        EnrichedStreamFieldType::StaticArray {
-            kind: Cow::Borrowed("u8"),
-            len: padding,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct EnrichedStreamFieldSymbol<'s> {
     pub name: Cow<'s, str>,
     pub kind: EnrichedStreamFieldType<'s>,
-    pub metadata: FieldMetadata,
+    pub type_id: TypeId,
     pub is_padding: bool,
 }
 
 #[derive(Clone)]
 pub struct StreamFieldList<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> {
     module_path: AbsolutePath,
-    pool: &'s StringPool,
     tt: &'s FinishedTypeTable,
-    layout: LayoutCalculator<I::Item, I>,
-    padding_index: u8,
-    prev: Option<(StreamFieldSymbol, FieldMetadata)>,
+    pool: &'s StringPool,
+    fields: I,
 }
 
 impl<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> StreamFieldList<'s, I> {
@@ -90,15 +68,12 @@ impl<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> StreamFieldList<'s, I> {
         pool: &'s StringPool,
         tt: &'s FinishedTypeTable,
         fields: I,
-        reserved_bytes: u8,
     ) -> Self {
         Self {
             module_path,
-            pool,
             tt,
-            layout: LayoutCalculator::new(reserved_bytes, fields),
-            padding_index: 0,
-            prev: None,
+            pool,
+            fields,
         }
     }
 }
@@ -107,50 +82,15 @@ impl<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> Iterator for StreamField
     type Item = EnrichedStreamFieldSymbol<'s>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((prev, metadata)) = self.prev.take() {
-            return Some(EnrichedStreamFieldSymbol {
-                name: Cow::Borrowed(prev.ident().resolve(self.pool)),
-                kind: self.get_field_kind(prev.kind()),
-                is_padding: false,
-                metadata,
-            });
-        }
-
-        match self.layout.next() {
-            Some((field, step)) => {
-                if step.padding == 0 {
-                    Some(EnrichedStreamFieldSymbol {
-                        name: Cow::Borrowed(field.ident().resolve(self.pool)),
-                        kind: self.get_field_kind(field.kind()),
-                        is_padding: false,
-                        metadata: FieldMetadata {
-                            offset: step.offset as usize,
-                            size: step.size as usize,
-                        },
-                    })
-                } else {
-                    self.prev = Some((
-                        field,
-                        FieldMetadata {
-                            offset: step.offset as usize,
-                            size: step.size as usize,
-                        },
-                    ));
-
-                    let field = EnrichedStreamFieldSymbol {
-                        name: Cow::Owned(format!("__padding{}", self.padding_index)),
-                        kind: get_padding_kind(step.padding),
-                        is_padding: true,
-                        metadata: FieldMetadata {
-                            offset: step.offset as usize - step.padding as usize,
-                            size: step.padding as usize,
-                        },
-                    };
-                    self.padding_index += 1;
-                    Some(field)
-                }
-            }
-            None => None,
+        if let Some(field) = self.fields.next() {
+            Some(EnrichedStreamFieldSymbol {
+                name: Cow::Borrowed(field.ident().resolve(self.pool)),
+                kind: self.get_field_kind(field.kind()),
+                type_id: field.type_id(),
+                is_padding: field.is_padding(),
+            })
+        } else {
+            None
         }
     }
 }

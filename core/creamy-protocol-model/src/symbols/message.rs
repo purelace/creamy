@@ -44,6 +44,7 @@ pub struct StreamFieldSymbol {
     #[token(ident)]
     ident: StringId,
     kind: StreamFieldType,
+    is_padding: bool,
 }
 
 impl Field for StreamFieldSymbol {

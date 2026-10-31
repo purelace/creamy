@@ -30,11 +30,11 @@ where
             let name = &f.name;
             let kind = match f.kind {
                 EnrichedStreamFieldType::Type { name } => {
-                    to += f.metadata.size;
+                    to += f.type_id.size().value() as usize;
                     path_to_string(&name)
                 }
                 EnrichedStreamFieldType::StaticArray { kind, len } => {
-                    to += f.metadata.size;
+                    to += f.type_id.size().value() as usize * len as usize;
                     format!("[{kind}; {len}]")
                 }
                 EnrichedStreamFieldType::DynamicArray { kind } => {

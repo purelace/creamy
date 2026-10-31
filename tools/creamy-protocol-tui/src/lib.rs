@@ -8,6 +8,7 @@ use console::style;
 use creamy_xmlc::model::{
     constraints::HEADER_BYTES,
     definition::ProtocolModel,
+    layout::compute_layout,
     strpool::{StringPool, StringPoolResolver},
     symbols::{FieldSymbol, FieldType, MessageSymbolType, Type},
 };
@@ -92,6 +93,14 @@ pub fn show_all_groups(def: &ProtocolModel, pool: &StringPool) {
     }
 }
 
+fn get_struct_paddings(fields: &[FieldSymbol]) -> u8 {
+    let mut paddings = 0;
+    compute_layout(0, None, fields, |_, l| {
+        paddings += l.padding;
+    });
+    paddings
+}
+
 pub fn show_memory_layout(
     def: &ProtocolModel,
     pool: &StringPool,
@@ -118,7 +127,7 @@ pub fn show_memory_layout(
     let finished_report = report.finish(
         meta.size().value() as usize,
         meta.align().size() as usize,
-        ProtocolModel::get_struct_paddings(fields) as usize,
+        get_struct_paddings(fields) as usize,
     );
     finished_report.print_tree();
 }

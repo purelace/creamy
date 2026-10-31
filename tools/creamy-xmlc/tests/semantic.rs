@@ -77,9 +77,8 @@ fn semantic_errors() {
         errors,
         vec![
             SemanticError::InvalidSize { actual: 224 }.into(),
-            SemanticError::InvalidSize { actual: 84 }.into(),
+            SemanticError::InvalidSize { actual: 92 }.into(),
             // ZST
-            SemanticError::InvalidSize { actual: 0 }.into(),
             SemanticError::InvalidSize { actual: 0 }.into(),
             // Enum errors
             SemanticError::InvalidEnumUnderlyingType.into(),

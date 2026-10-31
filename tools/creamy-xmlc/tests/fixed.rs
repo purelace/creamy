@@ -88,7 +88,8 @@ fn invalid_field_range() {
         fields,
         [FieldSymbol::new(
             pool.get_id("value"),
-            FieldType::Type(T_U64_ID)
+            FieldType::Type(T_U64_ID),
+            false,
         )],
     );
 }
