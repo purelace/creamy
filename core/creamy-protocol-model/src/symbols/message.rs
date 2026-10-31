@@ -61,9 +61,7 @@ impl Field for StreamFieldSymbol {
             StreamFieldType::StaticArray(array) => array.total_size(),
             StreamFieldType::DynamicArray(_) => {
                 const ARRAY_LENGTH_FIELD: u8 = 4;
-                const ARRAY_POINTER_FIELD: u8 = 4;
-
-                ARRAY_LENGTH_FIELD + ARRAY_POINTER_FIELD
+                ARRAY_LENGTH_FIELD
             }
         }
     }
