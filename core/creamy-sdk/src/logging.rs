@@ -1,19 +1,25 @@
 use alloc::{boxed::Box, string::ToString};
 use core::fmt::Arguments;
 
-use crate::generated::system::builtin;
+use cbus_core::SubscriberId;
+
+use crate::generated::system::builtin::log::LogContent;
 pub use crate::generated::system::builtin::{Log, LogType};
+
+const SYSTEM: SubscriberId = SubscriberId::new_u8(1).unwrap();
 
 pub fn send_log(string: Arguments, log_type: LogType) {
     // TODO: use const
     // TODO: fix allocations
-    let mut stream = crate::stream::StreamWriter::<Log>::new(1, crate::stream::StreamId::new(0));
+    // TODO: implement dynamic stream id
+    let mut stream =
+        crate::stream::StreamWriter::<Log>::new(SYSTEM.as_u8(), crate::stream::StreamId::new(0));
     let content = if let Some(string) = string.as_str() {
         Box::from(string.as_bytes())
     } else {
         Box::from(string.to_string().as_bytes())
     };
-    stream.send(&builtin::log::LogContent::new(log_type, content));
+    stream.send(&LogContent::new(log_type, content));
 }
 
 #[macro_export]
