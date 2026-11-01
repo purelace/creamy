@@ -34,7 +34,13 @@ pub trait StreamContent: BinaryWriter {
 }
 
 pub trait StreamLightweightContent: Sized {
-    fn new(data: &mut [u8]) -> &Self;
+    /// Creates a reference to `Self` by casting a raw byte slice to the target type.
+    ///
+    /// # Safety
+    ///
+    /// This method **is not intended for manual invocation** by end-users. Safety is
+    /// guaranteed exclusively for code generated automatically.
+    unsafe fn new(data: &mut [u8]) -> &Self;
 }
 
 pub trait StreamMessage: Message {

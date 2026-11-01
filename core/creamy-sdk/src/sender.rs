@@ -43,6 +43,7 @@ impl Sender {
             return false;
         };
 
+        //TODO: dynamic stream id
         let mut writer = StreamWriter::<T>::new(dst.as_u8(), StreamId::new(10));
         writer.send(content);
         true

@@ -1,5 +1,7 @@
-use std::borrow::Cow;
-
+use creamy_libgen::{
+    SymbolIterator,
+    proxy::{EnrichedStreamFieldSymbol, EnrichedStreamFieldType},
+};
 use genco::{lang::rust::Tokens, quote};
 
 use crate::Args;
@@ -29,75 +31,98 @@ pub fn generate_binary_writer_trait_impl(args: &Args, target: &str) -> Tokens {
     generate_trait_impl(args, target, content)
 }
 
-pub enum SliceData<'s> {
-    Partial { from: usize, to: usize },
-    Array { name: Cow<'s, str> },
-}
+fn generate_writer_body<'s, I>(fields: I) -> Option<Tokens>
+where
+    I: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+{
+    let mut array_write = vec![];
+    let mut tokens = vec![];
+    let mut from = 0;
+    let mut to = 0;
 
-pub fn generate_binary_writer_trait_impl_with_partial_slices(
-    args: &Args,
-    target: &str,
-    slices: Vec<SliceData<'_>>,
-) -> Tokens {
-    use core::fmt::Write;
-
-    const SLICE: &str = "
-    let slice = unsafe {
-        core::mem::transmute::<&Self, &[u8; core::mem::size_of::<Self>()]>(self)
-    };";
-
-    let mut has_content = false;
-    let mut content = String::new();
-    let mut array_slices = String::new();
-
-    for s in slices {
-        match s {
-            SliceData::Partial { from, to } => {
-                //unsafe {
-                //    &*(&self.data[1] as *const u8 as *const [u8; $size_const])
-                //}
-                has_content = true;
-                let len = to - from;
-                let _ = writeln!(
-                    &mut content,
-                    "
-                    let sub_slice = &slice[{from}..{to}];
-                    let sub_slice = unsafe {{
-                        &*(&sub_slice[0] as *const u8 as *const [u8; {len}])
-                    }};
-                    sub_slice.write::<W, E>(writer)?;"
-                );
+    for f in fields {
+        let name = &f.name;
+        match f.kind {
+            EnrichedStreamFieldType::Type { .. } => {
+                to += f.type_id.size().value() as usize;
             }
-            SliceData::Array { name } => {
-                let _ = writeln!(
-                    &mut content,
-                    "(self.{name}.len() as u32).write::<W, E>(writer)?;"
-                );
-                let _ = writeln!(
-                    &mut array_slices,
-                    "
-                    for byte in &self.{name} {{
+            EnrichedStreamFieldType::StaticArray { len, .. } => {
+                to += f.type_id.size().value() as usize * len as usize;
+            }
+            EnrichedStreamFieldType::DynamicArray { kind } => {
+                if to != from {
+                    tokens.push(quote! {
+                        //
+                        let sub_slice = &slice[offset..$to + offset];
+                        let sub_slice = unsafe {
+                            &*(&sub_slice[0] as *const u8 as *const [u8; $to])
+                        };
+                        sub_slice.write::<W, E>(writer)?;
+                        offset += size_of::<alloc::boxed::Box<[$kind]>>() + $to;
+                    });
+                }
+                tokens.push(quote! {
+                    (self.$name.len() as u32).write::<W, E>(writer)?;
+                });
+                array_write.push(quote! {
+                    for byte in &self.$name {
                         byte.write::<W, E>(writer)?;
-                    }}
-                "
-                );
+                    }
+                });
+                from = 0;
+                to = 0;
             }
         }
     }
 
-    let slice = if has_content {
-        quote!($SLICE)
+    if to != 0 {
+        tokens.push(quote! {
+            let sub_slice = &slice[offset..$to + offset];
+            let sub_slice = unsafe {
+                &*(&sub_slice[0] as *const u8 as *const [u8; $to])
+            };
+            sub_slice.write::<W, E>(writer)?;
+        });
+    }
+
+    if tokens.is_empty() {
+        None
     } else {
-        Tokens::default()
+        Some(quote! {
+            let mut offset = 0;
+            $tokens
+
+            $array_write
+        })
+    }
+}
+
+pub fn generate_binary_writer_trait_impl_with_partial_slices<'s, I>(
+    args: &Args,
+    target: &str,
+    fields: I,
+) -> Tokens
+where
+    I: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+{
+    let body = match generate_writer_body(fields) {
+        Some(tokens) => {
+            quote! {
+                let slice = unsafe {
+                    core::mem::transmute::<&Self, &[u8; core::mem::size_of::<Self>()]>(self)
+                };
+
+                $tokens
+            }
+        }
+        None => Tokens::default(),
     };
 
     generate_trait_impl(
         args,
         target,
         quote! {
-            $slice
-            $content
-            $array_slices
+            $body
             Ok(())
         },
     )

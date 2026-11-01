@@ -129,10 +129,9 @@ where
         }
 
         impl $trait_path for $new_target {
-            fn new(data: &mut [u8]) -> &Self {
+            unsafe fn new(data: &mut [u8]) -> &Self {
                 const SIZE: usize = core::mem::size_of::<$new_target>();
 
-                //TODO: wtf??
                 unsafe {
                     let main_slice = &mut *(&mut data[0] as *mut u8 as *mut [u8; SIZE]);
                     core::mem::transmute::<&mut [u8; SIZE], &mut Self>(main_slice)

@@ -86,6 +86,6 @@ pub struct Converter<W: StreamMessage> {
 
 impl<W: StreamMessage> Converter<W> {
     pub fn read(&mut self) -> &W::Lightweight {
-        W::Lightweight::new(&mut self.buffer)
+        unsafe { W::Lightweight::new(&mut self.buffer) }
     }
 }

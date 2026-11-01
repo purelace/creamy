@@ -5,12 +5,7 @@ use creamy_libgen::{
 use genco::{lang::rust::Tokens, quote};
 
 use crate::{
-    Args,
-    binary_utils::{
-        SliceData, generate_binary_writer_trait_impl,
-        generate_binary_writer_trait_impl_with_partial_slices,
-    },
-    path_to_string,
+    Args, binary_utils::generate_binary_writer_trait_impl_with_partial_slices, path_to_string,
 };
 
 pub fn generate_stream_content<'s, I>(args: &Args, message: &str, fields_iter: I) -> Tokens
@@ -20,35 +15,19 @@ where
     let name = &format!("{message}Content");
 
     let mut additional_size_content = Vec::new();
-    let mut slices = vec![];
-    let mut from = 0;
-    let mut to = 0;
 
     let fields = fields_iter
         .clone()
         .map(|f| {
             let name = &f.name;
             let kind = match f.kind {
-                EnrichedStreamFieldType::Type { name } => {
-                    to += f.type_id.size().value() as usize;
-                    path_to_string(&name)
-                }
+                EnrichedStreamFieldType::Type { name } => path_to_string(&name),
                 EnrichedStreamFieldType::StaticArray { kind, len } => {
-                    to += f.type_id.size().value() as usize * len as usize;
                     format!("[{kind}; {len}]")
                 }
                 EnrichedStreamFieldType::DynamicArray { kind } => {
                     //TODO: сделать проверку на переполнение
                     additional_size_content.push(format!("self.{}.len() as u32", f.name));
-
-                    if to != from {
-                        slices.push(SliceData::Partial { from, to });
-                    }
-                    slices.push(SliceData::Array {
-                        name: f.name.clone(),
-                    });
-                    from += 8; // Size of array
-                    to = from;
 
                     format!("alloc::boxed::Box<[{kind}]>")
                 }
@@ -60,11 +39,8 @@ where
         })
         .collect::<Vec<_>>();
 
-    let trait_impl = if from == 0 && to != 0 {
-        generate_binary_writer_trait_impl(args, name)
-    } else {
-        generate_binary_writer_trait_impl_with_partial_slices(args, name, slices)
-    };
+    let writer_impl =
+        generate_binary_writer_trait_impl_with_partial_slices(args, name, fields_iter.clone());
 
     let mut additional_data = additional_size_content.join("+").clone();
     if additional_data.is_empty() {
@@ -117,7 +93,7 @@ where
             }
         }
 
-        $trait_impl
+        $writer_impl
 
         impl $content_trait_path for $name {
             type Message = super::$message;
