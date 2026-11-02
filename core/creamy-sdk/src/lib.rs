@@ -17,7 +17,6 @@ pub mod message;
 mod sender;
 pub mod state;
 pub mod stream;
-pub mod utils;
 mod wasm;
 
 pub mod binary {
