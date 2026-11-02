@@ -18,5 +18,8 @@ thiserror.workspace = true
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 rlsf = "0.2.3"
 
+[features]
+std = []
+
 [build-dependencies]
 creamy-libgen-rs.workspace = true
