@@ -1,6 +1,5 @@
 use core::marker::PhantomData;
 
-use arrayvec::ArrayVec;
 use as_guard::AsGuard;
 use cbus_core::{Subscriber, buffer::reference::RefMutBuf};
 
@@ -121,7 +120,6 @@ macro_rules! define_strategy {
                     $last_runner::prepare_batches(slice!($last_field), data);
                     pipeline.batch_messages(data);
                     $last_runner::send_batches(pipeline, data);
-                    pipeline.batch.clear();
                     data.memory.message.clear();
                 }
 
@@ -179,11 +177,16 @@ where
     fn run(pipeline: &mut MessagePipeline<S, MM, MG, MS>, data: &mut PipelineData<S, MM, MG, MS>);
 }
 
+#[derive(Default, Debug, Copy, Clone)]
+struct Slice {
+    pub count: u32,
+    pub offset: u32,
+}
+
 #[derive(Debug)]
 pub struct MessagePipeline<S: Subscriber, const MM: usize, const MG: usize, const MS: usize> {
     plan: PipelinePlan,
-    // dst, count, ptr_location
-    batch: ArrayVec<(u8, u32, usize), MS>,
+    batch: [Slice; MS],
     _phantom: PhantomData<S>,
 }
 
@@ -194,7 +197,7 @@ where
     pub fn new() -> Self {
         Self {
             plan: PipelinePlan::new(),
-            batch: ArrayVec::new(),
+            batch: [Slice::default(); MS],
             _phantom: PhantomData,
         }
     }
@@ -233,7 +236,10 @@ where
             .chunk_by(|a, b| a.dst == b.dst)
             .for_each(|slice| {
                 let dst = slice[0].dst; // slice гарантированно не пустой
-                self.batch.push((dst, slice.len().safe_as(), ptr_location));
+                self.batch[dst as usize] = Slice {
+                    count: slice.len().safe_as(),
+                    offset: ptr_location.safe_as(),
+                };
                 ptr_location += slice.len();
             });
     }

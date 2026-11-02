@@ -1,5 +1,6 @@
 use cbus_core::Subscriber;
 
+use super::Slice;
 use crate::{
     core::UntypedMessage,
     cpu::{MessagePipeline, PipelineData},
@@ -76,24 +77,19 @@ pub trait InstructionSet<
         pipeline: &mut MessagePipeline<S, MM, MG, MS>,
         data: &mut PipelineData<S, MM, MG, MS>,
     ) {
-        let mut batch = core::mem::take(&mut pipeline.batch);
-
-        for (dst, len, ptr_location) in batch.drain(..) {
-            let read = data.memory.message.slice(len, ptr_location);
-
-            let sub_data = &mut data.memory.subscribers[dst as usize];
+        for id in data.subscriber_range {
+            let Slice { count, offset } = pipeline.batch[id.as_usize()];
+            pipeline.batch[id.as_usize()].count = 0;
+            let read = data.memory.message.slice(count, offset);
+            let sub_data = &mut data.memory.subscribers[id.as_usize()];
             let mut buffer = sub_data.incoming_mut();
-            let write = buffer.write_slice_mut(len);
-
+            let write = buffer.write_slice_mut(count);
             Self::slices_send(read, write);
-
             // SAFETY: TODO
             unsafe {
-                buffer.add_count(len);
+                buffer.add_count(count);
             }
         }
-
-        let _ = core::mem::replace(&mut pipeline.batch, batch);
     }
 
     /// Делит оба слайса на равные чанки и передает их в `InstructionSet::send_exaclty`.
