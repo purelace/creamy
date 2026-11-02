@@ -19,12 +19,8 @@ log = "0.4.34"
 hashbrown = "0.17.1"
 
 [dev-dependencies]
-tempfile.workspace = true
 anyhow.workspace = true
 tracing-subscriber.workspace = true
-pathenv.workspace = true
-creamy-loader.workspace = true
-creamy-wasmtime.workspace = true
 
 [build-dependencies]
 creamy-libgen-rs.workspace = true

@@ -715,15 +715,11 @@ dependencies = [
  "creamy-binary",
  "creamy-engine-core",
  "creamy-libgen-rs",
- "creamy-loader",
  "creamy-sdk",
- "creamy-wasmtime",
  "hashbrown 0.17.1",
  "log",
- "pathenv",
  "rustc-hash",
  "smol_str",
- "tempfile",
  "thiserror 2.0.21",
  "tracing",
  "tracing-subscriber",
@@ -942,9 +938,15 @@ dependencies = [
 name = "creamy-wasmtime"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "creamy",
  "creamy-engine-core",
+ "creamy-loader",
+ "pathenv",
+ "tempfile",
  "thiserror 2.0.21",
  "tracing",
+ "tracing-subscriber",
  "wasmtime",
 ]
 

@@ -22,3 +22,11 @@ wasmtime = { version = "50.0.0", default-features = false, features = [
     "coredump",
     "debug-builtins",
 ] }
+
+[dev-dependencies]
+creamy.workspace = true
+creamy-loader.workspace = true
+anyhow.workspace = true
+pathenv.workspace = true
+tracing-subscriber.workspace = true
+tempfile.workspace = true
