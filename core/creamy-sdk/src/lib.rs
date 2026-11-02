@@ -20,10 +20,6 @@ pub mod stream;
 pub mod utils;
 mod wasm;
 
-pub mod spin {
-    pub use spin::*;
-}
-
 pub mod binary {
     pub use creamy_binary::*;
 }
