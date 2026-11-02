@@ -2,7 +2,7 @@ use alloc::{boxed::Box, format, vec::Vec};
 use core::{marker::PhantomData, num::NonZeroU8};
 
 use creamy_engine_core::{
-    GroupTable, PluginLoader, WasmModule, WasmRuntime,
+    GroupTable, Module, PluginLoader, Runtime,
     bus::{
         MessageBus, SubscriberLookupData,
         config::BusConfig,
@@ -91,7 +91,7 @@ impl HostSubscriber for () {
 struct Plugin<C, R, H, const S: usize, const M: usize>
 where
     C: BusConfig,
-    R: WasmRuntime<C>,
+    R: Runtime<C>,
     H: HostSubscriber,
 {
     manifest: Package,
@@ -101,7 +101,7 @@ where
 pub enum SubscriberType<C, R, H, const S: usize, const M: usize>
 where
     C: BusConfig,
-    R: WasmRuntime<C>,
+    R: Runtime<C>,
     H: HostSubscriber,
 {
     System(SystemPlugin<S, M>),
@@ -112,7 +112,7 @@ where
 impl<C, R, H, const S: usize, const M: usize> Subscriber for Plugin<C, R, H, S, M>
 where
     C: BusConfig,
-    R: WasmRuntime<C>,
+    R: Runtime<C>,
     H: HostSubscriber,
 {
     fn notify(&mut self) {
@@ -141,7 +141,7 @@ struct ValidationContext {
 
 pub struct PluginEngine<
     C: BusConfig,
-    R: WasmRuntime<C>,
+    R: Runtime<C>,
     L: PluginLoader,
     H: HostSubscriber,
     const S: usize,
@@ -157,7 +157,7 @@ pub struct PluginEngine<
 
 impl<
     C: BusConfig,
-    R: WasmRuntime<C>,
+    R: Runtime<C>,
     L: PluginLoader,
     H: HostSubscriber,
     const S: usize,

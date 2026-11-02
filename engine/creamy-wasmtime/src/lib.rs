@@ -5,10 +5,10 @@ extern crate alloc;
 use core::ptr::NonNull;
 
 use creamy_engine_core::{
-    GroupTable, WasmModule, WasmRuntime,
+    GroupTable, Module, Runtime,
     bus::{config::BusConfig, core::Subscriber},
 };
-use wasmtime::{Config, Engine, Instance, Module, PoolingAllocationConfig, Store, TypedFunc};
+use wasmtime::{Config, Engine, Instance, PoolingAllocationConfig, Store, TypedFunc};
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuntimeError {
@@ -24,7 +24,7 @@ pub struct WasmPlugin {
     instance: Instance,
 }
 
-impl WasmModule for WasmPlugin {
+impl Module for WasmPlugin {
     fn incoming_ptr(&self) -> NonNull<u8> {
         self.incoming_ptr
     }
@@ -119,12 +119,12 @@ impl WasmtimeRuntime {
     }
 }
 
-impl<C: BusConfig> WasmRuntime<C> for WasmtimeRuntime {
+impl<C: BusConfig> Runtime<C> for WasmtimeRuntime {
     type Error = RuntimeError;
     type Module = WasmPlugin;
 
     fn init_module(&mut self, module: &[u8]) -> Result<Self::Module, Self::Error> {
-        let module = Module::from_binary(&self.engine, module)?;
+        let module = wasmtime::Module::from_binary(&self.engine, module)?;
         let mut store = Store::new(&self.engine, ());
 
         let instance = Instance::new(&mut store, &module, &[])?;

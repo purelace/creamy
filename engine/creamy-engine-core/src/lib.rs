@@ -60,15 +60,15 @@ impl<'a> GroupTable<'a> {
     }
 }
 
-pub trait WasmModule: Subscriber {
+pub trait Module: Subscriber {
     fn incoming_ptr(&self) -> NonNull<u8>;
     fn outgoing_ptr(&self) -> NonNull<u8>;
     fn get_group_table(&mut self) -> GroupTable<'_>;
 }
 
-pub trait WasmRuntime<C: BusConfig>: 'static {
+pub trait Runtime<C: BusConfig>: 'static {
     type Error: core::error::Error;
-    type Module: WasmModule;
+    type Module: Module;
 
     #[allow(clippy::missing_errors_doc)]
     fn init_module(&mut self, module: &[u8]) -> Result<Self::Module, Self::Error>;
