@@ -11,7 +11,6 @@ use as_guard::AsGuard;
 use cbus_core::Subscriber;
 
 use crate::{
-    config::BusConfig,
     core::UntypedMessage,
     cpu::{
         PipelineData,
@@ -46,14 +45,14 @@ impl Avx512FInstructionSet {
     }
 
     #[inline(always)]
-    fn get_valid_header<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn get_valid_header<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         zmm_messages: &[__m512i; 8],
     ) -> __m512i {
         unsafe {
-            let shift_bits = LookupTable::<C>::MAX_GROUPS.trailing_zeros();
+            let shift_bits = MG.trailing_zeros();
             let zmm_bits = _mm512_set1_epi32(shift_bits.safe_as());
 
             let idx_mask = 0b0000_0001_0000_0001_u16;
@@ -116,8 +115,8 @@ impl Avx512FInstructionSet {
     }
 
     #[inline(always)]
-    fn validate_messages<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn validate_messages<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         mut zmm_messages: [__m512i; 8],
@@ -173,8 +172,8 @@ impl Avx512FInstructionSet {
     }
 
     #[inline(always)]
-    fn validate_and_write_messages<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn validate_and_write_messages<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         destinations: &[*mut __m512i; 8],
@@ -228,9 +227,9 @@ fn cast_mut(from: &mut [UntypedMessage; 16]) -> [*mut __m512i; 8] {
     core::array::from_fn(|i| (&raw mut from[i * 2]).cast::<__m512i>())
 }
 
-impl<C, S, const M: usize> InstructionSet<C, S, M, 16> for Avx512FInstructionSet
+impl<S, const MM: usize, const MG: usize, const MS: usize> InstructionSet<S, MM, MG, MS, 16>
+    for Avx512FInstructionSet
 where
-    C: BusConfig,
     S: Subscriber,
 {
     #[inline(always)]
@@ -242,12 +241,12 @@ where
 
     #[inline(always)]
     fn send_remainder(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
-        <Avx2InstructionSet as InstructionSet<C, S, M, _>>::slices_send(read, write);
+        <Avx2InstructionSet as InstructionSet<S, MM, MG, MS, _>>::slices_send(read, write);
     }
 
     #[inline(always)]
     fn prepare_and_send_exactly(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage; 16],
@@ -260,19 +259,19 @@ where
 
     #[inline(always)]
     fn prepare_and_send_remainder(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        <Avx2InstructionSet as InstructionSet<C, S, M, _>>::slices_prepare_and_send(
+        <Avx2InstructionSet as InstructionSet<S, MM, MG, MS, _>>::slices_prepare_and_send(
             lut, range, src, read, write,
         );
     }
 
     #[inline(always)]
-    fn prepare_batches(subscribers: &[u8], data: &mut PipelineData<C, S, M>) {
+    fn prepare_batches(subscribers: &[u8], data: &mut PipelineData<S, MM, MG, MS>) {
         for src in subscribers.iter().copied() {
             let mut buffer = data.memory.get_mut_out_buf(src);
 
@@ -291,7 +290,7 @@ where
                 write_odd,
             );
 
-            <Self as InstructionSet<C, S, M, _>>::slices_prepare_and_send(
+            <Self as InstructionSet<S, MM, MG, MS, _>>::slices_prepare_and_send(
                 data.lookup_table,
                 data.subscriber_range,
                 src,

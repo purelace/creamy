@@ -1,7 +1,7 @@
 use std::{env, num::NonZeroU8};
 
-use creamy::{core::package::version::Version, engine::PluginEngine};
-use creamy_engine_core::{bus::define_bus_config, package::pool::StringPoolResolver};
+use creamy::{core::package::version::Version, define_engine};
+use creamy_engine_core::package::pool::StringPoolResolver;
 use creamy_loader::Loader;
 use creamy_wasmtime::WasmtimeRuntime;
 use pathenv::to_absolute_path;
@@ -59,16 +59,13 @@ fn compile_plugin() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub const M: usize = 1024;
-pub const S: usize = 32;
-define_bus_config! {
-    Legacy,
-    max_subscribers: 32,
+define_engine! {
     max_messages: 1024,
     max_groups: 32,
+    max_subscribers: 32,
 }
 
-fn init_engine() -> anyhow::Result<PluginEngine<Legacy, WasmtimeRuntime, Loader, (), S, M>> {
+fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader, ()>> {
     const HEAP_SIZE: u32 = 67_108_864;
     let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
     let loader = Loader::new(to_absolute_path("$CREAMY_TEST_PLUGIN_DIR").unwrap())?;

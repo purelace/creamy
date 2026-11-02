@@ -1,6 +1,6 @@
 use std::num::NonZeroU8;
 
-use cbus::{BusDriver, DataIterator, config::BusConfig, core::SubscriberId};
+use cbus::{BusDriver, DataIterator, core::SubscriberId};
 
 #[derive(Debug)]
 pub struct EmptyDriver;

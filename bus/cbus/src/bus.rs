@@ -11,7 +11,6 @@ use idmint::StackMint;
 
 use crate::{
     BusDriver, BusError,
-    config::BusConfig,
     core::Subscriber,
     cpu::MemoryPools,
     driver::Driver,
@@ -55,57 +54,67 @@ impl<S: Subscriber, const M: usize> SubscriberData<S, M> {
     }
 }
 
+const fn is_valid_u8<const V: usize>() -> bool {
+    // 0 < V <= 255
+    // V % 2 == 0
+    V.is_multiple_of(2) && V <= u8::MAX as usize && V != 0
+}
+
+const fn is_valid_subscriber_parameter<const MS: usize>() -> bool {
+    // 0 < M <= 255
+    MS <= u8::MAX as usize && MS != 0
+}
+
+const fn is_valid_message_parameter<const MM: usize>() -> bool {
+    // 0 < M <= u32::MAX
+    MM <= u32::MAX as usize && MM != 0
+}
+
 #[derive(Debug)]
-pub struct MessageBus<C, D, const M: usize, S = Box<dyn Subscriber>>
+pub struct MessageBus<D, const MM: usize, const MG: usize, const MS: usize, S = Box<dyn Subscriber>>
 where
-    C: BusConfig,
     D: BusDriver,
     S: Subscriber,
 {
-    pool: MessagePool<C>,
-    subscribers: Box<[SubscriberData<S, M>]>,
+    pool: MessagePool<MM, MS>,
+    subscribers: Box<[SubscriberData<S, MM>; MS]>,
     mint: StackMint,
-    driver: Driver<C, D, S, M>,
+    driver: Driver<D, S, MM, MG, MS>,
 }
 
-impl<C, D, const M: usize, S> MessageBus<C, D, M, S>
+impl<D, const MM: usize, const MG: usize, const MS: usize, S> MessageBus<D, MM, MG, MS, S>
 where
-    C: BusConfig,
     D: BusDriver,
     S: Subscriber,
 {
     /// Creates a new message bus with the specified configuration and driver.
     pub fn new(driver: D) -> Self {
         const {
-            assert!(C::MAX_MESSAGES.get() as usize == M);
+            assert!(is_valid_u8::<MG>());
+            assert!(is_valid_subscriber_parameter::<MS>());
+            assert!(is_valid_message_parameter::<MM>());
         };
 
         let driver = Driver::new(driver);
-
-        let subscribers = core::iter::repeat_with(|| unsafe { SubscriberData::null() })
-            .take(C::MAX_SUBSCRIBERS.get() as usize)
-            .collect::<Box<[_]>>();
+        let array = core::array::from_fn(|_| unsafe { SubscriberData::null() });
 
         Self {
             pool: MessagePool::new(),
-            subscribers,
+            subscribers: Box::new(array),
             mint: StackMint::new(1), // SubscriberId cannot be zero
             driver,
         }
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn new_id(&mut self) -> Result<SubscriberId, BusError> {
         let Some(id) = self.mint.issue() else {
-            return Err(BusError::PoolExhausted {
-                max: C::MAX_SUBSCRIBERS.get(),
-            });
+            return Err(BusError::PoolExhausted { max: MS as u8 });
         };
 
-        if id >= C::MAX_SUBSCRIBERS.get() {
+        if id >= MS as u8 {
             self.mint.recycle(id);
-            return Err(BusError::PoolExhausted {
-                max: C::MAX_SUBSCRIBERS.get(),
-            });
+            return Err(BusError::PoolExhausted { max: MS as u8 });
         }
 
         Ok(unsafe { SubscriberId::new_unchecked(id) })
@@ -114,8 +123,8 @@ where
     fn add_subscriber_unchecked(
         &mut self,
         id: SubscriberId,
-        inc: IncBuf<M>,
-        out: OutBuf<M>,
+        inc: IncBuf<MM>,
+        out: OutBuf<MM>,
         sub: S,
     ) {
         let data = &mut self.subscribers[id.as_usize()];
@@ -132,8 +141,8 @@ where
     /// Returns an error if the pool is exhausted.
     pub fn add_subscriber_with<R: Into<S>>(
         &mut self,
-        inc: IncBuf<M>,
-        out: OutBuf<M>,
+        inc: IncBuf<MM>,
+        out: OutBuf<MM>,
         sub: R,
     ) -> Result<SubscriberId, BusError> {
         let id = self.new_id()?;
@@ -147,7 +156,7 @@ where
     /// Returns an error if the pool is exhausted.
     pub fn add_subscriber<R: Into<S>>(
         &mut self,
-        sub: impl FnOnce(IncBuf<M>, OutBuf<M>) -> R,
+        sub: impl FnOnce(IncBuf<MM>, OutBuf<MM>) -> R,
     ) -> Result<SubscriberId, BusError> {
         let id = self.new_id()?;
 
@@ -236,9 +245,8 @@ where
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<C, D, const M: usize, S> MessageBus<C, D, M, S>
+impl<D, const MM: usize, const MG: usize, const MS: usize, S> MessageBus<D, MM, MG, MS, S>
 where
-    C: BusConfig,
     D: BusDriver,
     S: Subscriber,
 {

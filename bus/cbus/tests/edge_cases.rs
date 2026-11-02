@@ -1,10 +1,7 @@
 use std::num::NonZeroU8;
 
-use cbus::{BusDriver, DataIterator, SubscriberLookupData, define_bus_config};
-use cbus_core::{
-    Subscriber, SubscriberId, UntypedMessage,
-    buffer::{IncBuf, OutBuf},
-};
+use cbus::{BusDriver, DataIterator, SubscriberLookupData, define_bus};
+use cbus_core::{Subscriber, SubscriberId, UntypedMessage};
 
 #[derive(Debug)]
 struct Driver;
@@ -20,17 +17,15 @@ impl BusDriver for Driver {
     fn on_unsubscribe(&mut self, _: SubscriberId) {}
 }
 
-const M: usize = 2048;
-define_bus_config! {
-    Config,
-    max_subscribers: 128,
+define_bus! {
     max_messages: 2048,
     max_groups: 128,
+    max_subscribers: 128,
 }
 
 struct Fuzzer {
-    inc: IncBuf<M>,
-    out: OutBuf<M>,
+    inc: IncBuf,
+    out: OutBuf,
 }
 
 impl Subscriber for Fuzzer {
@@ -41,8 +36,8 @@ impl Subscriber for Fuzzer {
 }
 
 struct Reader {
-    inc: IncBuf<M>,
-    _out: OutBuf<M>,
+    inc: IncBuf,
+    _out: OutBuf,
 }
 
 impl Subscriber for Reader {
@@ -51,9 +46,9 @@ impl Subscriber for Reader {
     }
 }
 
-type MessageBus = cbus::MessageBus<Config, Driver, M>;
+type Bus = MessageBus<Driver>;
 
-fn init() -> (MessageBus, OutBuf<M>) {
+fn init() -> (Bus, OutBuf) {
     let mut bus = MessageBus::new(Driver);
     let inc = IncBuf::default();
     let out = OutBuf::default();
@@ -119,8 +114,8 @@ fn inactive_buffer_overflow() {
 }
 
 struct Sender {
-    inc: IncBuf<M>,
-    _out: OutBuf<M>,
+    inc: IncBuf,
+    _out: OutBuf,
 }
 
 impl Subscriber for Sender {
@@ -131,7 +126,7 @@ impl Subscriber for Sender {
 
 #[test]
 fn self_send() {
-    let mut bus = MessageBus::new(Driver);
+    let mut bus = Bus::new(Driver);
     let inc = IncBuf::default();
     let mut out = OutBuf::default();
     bus.add_subscriber_with(

@@ -1,7 +1,6 @@
 use core::marker::PhantomData;
 
 use crate::{
-    config::BusConfig,
     core::{Subscriber, SubscriberId},
     cpu::{MemoryPools, MessagePipeline, PipelineData},
     lookup::{LookupTable, SubscriberLookupData},
@@ -17,21 +16,19 @@ pub trait BusDriver {
 }
 
 #[derive(Debug)]
-pub struct Driver<C, D, S, const M: usize>
+pub struct Driver<D, S, const MM: usize, const MG: usize, const MS: usize>
 where
-    C: BusConfig,
     D: BusDriver,
     S: Subscriber,
 {
-    lookup_table: LookupTable<C>,
-    pipeline: MessagePipeline<C, S, M>,
+    lookup_table: LookupTable<MG, MS>,
+    pipeline: MessagePipeline<S, MM, MG, MS>,
     inner: D,
-    _phantom: PhantomData<(C, S)>,
+    _phantom: PhantomData<S>,
 }
 
-impl<C, D, S, const M: usize> Driver<C, D, S, M>
+impl<D, S, const MM: usize, const MG: usize, const MS: usize> Driver<D, S, MM, MG, MS>
 where
-    C: BusConfig,
     D: BusDriver,
     S: Subscriber,
 {
@@ -54,12 +51,11 @@ where
         self.lookup_table.zeroize(id);
     }
 
-    pub fn process_messages(&mut self, memory: MemoryPools<C, S, M>, range: SubscriberRange) {
+    pub fn process_messages(&mut self, memory: MemoryPools<S, MM, MS>, range: SubscriberRange) {
         let mut data = PipelineData {
             lookup_table: &self.lookup_table,
             memory,
             subscriber_range: range,
-            _phantom: PhantomData,
         };
 
         self.pipeline.dispatch_messages(&mut data);
@@ -67,9 +63,8 @@ where
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl<C, D, S, const M: usize> Driver<C, D, S, M>
+impl<D, S, const MM: usize, const MG: usize, const MS: usize> Driver<D, S, MM, MG, MS>
 where
-    C: BusConfig,
     D: BusDriver,
     S: Subscriber,
 {

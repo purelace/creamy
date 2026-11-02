@@ -21,7 +21,6 @@ use cbus_core::Subscriber;
 
 use super::validate_dst;
 use crate::{
-    config::BusConfig,
     core::UntypedMessage,
     cpu::{
         PipelineData, arch::x86::Sse41InstructionSet, runner::InstructionRunner,
@@ -59,14 +58,14 @@ impl Avx2InstructionSet {
     }
 
     #[inline(always)]
-    fn get_valid_header<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn get_valid_header<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         ymm_messages: [__m256i; CHUNK_SIZE],
     ) -> __m256i {
         unsafe {
-            let bits = LookupTable::<C>::MAX_GROUPS.trailing_zeros() as usize;
+            let bits = MG.trailing_zeros() as usize;
             let shifted_src = (src as usize) << bits;
 
             let h0 = _mm256_extract_epi32(ymm_messages[0], 0);
@@ -135,8 +134,8 @@ impl Avx2InstructionSet {
     }
 
     #[inline(always)]
-    fn validate_messages<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn validate_messages<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         mut ymm_msgs: [__m256i; CHUNK_SIZE],
@@ -180,8 +179,8 @@ impl Avx2InstructionSet {
     }
 
     #[inline(always)]
-    fn validate_and_write_messages<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn validate_and_write_messages<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         destinations: &[*mut __m256i; 8],
@@ -224,9 +223,9 @@ fn cast_mut(from: &mut [UntypedMessage; 8]) -> [*mut __m256i; 8] {
     core::array::from_fn(|i| (&raw mut from[i]).cast::<__m256i>())
 }
 
-impl<C, S, const M: usize> InstructionSet<C, S, M, 8> for Avx2InstructionSet
+impl<S, const MM: usize, const MG: usize, const MS: usize> InstructionSet<S, MM, MG, MS, 8>
+    for Avx2InstructionSet
 where
-    C: BusConfig,
     S: Subscriber,
 {
     #[inline(always)]
@@ -238,12 +237,12 @@ where
 
     #[inline(always)]
     fn send_remainder(read: &[UntypedMessage], write: &mut [UntypedMessage]) {
-        <Sse41InstructionSet as InstructionSet<C, S, M, _>>::slices_send(read, write);
+        <Sse41InstructionSet as InstructionSet<S, MM, MG, MS, _>>::slices_send(read, write);
     }
 
     #[inline(always)]
     fn prepare_and_send_exactly(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage; 8],
@@ -256,27 +255,27 @@ where
 
     #[inline(always)]
     fn prepare_and_send_remainder(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage],
         write: &mut [UntypedMessage],
     ) {
-        <Sse41InstructionSet as InstructionSet<C, S, M, _>>::slices_prepare_and_send(
+        <Sse41InstructionSet as InstructionSet<S, MM, MG, MS, _>>::slices_prepare_and_send(
             lut, range, src, read, write,
         );
     }
 }
 
-impl<C, S, const M: usize> InstructionRunner<C, S, M, 8> for Avx2InstructionSet
+impl<S, const MM: usize, const MG: usize, const MS: usize> InstructionRunner<S, MM, MG, MS, 8>
+    for Avx2InstructionSet
 where
-    C: BusConfig,
     S: Subscriber,
 {
     #[inline(always)]
     #[allow(clippy::too_many_lines)]
     fn prepare_and_send_chunk_to_unknown(
-        data: &mut PipelineData<C, S, M>,
+        data: &mut PipelineData<S, MM, MG, MS>,
         src: u8,
         chunk: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
@@ -350,7 +349,7 @@ where
 
     #[inline(always)]
     fn prepare_and_send_direct_slice(
-        data: &mut PipelineData<C, S, M>,
+        data: &mut PipelineData<S, MM, MG, MS>,
         src: u8,
         messages: &mut [UntypedMessage],
     ) {

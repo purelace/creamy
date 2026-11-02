@@ -2,11 +2,8 @@
 
 use std::sync::{Mutex, OnceLock};
 
-use cbus::{BusDriver, DataIterator, MessageBus, SubscriberLookupData, define_bus_config};
-use cbus_core::{
-    Subscriber, SubscriberId, UntypedMessage,
-    buffer::{IncBuf, OutBuf},
-};
+use cbus::{BusDriver, DataIterator, SubscriberLookupData, define_bus};
+use cbus_core::{Subscriber, SubscriberId, UntypedMessage};
 use libfuzzer_sys::fuzz_target;
 
 #[derive(Debug)]
@@ -23,17 +20,15 @@ impl BusDriver for Driver {
     fn on_unsubscribe(&mut self, _: SubscriberId) {}
 }
 
-const M: usize = 2048;
-define_bus_config! {
-    Config,
-    max_subscribers: 128,
+define_bus! {
     max_messages: 2048,
     max_groups: 128,
+    max_subscribers: 128,
 }
 
 struct Wrapper {
-    bus: MessageBus<Config, Driver, M>,
-    out: OutBuf<M>,
+    bus: MessageBus<Driver>,
+    out: OutBuf,
 }
 
 unsafe impl Send for Wrapper {}
@@ -42,8 +37,8 @@ unsafe impl Sync for Wrapper {}
 static BUS: OnceLock<Mutex<Wrapper>> = OnceLock::new();
 
 struct Fuzzer {
-    inc: IncBuf<M>,
-    _out: OutBuf<M>,
+    inc: IncBuf,
+    _out: OutBuf,
 }
 
 impl Subscriber for Fuzzer {
@@ -53,8 +48,8 @@ impl Subscriber for Fuzzer {
 }
 
 struct Reader {
-    inc: IncBuf<M>,
-    _out: OutBuf<M>,
+    inc: IncBuf,
+    _out: OutBuf,
 }
 
 impl Subscriber for Reader {

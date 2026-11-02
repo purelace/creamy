@@ -3,17 +3,9 @@ include!(concat!(env!("OUT_DIR"), "/shell.rs"));
 use std::{collections::HashMap, num::NonZeroU8};
 
 use creamy::{
-    core::{
-        GroupTable,
-        bus::{
-            core::{
-                Subscriber,
-                buffer::{IncBuf, OutBuf},
-            },
-            define_bus_config,
-        },
-    },
-    engine::{HostSubscriber, PluginEngine},
+    core::{GroupTable, bus::core::Subscriber},
+    define_engine,
+    engine::HostSubscriber,
     sdk::{
         api::{CustomHandler, handle_incoming},
         message::UntypedMessage,
@@ -29,9 +21,15 @@ use self::generated::{
     shell::setup::{ExecuteCommand, RegisterCommand},
 };
 
+define_engine! {
+    max_messages: 1024,
+    max_groups: 32,
+    max_subscribers: 32,
+}
+
 pub struct ShellPlugin {
-    inc: IncBuf<M>,
-    out: OutBuf<M>,
+    inc: IncBuf,
+    out: OutBuf,
     streams: HashMap<StreamId, StreamReader<RegisterCommand>>,
 }
 
@@ -82,17 +80,8 @@ impl HostSubscriber for ShellPlugin {
     }
 }
 
-pub const M: usize = 1024;
-pub const S: usize = 32;
-define_bus_config! {
-    Legacy,
-    max_subscribers: 32,
-    max_messages: 1024,
-    max_groups: 32,
-}
-
 struct Shell {
-    engine: PluginEngine<Legacy, WasmtimeRuntime, AsyncLoader, ShellPlugin, S, M>,
+    engine: PluginEngine<WasmtimeRuntime, AsyncLoader, ShellPlugin>,
 }
 
 impl Shell {

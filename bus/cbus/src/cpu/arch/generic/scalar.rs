@@ -1,7 +1,6 @@
 use cbus_core::Subscriber;
 
 use crate::{
-    config::BusConfig,
     core::UntypedMessage,
     cpu::{PipelineData, runner::InstructionRunner, set::InstructionSet},
     lookup::LookupTable,
@@ -14,8 +13,8 @@ impl ScalarInstructionSet {
     // * Устанавливаем src, тем самым убираем возможность подмены сообщений
     // * Проверяем права доступа и корректность dst, если он некорректный, то обнуляется
     #[inline(always)]
-    fn prepare_single_message<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn prepare_single_message<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         message: &mut UntypedMessage,
@@ -23,7 +22,7 @@ impl ScalarInstructionSet {
         let dst_in_valid_range = range.contains(message.dst);
         let dst_not_equal_src = message.dst != src;
 
-        let src_index = src as usize * LookupTable::<C>::MAX_GROUPS + message.group as usize;
+        let src_index = src as usize * MG + message.group as usize;
         let consumer_group = unsafe { *lut.as_slice().get_unchecked(src_index) };
 
         let is_valid = u8::from(consumer_group != 0 && dst_in_valid_range && dst_not_equal_src);
@@ -49,8 +48,8 @@ impl ScalarInstructionSet {
     }
 
     #[inline(always)]
-    pub fn prepare_and_send_to<C: BusConfig>(
-        lut: &LookupTable<C>,
+    pub fn prepare_and_send_to<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage],
@@ -69,9 +68,9 @@ impl ScalarInstructionSet {
     }
 }
 
-impl<C, S, const M: usize> InstructionSet<C, S, M, 1> for ScalarInstructionSet
+impl<S, const MM: usize, const MG: usize, const MS: usize> InstructionSet<S, MM, MG, MS, 1>
+    for ScalarInstructionSet
 where
-    C: BusConfig,
     S: Subscriber,
 {
     #[inline(always)]
@@ -86,7 +85,7 @@ where
 
     #[inline(always)]
     fn prepare_and_send_exactly(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage; 1],
@@ -97,7 +96,7 @@ where
 
     #[inline(always)]
     fn prepare_and_send_remainder(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage],
@@ -107,14 +106,14 @@ where
     }
 }
 
-impl<C, S, const M: usize> InstructionRunner<C, S, M, 1> for ScalarInstructionSet
+impl<S, const MM: usize, const MG: usize, const MS: usize> InstructionRunner<S, MM, MG, MS, 1>
+    for ScalarInstructionSet
 where
-    C: BusConfig,
     S: Subscriber,
 {
     #[inline(always)]
     fn prepare_and_send_chunk_to_unknown(
-        data: &mut PipelineData<C, S, M>,
+        data: &mut PipelineData<S, MM, MG, MS>,
         src: u8,
         chunk: &mut [UntypedMessage; 1],
     ) {
@@ -138,7 +137,7 @@ where
 
     #[inline(always)]
     fn prepare_and_send_direct_slice(
-        data: &mut PipelineData<C, S, M>,
+        data: &mut PipelineData<S, MM, MG, MS>,
         src: u8,
         messages: &mut [UntypedMessage],
     ) {

@@ -3,23 +3,17 @@ mod general;
 use std::collections::HashMap;
 
 use cbus::{
-    BusDriver, BusError, DataIterator, MessageBus, SubscriberLookupData,
-    config::BusConfig,
-    core::{
-        Subscriber, SubscriberId, UntypedMessage,
-        buffer::{IncBuf, OutBuf},
-    },
-    define_bus_config,
+    BusDriver, BusError, DataIterator, SubscriberLookupData,
+    core::{Subscriber, SubscriberId, UntypedMessage},
+    define_bus,
 };
 
 use crate::general::{EmptyDriver, EmptySubscriber};
 
-const MAX_MESSAGES: usize = 1024;
-define_bus_config! {
-    Legacy,
-    max_subscribers: 32,
+define_bus! {
     max_messages: 1024,
-    max_groups: 32
+    max_groups: 32,
+    max_subscribers: 32,
 }
 
 #[derive(Debug)]
@@ -31,12 +25,12 @@ impl Subscriber for DnsSubscriber {
 #[derive(Debug)]
 struct Dns {
     table: HashMap<u8, &'static str>,
-    _incoming: IncBuf<MAX_MESSAGES>,
-    outgoing: OutBuf<MAX_MESSAGES>,
+    _incoming: IncBuf,
+    outgoing: OutBuf,
 }
 
 impl Dns {
-    pub fn new(incoming: IncBuf<MAX_MESSAGES>, outgoing: OutBuf<MAX_MESSAGES>) -> Self {
+    pub fn new(incoming: IncBuf, outgoing: OutBuf) -> Self {
         let mut table = HashMap::new();
         table.insert(2, "group_0");
         table.insert(3, "group_1");
@@ -97,18 +91,14 @@ impl BusDriver for Dns {
 
 #[derive(Debug)]
 struct Resolver {
-    inc: IncBuf<MAX_MESSAGES>,
-    _out: OutBuf<MAX_MESSAGES>,
+    inc: IncBuf,
+    _out: OutBuf,
     get_ident: bool,
     ident: &'static str,
 }
 
 impl Resolver {
-    const fn new(
-        inc: IncBuf<MAX_MESSAGES>,
-        out: OutBuf<MAX_MESSAGES>,
-        ident: &'static str,
-    ) -> Self {
+    const fn new(inc: IncBuf, out: OutBuf, ident: &'static str) -> Self {
         Self {
             inc,
             _out: out,
@@ -162,10 +152,7 @@ fn register_and_unregister() -> Result<(), Box<dyn std::error::Error>> {
     let inc = IncBuf::default();
     let out = OutBuf::default();
 
-    let mut bus = MessageBus::<Legacy, Dns, MAX_MESSAGES, Subscribers>::new(Dns::new(
-        inc.clone(),
-        out.clone(),
-    ));
+    let mut bus = MessageBus::<Dns, Subscribers>::new(Dns::new(inc.clone(), out.clone()));
 
     bus.add_subscriber_with(inc, out, Subscribers::Dns(DnsSubscriber))?;
 
@@ -200,23 +187,18 @@ fn register_and_unregister() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn bus_exceed_error() -> Result<(), Box<dyn std::error::Error>> {
-    const MAX_SUBS: u8 = Legacy::MAX_SUBSCRIBERS.get();
-
-    let mut bus =
-        MessageBus::<Legacy, EmptyDriver, MAX_MESSAGES, EmptySubscriber<MAX_MESSAGES>>::new(
-            EmptyDriver,
-        );
+    let mut bus = MessageBus::<EmptyDriver, EmptySubscriber<MAX_MESSAGES>>::new(EmptyDriver);
     assert_eq!(bus.subscribers(), 0);
 
-    for _ in 1..MAX_SUBS {
+    for _ in 1..MAX_SUBSCRIBERS {
         bus.add_subscriber(EmptySubscriber::new)?;
     }
-    assert_eq!(bus.subscribers(), Legacy::MAX_SUBSCRIBERS.get() - 1);
+    assert_eq!(bus.subscribers(), MAX_SUBSCRIBERS as u8 - 1);
 
     assert_eq!(
         bus.add_subscriber(EmptySubscriber::new),
         Err(BusError::PoolExhausted {
-            max: Legacy::MAX_SUBSCRIBERS.get()
+            max: MAX_SUBSCRIBERS as u8
         })
     );
 
@@ -225,14 +207,9 @@ fn bus_exceed_error() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn subscriber_remove() {
-    const MAX_SUBS: u8 = Legacy::MAX_SUBSCRIBERS.get();
+    let mut bus = MessageBus::<EmptyDriver, EmptySubscriber<MAX_MESSAGES>>::new(EmptyDriver);
 
-    let mut bus =
-        MessageBus::<Legacy, EmptyDriver, MAX_MESSAGES, EmptySubscriber<MAX_MESSAGES>>::new(
-            EmptyDriver,
-        );
-
-    let ids = (1..MAX_SUBS)
+    let ids = (1..MAX_SUBSCRIBERS)
         .map(|_| bus.add_subscriber(EmptySubscriber::new).unwrap())
         .collect::<Vec<_>>();
 
@@ -262,10 +239,7 @@ fn send_remove_request_twice() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn remove_subscriber_with_incorrect_id() {
-    let mut bus =
-        MessageBus::<Legacy, EmptyDriver, MAX_MESSAGES, EmptySubscriber<MAX_MESSAGES>>::new(
-            EmptyDriver,
-        );
+    let mut bus = MessageBus::<EmptyDriver, EmptySubscriber<MAX_MESSAGES>>::new(EmptyDriver);
     let result = bus.remove_subscriber(
         // SAFETY: 31 != 0
         unsafe { SubscriberId::new_unchecked(31) },

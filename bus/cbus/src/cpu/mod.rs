@@ -1,12 +1,11 @@
-use alloc::vec::Vec;
 use core::marker::PhantomData;
 
+use arrayvec::ArrayVec;
 use as_guard::AsGuard;
 use cbus_core::{Subscriber, buffer::reference::RefMutBuf};
 
 use crate::{
     bus::SubscriberData,
-    config::BusConfig,
     cpu::{
         arch::AvailableStrategy,
         offsets::{MAX_SLICE_SIZE, Offsets},
@@ -94,16 +93,15 @@ macro_rules! define_strategy {
             }
         }
 
-        impl<C, S, const M: usize> StrategyRunner<C, S, M> for $name
+        impl<S, const MM: usize, const MG: usize, const MS: usize> StrategyRunner<S, MM, MG, MS> for $name
         where
-            C: $crate::config::BusConfig,
             S: $crate::core::Subscriber,
         {
             #[cfg_attr(feature = "tracing",
                 tracing::instrument(skip_all, name = "bus::run", level = "trace")
             )]
             #[inline(always)]
-            fn run(pipeline: &mut MessagePipeline<C, S, M>, data: &mut PipelineData<C, S, M>) {
+            fn run(pipeline: &mut MessagePipeline<S, MM, MG, MS>, data: &mut PipelineData<S, MM, MG, MS>) {
                 let mut total_offset = 0;
 
                 macro_rules! slice {
@@ -141,10 +139,11 @@ mod arch;
 
 impl PipelinePlan {
     #[inline(always)]
-    fn prepare<S, C, SU, const M: usize>(&mut self, data: &PipelineData<C, SU, M>)
-    where
-        S: Strategy,
-        C: BusConfig,
+    fn prepare<ST, SU, const MM: usize, const MG: usize, const MS: usize>(
+        &mut self,
+        data: &PipelineData<SU, MM, MG, MS>,
+    ) where
+        ST: Strategy,
         SU: Subscriber,
     {
         self.offsets.reset();
@@ -153,18 +152,18 @@ impl PipelinePlan {
         for src in data.subscriber_range {
             let sub_data = &data.memory.subscribers[src.as_usize()];
             let count = sub_data.outgoing_ref().count();
-            S::add_offset(&mut self.offsets, count as usize);
+            ST::add_offset(&mut self.offsets, count as usize);
         }
 
         // 2. Получаем правильные начальные позиции (0, len_batch, len_batch + len_avx...)
-        let mut write_ptr = S::get_write_ptr(self.offsets);
+        let mut write_ptr = ST::get_write_ptr(self.offsets);
 
         // 3. Заполняем массив indices, используя смещения
         for src in data.subscriber_range {
             let sub_data = &data.memory.subscribers[src.as_usize()];
             let count = sub_data.outgoing_ref().count();
 
-            let bucket_idx = S::get_bucket_idx(count as usize);
+            let bucket_idx = ST::get_bucket_idx(count as usize);
 
             let pos = write_ptr[bucket_idx];
             self.indices[pos as usize] = src.as_u8();
@@ -173,31 +172,29 @@ impl PipelinePlan {
     }
 }
 
-pub trait StrategyRunner<C, S, const M: usize>
+pub trait StrategyRunner<S, const MM: usize, const MG: usize, const MS: usize>
 where
-    C: BusConfig,
     S: Subscriber,
 {
-    fn run(pipeline: &mut MessagePipeline<C, S, M>, data: &mut PipelineData<C, S, M>);
+    fn run(pipeline: &mut MessagePipeline<S, MM, MG, MS>, data: &mut PipelineData<S, MM, MG, MS>);
 }
 
 #[derive(Debug)]
-pub struct MessagePipeline<C: BusConfig, S: Subscriber, const M: usize> {
+pub struct MessagePipeline<S: Subscriber, const MM: usize, const MG: usize, const MS: usize> {
     plan: PipelinePlan,
     // dst, count, ptr_location
-    batch: Vec<(u8, u32, usize)>,
-    _phantom: PhantomData<(C, S)>,
+    batch: ArrayVec<(u8, u32, usize), MS>,
+    _phantom: PhantomData<S>,
 }
 
-impl<C, S, const M: usize> MessagePipeline<C, S, M>
+impl<S, const MM: usize, const MG: usize, const MS: usize> MessagePipeline<S, MM, MG, MS>
 where
-    C: BusConfig,
     S: Subscriber,
 {
     pub fn new() -> Self {
         Self {
             plan: PipelinePlan::new(),
-            batch: Vec::with_capacity(C::MAX_SUBSCRIBERS.get() as usize),
+            batch: ArrayVec::new(),
             _phantom: PhantomData,
         }
     }
@@ -206,13 +203,13 @@ where
         feature = "tracing",
         tracing::instrument(skip_all, name = "bus::dispatch_messages", level = "trace")
     )]
-    pub(crate) fn dispatch_messages(&mut self, data: &mut PipelineData<C, S, M>) {
-        self.plan.prepare::<AvailableStrategy, C, S, M>(data);
+    pub(crate) fn dispatch_messages(&mut self, data: &mut PipelineData<S, MM, MG, MS>) {
+        self.plan.prepare::<AvailableStrategy, S, MM, MG, MS>(data);
         AvailableStrategy::run(self, data);
     }
 
     #[inline(always)]
-    fn sort_messages(data: &mut PipelineData<C, S, M>) {
+    fn sort_messages(data: &mut PipelineData<S, MM, MG, MS>) {
         data.memory
             .message
             .as_mut_slice()
@@ -220,7 +217,7 @@ where
     }
 
     #[inline(always)]
-    pub(crate) fn batch_messages(&mut self, data: &mut PipelineData<C, S, M>) {
+    pub(crate) fn batch_messages(&mut self, data: &mut PipelineData<S, MM, MG, MS>) {
         Self::sort_messages(data);
         let mut ptr_location = 0;
         let pool_slice = data.memory.message.as_slice();
@@ -242,19 +239,18 @@ where
     }
 }
 
-pub struct PipelineData<'a, C: BusConfig, S: Subscriber, const M: usize> {
-    pub(crate) lookup_table: &'a LookupTable<C>,
-    pub(crate) memory: MemoryPools<'a, C, S, M>,
+pub struct PipelineData<'a, S: Subscriber, const MM: usize, const MG: usize, const MS: usize> {
+    pub(crate) lookup_table: &'a LookupTable<MG, MS>,
+    pub(crate) memory: MemoryPools<'a, S, MM, MS>,
     pub(crate) subscriber_range: SubscriberRange,
-    pub(crate) _phantom: PhantomData<C>,
 }
 
-pub struct MemoryPools<'a, C: BusConfig, S: Subscriber, const M: usize> {
-    pub(crate) subscribers: &'a mut [SubscriberData<S, M>],
-    pub(crate) message: &'a mut MessagePool<C>,
+pub struct MemoryPools<'a, S: Subscriber, const MM: usize, const MS: usize> {
+    pub(crate) subscribers: &'a mut [SubscriberData<S, MM>; MS],
+    pub(crate) message: &'a mut MessagePool<MM, MS>,
 }
 
-impl<C: BusConfig, S: Subscriber, const M: usize> MemoryPools<'_, C, S, M> {
+impl<S: Subscriber, const MM: usize, const MS: usize> MemoryPools<'_, S, MM, MS> {
     #[cfg(target_feature = "sse4.1")]
     pub const fn get_inc_raw_buf(&mut self, index: u8) -> cbus_core::buffer::reference::RawBuf {
         let data = &mut self.subscribers[index as usize];
@@ -262,7 +258,7 @@ impl<C: BusConfig, S: Subscriber, const M: usize> MemoryPools<'_, C, S, M> {
     }
 
     /// Write
-    pub const fn get_mut_inc_buf(&mut self, index: usize) -> RefMutBuf<'_, M> {
+    pub const fn get_mut_inc_buf(&mut self, index: usize) -> RefMutBuf<'_, MM> {
         unsafe {
             let ptr = self.subscribers.as_mut_ptr().add(index);
             (*ptr).incoming_mut()
@@ -270,7 +266,7 @@ impl<C: BusConfig, S: Subscriber, const M: usize> MemoryPools<'_, C, S, M> {
     }
 
     /// Read
-    pub const fn get_mut_out_buf<'a>(&mut self, index: u8) -> RefMutBuf<'a, M> {
+    pub const fn get_mut_out_buf<'a>(&mut self, index: u8) -> RefMutBuf<'a, MM> {
         unsafe {
             let ptr = self.subscribers.as_mut_ptr().add(index as usize);
             (*ptr).outgoing_mut()

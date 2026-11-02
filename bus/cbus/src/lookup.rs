@@ -1,9 +1,6 @@
 use alloc::{boxed::Box, vec};
-use core::marker::PhantomData;
 
 use cbus_core::SubscriberId;
-
-use crate::config::BusConfig;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SubscriberLookupData {
@@ -13,20 +10,14 @@ pub struct SubscriberLookupData {
 }
 
 #[derive(Debug)]
-pub struct LookupTable<C: BusConfig> {
+pub struct LookupTable<const MG: usize, const MS: usize> {
     input: Box<[u8]>,
-    _phantom: PhantomData<C>,
 }
 
-impl<C: BusConfig> LookupTable<C> {
-    pub const MAX_GROUPS: usize = C::MAX_GROUPS.get() as usize;
-
+impl<const MG: usize, const MS: usize> LookupTable<MG, MS> {
     pub fn new() -> Self {
-        let max_subscribers = C::MAX_SUBSCRIBERS.get() as usize;
-
         Self {
-            input: vec![0u8; max_subscribers * Self::MAX_GROUPS].into(),
-            _phantom: PhantomData,
+            input: vec![0u8; MG * MS].into(),
         }
     }
 
@@ -50,7 +41,7 @@ impl<C: BusConfig> LookupTable<C> {
     }
 
     fn set_values(&mut self, id: usize, data: SubscriberLookupData) {
-        let slice = id * Self::MAX_GROUPS;
+        let slice = id * MG;
         let src_index = slice + data.consumer_group_id as usize;
         self.input[src_index] = data.provider_group_id;
     }
@@ -58,8 +49,8 @@ impl<C: BusConfig> LookupTable<C> {
     pub fn zeroize(&mut self, id: SubscriberId) {
         let id = id.as_usize();
 
-        let start = id * Self::MAX_GROUPS;
-        let end = start + Self::MAX_GROUPS;
+        let start = id * MG;
+        let end = start + MG;
 
         let in_slice = &mut self.input[start..end];
         in_slice.fill(0);

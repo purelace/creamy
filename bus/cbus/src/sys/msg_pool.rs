@@ -1,21 +1,17 @@
-use core::{alloc::Layout, marker::PhantomData, ptr::NonNull};
+use core::{alloc::Layout, ptr::NonNull};
 
 use cbus_core::defines::{MESSAGE_SIZE, TARGET_ALIGN};
 
-use crate::{config::BusConfig, core::UntypedMessage, sys::layout::alloc_pool};
+use crate::{core::UntypedMessage, sys::layout::alloc_pool};
 
 #[derive(Debug)]
-pub struct MessagePool<C: BusConfig> {
+pub struct MessagePool<const MM: usize, const MS: usize> {
     ptr: NonNull<UntypedMessage>,
     count: usize,
-    _phantom: PhantomData<C>,
 }
 
-impl<C: BusConfig> MessagePool<C> {
-    const LAYOUT: Layout = match Layout::from_size_align(
-        C::MAX_SUBSCRIBERS.get() as usize * C::MAX_MESSAGES.get() as usize * MESSAGE_SIZE,
-        TARGET_ALIGN,
-    ) {
+impl<const MM: usize, const MS: usize> MessagePool<MM, MS> {
+    const LAYOUT: Layout = match Layout::from_size_align(MS * MM * MESSAGE_SIZE, TARGET_ALIGN) {
         Ok(v) => v,
         Err(_) => panic!("Failed to generate layout at compile-time"),
     };
@@ -24,11 +20,7 @@ impl<C: BusConfig> MessagePool<C> {
         let ptr = alloc_pool(Self::LAYOUT);
         let ptr = ptr.cast::<UntypedMessage>();
 
-        Self {
-            ptr,
-            count: 0,
-            _phantom: PhantomData,
-        }
+        Self { ptr, count: 0 }
     }
 
     #[inline(always)]
@@ -64,7 +56,7 @@ impl<C: BusConfig> MessagePool<C> {
     }
 }
 
-impl<C: BusConfig> Drop for MessagePool<C> {
+impl<const MM: usize, const MS: usize> Drop for MessagePool<MM, MS> {
     fn drop(&mut self) {
         unsafe {
             alloc::alloc::dealloc(self.ptr.as_ptr().cast::<u8>(), Self::LAYOUT);

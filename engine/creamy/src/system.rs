@@ -18,20 +18,20 @@ use crate::generated::{
     system::builtin::{GroupDeclared, Log, StreamCancel, StreamKeepAlive},
 };
 
-pub struct SystemPlugin<const S: usize, const M: usize> {
-    inc: IncBuf<M>,
-    out: OutBuf<M>,
+pub struct SystemPlugin<const MM: usize, const MS: usize> {
+    inc: IncBuf<MM>,
+    out: OutBuf<MM>,
     logs: HashMap<StreamId, StreamReader<creamy_sdk::logging::Log>, rustc_hash::FxBuildHasher>,
 
-    names: Box<[Option<SmolStr>; S]>,
+    names: Box<[Option<SmolStr>; MS]>,
     plugins: u8,
 }
 
-impl<const S: usize, const M: usize> SystemPlugin<S, M> {
+impl<const MM: usize, const MS: usize> SystemPlugin<MM, MS> {
     const _ASSERT: () = {
         const MAX_SUBSCRIBERS: usize = 255;
         assert!(
-            S <= MAX_SUBSCRIBERS,
+            MS <= MAX_SUBSCRIBERS,
             "Размер массива S не должен превышать 255!"
         );
     };
@@ -39,8 +39,8 @@ impl<const S: usize, const M: usize> SystemPlugin<S, M> {
     const ARRAY_OFFSET: usize = 2;
 
     #[must_use]
-    pub fn new(inc: IncBuf<M>, out: OutBuf<M>) -> Self {
-        let mut buffer: Box<[Option<SmolStr>; S]> = unsafe { Box::new_zeroed().assume_init() };
+    pub fn new(inc: IncBuf<MM>, out: OutBuf<MM>) -> Self {
+        let mut buffer: Box<[Option<SmolStr>; MS]> = unsafe { Box::new_zeroed().assume_init() };
         buffer.fill(None);
 
         Self {

@@ -2,7 +2,7 @@
 
 use core::{num::NonZeroU8, ptr::NonNull};
 
-use cbus::{config::BusConfig, core::Subscriber};
+use cbus::core::Subscriber;
 use creamy_phf::get_hash;
 use creamy_plugin_package::BinaryPlugin;
 
@@ -60,15 +60,15 @@ impl<'a> GroupTable<'a> {
     }
 }
 
-pub trait Module: Subscriber {
+pub trait Module<const M: usize>: Subscriber {
     fn incoming_ptr(&self) -> NonNull<u8>;
     fn outgoing_ptr(&self) -> NonNull<u8>;
     fn get_group_table(&mut self) -> GroupTable<'_>;
 }
 
-pub trait Runtime<C: BusConfig>: 'static {
+pub trait Runtime<const M: usize>: 'static {
     type Error: core::error::Error;
-    type Module: Module;
+    type Module: Module<M>;
 
     #[allow(clippy::missing_errors_doc)]
     fn init_module(&mut self, module: &[u8]) -> Result<Self::Module, Self::Error>;

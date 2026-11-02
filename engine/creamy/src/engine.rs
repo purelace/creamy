@@ -1,11 +1,10 @@
 use alloc::{boxed::Box, format, vec::Vec};
-use core::{marker::PhantomData, num::NonZeroU8};
+use core::num::NonZeroU8;
 
 use creamy_engine_core::{
     GroupTable, Module, PluginLoader, Runtime,
     bus::{
         MessageBus, SubscriberLookupData,
-        config::BusConfig,
         core::{
             Subscriber, SubscriberId,
             buffer::{IncBuf, OutBuf},
@@ -88,31 +87,28 @@ impl HostSubscriber for () {
     }
 }
 
-struct Plugin<C, R, H, const S: usize, const M: usize>
+struct Plugin<R, H, const MM: usize, const MS: usize>
 where
-    C: BusConfig,
-    R: Runtime<C>,
+    R: Runtime<MM>,
     H: HostSubscriber,
 {
     manifest: Package,
-    kind: SubscriberType<C, R, H, S, M>,
+    kind: SubscriberType<R, H, MM, MS>,
 }
 
-pub enum SubscriberType<C, R, H, const S: usize, const M: usize>
+pub enum SubscriberType<R, H, const MM: usize, const MS: usize>
 where
-    C: BusConfig,
-    R: Runtime<C>,
+    R: Runtime<MM>,
     H: HostSubscriber,
 {
-    System(SystemPlugin<S, M>),
+    System(SystemPlugin<MM, MS>),
     Custom(H),
     Wasm(R::Module),
 }
 
-impl<C, R, H, const S: usize, const M: usize> Subscriber for Plugin<C, R, H, S, M>
+impl<R, H, const MM: usize, const MS: usize> Subscriber for Plugin<R, H, MM, MS>
 where
-    C: BusConfig,
-    R: Runtime<C>,
+    R: Runtime<MM>,
     H: HostSubscriber,
 {
     fn notify(&mut self) {
@@ -140,29 +136,28 @@ struct ValidationContext {
 }
 
 pub struct PluginEngine<
-    C: BusConfig,
-    R: Runtime<C>,
+    R: Runtime<MM>,
     L: PluginLoader,
     H: HostSubscriber,
-    const S: usize,
-    const M: usize,
+    const MM: usize,
+    const MG: usize,
+    const MS: usize,
 > {
-    bus: MessageBus<C, EngineBusDriver<S>, M, Plugin<C, R, H, S, M>>,
+    bus: MessageBus<EngineBusDriver<MS>, MM, MG, MS, Plugin<R, H, MM, MS>>,
     runtime: R,
     loader: L,
     registry: ProtocolRegistry,
     errors: Vec<PluginError>,
-    _phantom: PhantomData<C>,
 }
 
 impl<
-    C: BusConfig,
-    R: Runtime<C>,
+    R: Runtime<MM>,
     L: PluginLoader,
     H: HostSubscriber,
-    const S: usize,
-    const M: usize,
-> PluginEngine<C, R, L, H, S, M>
+    const MM: usize,
+    const MG: usize,
+    const MS: usize,
+> PluginEngine<R, L, H, MM, MG, MS>
 {
     pub fn new(runtime: R, loader: L) -> Self {
         let bus = MessageBus::new(EngineBusDriver::new());
@@ -173,7 +168,6 @@ impl<
             loader,
             registry: ProtocolRegistry::default(),
             errors: Vec::with_capacity(32),
-            _phantom: PhantomData,
         };
 
         instance.setup_system_plugin();
@@ -205,7 +199,7 @@ impl<
         );
     }
 
-    fn get_system(&self) -> &SystemPlugin<S, M> {
+    fn get_system(&self) -> &SystemPlugin<MM, MS> {
         const UNREACHABLE: &str =
             "System plugin is registered when the engine instance is created.";
 
@@ -220,7 +214,7 @@ impl<
         }
     }
 
-    fn get_system_mut(&mut self) -> &mut SystemPlugin<S, M> {
+    fn get_system_mut(&mut self) -> &mut SystemPlugin<MM, MS> {
         const UNREACHABLE: &str =
             "System plugin is registered when the engine instance is created.";
 
@@ -283,7 +277,7 @@ impl<
     fn create_custom_validation_context(
         &mut self,
         package: BinaryPlugin,
-        custom: impl Fn(IncBuf<M>, OutBuf<M>) -> H,
+        custom: impl Fn(IncBuf<MM>, OutBuf<MM>) -> H,
     ) -> Result<Option<ValidationContext>, Error> {
         let package = match PluginPackage::from_package(package) {
             Ok(v) => v,
@@ -328,8 +322,8 @@ impl<
         let inc_ptr = module.incoming_ptr();
         let out_ptr = module.outgoing_ptr();
 
-        let inc = unsafe { IncBuf::<M>::from_ptr(inc_ptr, false) };
-        let out = unsafe { OutBuf::<M>::from_ptr(out_ptr, false) };
+        let inc = unsafe { IncBuf::<MM>::from_ptr(inc_ptr, false) };
+        let out = unsafe { OutBuf::<MM>::from_ptr(out_ptr, false) };
 
         let name = package.manifest.name().to_smolstr();
         let id = self.bus.add_subscriber_with(
@@ -508,7 +502,7 @@ impl<
     pub fn register_custom_plugin(
         &mut self,
         mut package: &[u8],
-        custom: impl Fn(IncBuf<M>, OutBuf<M>) -> H,
+        custom: impl Fn(IncBuf<MM>, OutBuf<MM>) -> H,
     ) {
         let package = match BinaryPlugin::read_ne(&mut package) {
             Ok(v) => v,

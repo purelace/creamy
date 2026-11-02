@@ -23,7 +23,6 @@ pub use sse41_reexports::*;
 
 use super::validate_dst;
 use crate::{
-    config::BusConfig,
     core::UntypedMessage,
     cpu::{
         PipelineData, arch::generic::ScalarInstructionSet, runner::InstructionRunner,
@@ -63,8 +62,8 @@ impl Sse41InstructionSet {
 
     // Вносим коррективы в заголовки
     #[inline(always)]
-    fn get_valid_header<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn get_valid_header<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         xmm_msg0: __m128i,
@@ -73,7 +72,7 @@ impl Sse41InstructionSet {
         xmm_msg3: __m128i,
     ) -> __m128i {
         unsafe {
-            let bits = LookupTable::<C>::MAX_GROUPS.trailing_zeros() as usize;
+            let bits = MG.trailing_zeros() as usize;
             let shifted_id = (src as usize) << bits;
 
             // Берем первые 4 байта [dst][group][src][kind]
@@ -134,8 +133,8 @@ impl Sse41InstructionSet {
     }
 
     #[inline(always)]
-    fn validate_messages<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn validate_messages<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         xmm_msg0: __m128i,
@@ -192,8 +191,8 @@ impl Sse41InstructionSet {
     }
 
     #[inline(always)]
-    fn validate_and_write_messages<C: BusConfig>(
-        lut: &LookupTable<C>,
+    fn validate_and_write_messages<const MG: usize, const MS: usize>(
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         messages: &XmmMessages,
@@ -295,9 +294,9 @@ impl XmmMessages {
     }
 }
 
-impl<C, S, const M: usize> InstructionSet<C, S, M, CHUNK_SIZE> for Sse41InstructionSet
+impl<S, const MM: usize, const MG: usize, const MS: usize> InstructionSet<S, MM, MG, MS, CHUNK_SIZE>
+    for Sse41InstructionSet
 where
-    C: BusConfig,
     S: Subscriber,
 {
     #[inline(always)]
@@ -316,7 +315,7 @@ where
 
     #[inline(always)]
     fn prepare_and_send_exactly(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage; CHUNK_SIZE],
@@ -328,7 +327,7 @@ where
 
     #[inline(always)]
     fn prepare_and_send_remainder(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage],
@@ -338,14 +337,14 @@ where
     }
 }
 
-impl<C, S, const M: usize> InstructionRunner<C, S, M, CHUNK_SIZE> for Sse41InstructionSet
+impl<S, const MM: usize, const MG: usize, const MS: usize>
+    InstructionRunner<S, MM, MG, MS, CHUNK_SIZE> for Sse41InstructionSet
 where
-    C: BusConfig,
     S: Subscriber,
 {
     #[inline(always)]
     fn prepare_and_send_chunk_to_unknown(
-        data: &mut PipelineData<C, S, M>,
+        data: &mut PipelineData<S, MM, MG, MS>,
         src: u8,
         chunk: &mut [UntypedMessage; CHUNK_SIZE],
     ) {
@@ -417,7 +416,7 @@ where
 
     #[inline(always)]
     fn prepare_and_send_direct_slice(
-        data: &mut PipelineData<C, S, M>,
+        data: &mut PipelineData<S, MM, MG, MS>,
         src: u8,
         messages: &mut [UntypedMessage],
     ) {

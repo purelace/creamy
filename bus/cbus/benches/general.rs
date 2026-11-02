@@ -1,15 +1,8 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 
-use cbus::{
-    MessageBus,
-    config::BusConfig,
-    core::{
-        Subscriber,
-        buffer::{IncBuf, OutBuf},
-    },
-    define_bus_config,
-};
+use cbus::{MessageBus, core::Subscriber};
+use cbus_core::buffer::{IncBuf, OutBuf};
 
 use self::driver::CreamyDriver;
 
@@ -101,22 +94,15 @@ impl<const M: usize> Subscriber for SimpleSubscriber<M> {
     }
 }
 
-pub const MAX_MESSAGES: usize = 1024;
-define_bus_config! {
-    Legacy,
-    max_subscribers: 32,
-    max_messages: 1024,
-    max_groups: 64
-}
+pub type BenchBus<F, const MM: usize, const MG: usize, const MS: usize> =
+    MessageBus<CreamyDriver, MM, MG, MS, Subscribers<F, MM>>;
 
-pub type BenchBus<C, F, const M: usize> = MessageBus<C, CreamyDriver, M, Subscribers<F, M>>;
-
-pub fn init_bus_custom<C: BusConfig, F: SenderFn<M>, const M: usize>(
+pub fn init_bus_custom<F: SenderFn<MM>, const MM: usize, const MG: usize, const MS: usize>(
     indices: Vec<u8>,
     function: F,
     subs: usize,
-) -> Result<BenchBus<C, F, M>, Box<dyn std::error::Error>> {
-    let mut bus = BenchBus::new(CreamyDriver::new::<C>());
+) -> Result<BenchBus<F, MM, MG, MS>, Box<dyn std::error::Error>> {
+    let mut bus = BenchBus::new(CreamyDriver::new::<MS>());
     let sender_id =
         bus.add_subscriber(move |inc, out| BenchmarkSender::new(out, inc, indices, function))?;
 
@@ -136,53 +122,27 @@ pub fn init_bus_custom<C: BusConfig, F: SenderFn<M>, const M: usize>(
     Ok(bus)
 }
 
-pub fn init_bus_legacy<F: SenderFn<MAX_MESSAGES>>(
-    indices: Vec<u8>,
-    function: F,
-    subs: usize,
-) -> Result<BenchBus<Legacy, F, MAX_MESSAGES>, Box<dyn std::error::Error>> {
-    init_bus_custom::<Legacy, F, MAX_MESSAGES>(indices, function, subs)
-}
-
-const MAX_MESSAGES_LARGE: usize = 16000;
-define_bus_config! {
-    LegacyLargeBuffer,
-    max_subscribers: 32,
-    max_messages: 16000,
-    max_groups: 128,
-}
-
-pub fn init_bus_legacy_large_buf<F: SenderFn<MAX_MESSAGES_LARGE>>(
-    indices: Vec<u8>,
-    function: F,
-    subs: usize,
-) -> Result<BenchBus<LegacyLargeBuffer, F, MAX_MESSAGES_LARGE>, Box<dyn std::error::Error>> {
-    init_bus_custom::<LegacyLargeBuffer, F, MAX_MESSAGES_LARGE>(indices, function, subs)
-}
-
-const MAX_MESSAGES_ULTRA_LARGE: usize = 500_000;
-define_bus_config! {
-    LegacyUltraLargeBuffer,
-    max_subscribers: 32,
-    max_messages: 500_000,
-    max_groups: 128,
-}
-
-pub fn init_bus_legacy_ularge_buf<F: SenderFn<MAX_MESSAGES_ULTRA_LARGE>>(
-    indices: Vec<u8>,
-    function: F,
-    subs: usize,
-) -> Result<BenchBus<LegacyUltraLargeBuffer, F, MAX_MESSAGES_ULTRA_LARGE>, Box<dyn std::error::Error>>
-{
-    init_bus_custom::<LegacyUltraLargeBuffer, F, MAX_MESSAGES_ULTRA_LARGE>(indices, function, subs)
-}
+//const MAX_MESSAGES_ULTRA_LARGE: usize = 500_000;
+//define_bus_config! {
+//    LegacyUltraLargeBuffer,
+//    max_subscribers: 32,
+//    max_messages: 500_000,
+//    max_groups: 128,
+//}
+//
+//pub fn init_bus_legacy_ularge_buf<F: SenderFn<MAX_MESSAGES_ULTRA_LARGE>>(
+//    indices: Vec<u8>,
+//    function: F,
+//    subs: usize,
+//) -> Result<BenchBus<LegacyUltraLargeBuffer, F, MAX_MESSAGES_ULTRA_LARGE>, Box<dyn std::error::Error>>
+//{
+//    init_bus_custom::<LegacyUltraLargeBuffer, F, MAX_MESSAGES_ULTRA_LARGE>(indices, function, subs)
+//}
 
 pub mod driver {
     use std::collections::HashMap;
 
-    use cbus::{
-        BusDriver, DataIterator, SubscriberLookupData, config::BusConfig, core::SubscriberId,
-    };
+    use cbus::{BusDriver, DataIterator, SubscriberLookupData, core::SubscriberId};
     use idmint::StackMint;
 
     #[derive(Default, Clone)]
@@ -199,12 +159,9 @@ pub mod driver {
 
     impl CreamyDriver {
         #[must_use]
-        pub fn new<C: BusConfig>() -> Self {
-            let subscribers = core::iter::repeat_n(
-                SubscriberMetadata::default(),
-                C::MAX_SUBSCRIBERS.get() as usize,
-            )
-            .collect::<Vec<_>>();
+        pub fn new<const MS: usize>() -> Self {
+            let subscribers =
+                core::iter::repeat_n(SubscriberMetadata::default(), MS).collect::<Vec<_>>();
 
             Self {
                 groups: HashMap::new(),

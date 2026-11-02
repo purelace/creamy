@@ -3,20 +3,14 @@
 
 use cbus::{
     BusDriver, DataIterator, SubscriberLookupData,
-    core::{
-        Subscriber, SubscriberId, UntypedMessage,
-        buffer::{IncBuf, OutBuf},
-        subscribers,
-    },
-    define_bus_config,
+    core::{Subscriber, SubscriberId, UntypedMessage, subscribers},
+    define_bus,
 };
 
-const MAX_MESSAGES: usize = 11000;
-define_bus_config! {
-    Advanced,
-    max_subscribers: u8::MAX - 1,
+define_bus! {
     max_messages: 11000,
     max_groups: 128,
+    max_subscribers: 255,
 }
 
 #[derive(Debug)]
@@ -45,17 +39,17 @@ impl BusDriver for Driver {
     fn on_unsubscribe(&mut self, _: SubscriberId) {}
 }
 
-type MessageBus<S> = cbus::MessageBus<Advanced, Driver, MAX_MESSAGES, S>;
+type Bus<S> = MessageBus<Driver, S>;
 
 #[derive(Debug)]
 struct TestListener<const A: usize> {
-    incoming: IncBuf<MAX_MESSAGES>,
-    _outgoing: OutBuf<MAX_MESSAGES>,
+    incoming: IncBuf,
+    _outgoing: OutBuf,
     total_messages: usize,
 }
 
 impl<const A: usize> TestListener<A> {
-    pub const fn new(incoming: IncBuf<MAX_MESSAGES>, outgoing: OutBuf<MAX_MESSAGES>) -> Self {
+    pub const fn new(incoming: IncBuf, outgoing: OutBuf) -> Self {
         Self {
             incoming,
             _outgoing: outgoing,
@@ -95,12 +89,12 @@ impl<const A: usize> Drop for TestListener<A> {
 
 #[derive(Debug)]
 struct TestSender<const A: usize> {
-    _incoming: IncBuf<MAX_MESSAGES>,
-    outgoing: OutBuf<MAX_MESSAGES>,
+    _incoming: IncBuf,
+    outgoing: OutBuf,
 }
 
 impl<const A: usize> TestSender<A> {
-    pub const fn new(incoming: IncBuf<MAX_MESSAGES>, outgoing: OutBuf<MAX_MESSAGES>) -> Self {
+    pub const fn new(incoming: IncBuf, outgoing: OutBuf) -> Self {
         Self {
             _incoming: incoming,
             outgoing,
@@ -162,7 +156,7 @@ subscribers! {
 
 #[test]
 pub fn send_1_message() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs1>::new(Driver);
+    let mut bus = Bus::<TSubs1>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -173,7 +167,7 @@ pub fn send_1_message() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_13_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs13>::new(Driver);
+    let mut bus = Bus::<TSubs13>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -184,7 +178,7 @@ pub fn send_13_messages() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_100_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs100>::new(Driver);
+    let mut bus = Bus::<TSubs100>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -195,7 +189,7 @@ pub fn send_100_messages() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_1k_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs1000>::new(Driver);
+    let mut bus = Bus::<TSubs1000>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();
@@ -206,7 +200,7 @@ pub fn send_1k_messages() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn send_10k_messages() -> Result<(), Box<dyn std::error::Error>> {
-    let mut bus = MessageBus::<TSubs10000>::new(Driver);
+    let mut bus = Bus::<TSubs10000>::new(Driver);
     bus.add_subscriber(TestSender::new)?;
     bus.add_subscriber(TestListener::new)?;
     bus.tick();

@@ -1,16 +1,19 @@
 use cbus_core::Subscriber;
 
 use crate::{
-    config::BusConfig,
     core::UntypedMessage,
     cpu::{MessagePipeline, PipelineData},
     lookup::LookupTable,
     sys::SubscriberRange,
 };
 
-pub trait InstructionSet<C, S, const M: usize, const CHUNK_SIZE: usize>: Sized
-where
-    C: BusConfig,
+pub trait InstructionSet<
+    S,
+    const MM: usize,
+    const MG: usize,
+    const MS: usize,
+    const CHUNK_SIZE: usize,
+>: Sized where
     S: Subscriber,
 {
     /// Пишет сообщения в слайс с заданным размером
@@ -21,7 +24,7 @@ where
 
     /// Подготавливает сообщения и пишет в слайс с заданным размером
     fn prepare_and_send_exactly(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage; CHUNK_SIZE],
@@ -30,7 +33,7 @@ where
 
     /// Подготавливает и пишет остаток сообщений в указанный слайс
     fn prepare_and_send_remainder(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage],
@@ -43,7 +46,7 @@ where
         tracing::instrument(skip_all, name = "bus::prepare_batches", level = "trace")
     )]
     #[inline(always)]
-    fn prepare_batches(subscribers: &[u8], data: &mut PipelineData<C, S, M>) {
+    fn prepare_batches(subscribers: &[u8], data: &mut PipelineData<S, MM, MG, MS>) {
         for src in subscribers.iter().copied() {
             let sub_data = &mut data.memory.subscribers[src as usize];
             let mut buffer = sub_data.outgoing_mut();
@@ -69,7 +72,10 @@ where
         tracing::instrument(skip_all, name = "bus::send_batches", level = "trace")
     )]
     #[inline(always)]
-    fn send_batches(pipeline: &mut MessagePipeline<C, S, M>, data: &mut PipelineData<C, S, M>) {
+    fn send_batches(
+        pipeline: &mut MessagePipeline<S, MM, MG, MS>,
+        data: &mut PipelineData<S, MM, MG, MS>,
+    ) {
         let mut batch = core::mem::take(&mut pipeline.batch);
 
         for (dst, len, ptr_location) in batch.drain(..) {
@@ -108,7 +114,7 @@ where
     /// Остаток предается в `InstructionSet::prepare_and_send_remainder`.
     #[inline(always)]
     fn slices_prepare_and_send(
-        lut: &LookupTable<C>,
+        lut: &LookupTable<MG, MS>,
         range: SubscriberRange,
         src: u8,
         read: &[UntypedMessage],

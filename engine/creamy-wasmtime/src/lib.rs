@@ -4,10 +4,7 @@ extern crate alloc;
 
 use core::ptr::NonNull;
 
-use creamy_engine_core::{
-    GroupTable, Module, Runtime,
-    bus::{config::BusConfig, core::Subscriber},
-};
+use creamy_engine_core::{GroupTable, Module, Runtime, bus::core::Subscriber};
 use wasmtime::{Config, Engine, Instance, PoolingAllocationConfig, Store, TypedFunc};
 
 #[derive(Debug, thiserror::Error)]
@@ -24,7 +21,7 @@ pub struct WasmPlugin {
     instance: Instance,
 }
 
-impl Module for WasmPlugin {
+impl<const M: usize> Module<M> for WasmPlugin {
     fn incoming_ptr(&self) -> NonNull<u8> {
         self.incoming_ptr
     }
@@ -119,7 +116,7 @@ impl WasmtimeRuntime {
     }
 }
 
-impl<C: BusConfig> Runtime<C> for WasmtimeRuntime {
+impl<const M: usize> Runtime<M> for WasmtimeRuntime {
     type Error = RuntimeError;
     type Module = WasmPlugin;
 
@@ -131,11 +128,11 @@ impl<C: BusConfig> Runtime<C> for WasmtimeRuntime {
 
         let export_incoming_buffer =
             instance.get_typed_func::<u32, u32>(&mut store, "internal__export_incoming_buffer")?;
-        let incoming_ptr = export_incoming_buffer.call(&mut store, C::MAX_MESSAGES.get())?;
+        let incoming_ptr = export_incoming_buffer.call(&mut store, M as u32)?;
 
         let export_outgoing_buffer =
             instance.get_typed_func::<u32, u32>(&mut store, "internal__export_outgoing_buffer")?;
-        let outgoing_ptr = export_outgoing_buffer.call(&mut store, C::MAX_MESSAGES.get())?;
+        let outgoing_ptr = export_outgoing_buffer.call(&mut store, M as u32)?;
 
         let init_func = instance.get_typed_func::<u32, u32>(&mut store, "internal__init_plugin")?;
         let result = init_func.call(&mut store, self.heap_size)?;

@@ -14,7 +14,6 @@
 extern crate alloc;
 
 mod bus;
-pub mod config;
 mod cpu;
 mod driver;
 mod error;
@@ -29,6 +28,24 @@ pub use bus::MessageBus;
 pub use driver::{BusDriver, DataIterator};
 pub use error::BusError;
 pub use lookup::SubscriberLookupData;
+
+#[macro_export]
+macro_rules! define_bus {
+    (
+        max_messages: $mm: expr,
+        max_groups: $mg: expr,
+        max_subscribers: $ms: expr,
+    ) => {
+        extern crate alloc;
+        pub const MAX_MESSAGES: usize = $mm;
+        pub const MAX_GROUPS: usize = $mg;
+        pub const MAX_SUBSCRIBERS: usize = $ms;
+        pub type IncBuf = $crate::core::buffer::IncBuf<$mm>;
+        pub type OutBuf = $crate::core::buffer::OutBuf<$mm>;
+        pub type MessageBus<D, S = alloc::boxed::Box<dyn $crate::core::Subscriber>> =
+            $crate::MessageBus<D, $mm, $mg, $ms, S>;
+    };
+}
 
 /*
  TODO: Проблема диапазона
