@@ -5,7 +5,6 @@ use core::{num::NonZeroU8, ptr::NonNull};
 use cbus::{config::BusConfig, core::Subscriber};
 use creamy_phf::get_hash;
 use creamy_plugin_package::BinaryPlugin;
-use serde::Deserialize;
 
 pub mod bus {
     pub use cbus::*;
@@ -22,11 +21,6 @@ pub trait PluginLoader {
     fn load(&mut self);
     fn loaded(&self) -> u32;
     fn take_loaded_package(&mut self) -> Option<BinaryPlugin>;
-}
-
-#[derive(Deserialize)]
-pub struct Constants {
-    pub heap_size: u32,
 }
 
 pub struct GroupTable<'a> {
@@ -77,9 +71,5 @@ pub trait WasmRuntime<C: BusConfig>: 'static {
     type Module: WasmModule;
 
     #[allow(clippy::missing_errors_doc)]
-    fn init_module(
-        &mut self,
-        constants: &Constants,
-        module: &[u8],
-    ) -> Result<Self::Module, Self::Error>;
+    fn init_module(&mut self, module: &[u8]) -> Result<Self::Module, Self::Error>;
 }

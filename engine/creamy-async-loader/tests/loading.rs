@@ -2,7 +2,7 @@ use std::{num::NonZeroU8, time::Duration};
 
 use creamy::engine::PluginEngine;
 use creamy_async_loader::{AsyncLoader, config::LoaderConfig};
-use creamy_engine_core::{Constants, bus::define_bus_config};
+use creamy_engine_core::bus::define_bus_config;
 use creamy_wasmtime::WasmtimeRuntime;
 
 fn compile_plugin() -> anyhow::Result<()> {
@@ -45,13 +45,7 @@ async fn init_engine()
     )
     .await?;
 
-    let engine = PluginEngine::new(
-        Constants {
-            heap_size: HEAP_SIZE,
-        },
-        runtime,
-        loader,
-    );
+    let engine = PluginEngine::new(runtime, loader);
 
     Ok(engine)
 }

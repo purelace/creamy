@@ -9,6 +9,5 @@ workspace = true
 
 [dependencies]
 creamy-plugin-package.workspace = true
-serde.workspace = true
 cbus.workspace = true
 creamy-phf.workspace = true

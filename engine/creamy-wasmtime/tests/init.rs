@@ -1,9 +1,6 @@
 use std::{env, num::NonZeroU8};
 
-use creamy::{
-    core::{Constants, package::version::Version},
-    engine::PluginEngine,
-};
+use creamy::{core::package::version::Version, engine::PluginEngine};
 use creamy_engine_core::{bus::define_bus_config, package::pool::StringPoolResolver};
 use creamy_loader::Loader;
 use creamy_wasmtime::WasmtimeRuntime;
@@ -76,13 +73,7 @@ fn init_engine() -> anyhow::Result<PluginEngine<Legacy, WasmtimeRuntime, Loader,
     let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
     let loader = Loader::new(to_absolute_path("$CREAMY_TEST_PLUGIN_DIR").unwrap())?;
 
-    let engine = PluginEngine::new(
-        Constants {
-            heap_size: HEAP_SIZE,
-        },
-        runtime,
-        loader,
-    );
+    let engine = PluginEngine::new(runtime, loader);
 
     Ok(engine)
 }

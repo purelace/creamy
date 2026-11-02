@@ -4,7 +4,7 @@ use std::{collections::HashMap, num::NonZeroU8};
 
 use creamy::{
     core::{
-        Constants, GroupTable,
+        GroupTable,
         bus::{
             core::{
                 Subscriber,
@@ -99,9 +99,6 @@ impl Shell {
     async fn new(handle: tokio::runtime::Handle) -> Result<Self, Box<dyn core::error::Error>> {
         const HEAP_SIZE: u32 = 67_108_864;
         let mut engine = PluginEngine::new(
-            Constants {
-                heap_size: HEAP_SIZE,
-            },
             WasmtimeRuntime::new(HEAP_SIZE)?,
             AsyncLoader::new(
                 LoaderConfig {

@@ -2,7 +2,7 @@ use alloc::{boxed::Box, format, vec::Vec};
 use core::{marker::PhantomData, num::NonZeroU8};
 
 use creamy_engine_core::{
-    Constants, GroupTable, PluginLoader, WasmModule, WasmRuntime,
+    GroupTable, PluginLoader, WasmModule, WasmRuntime,
     bus::{
         MessageBus, SubscriberLookupData,
         config::BusConfig,
@@ -148,7 +148,6 @@ pub struct PluginEngine<
     const M: usize,
 > {
     bus: MessageBus<C, EngineBusDriver<S>, M, Plugin<C, R, H, S, M>>,
-    constants: Constants, //WTF?
     runtime: R,
     loader: L,
     registry: ProtocolRegistry,
@@ -165,12 +164,11 @@ impl<
     const M: usize,
 > PluginEngine<C, R, L, H, S, M>
 {
-    pub fn new(constants: Constants, runtime: R, loader: L) -> Self {
+    pub fn new(runtime: R, loader: L) -> Self {
         let bus = MessageBus::new(EngineBusDriver::new());
 
         let mut instance = Self {
             bus,
-            constants,
             runtime,
             loader,
             registry: ProtocolRegistry::default(),
@@ -316,7 +314,7 @@ impl<
     ) -> Result<Option<ValidationContext>, Error> {
         let module = self
             .runtime
-            .init_module(&self.constants, package.core())
+            .init_module(package.core())
             .map_err(|e| Error::Other(Box::new(e)))?;
 
         let package = match PluginPackage::from_package(package) {

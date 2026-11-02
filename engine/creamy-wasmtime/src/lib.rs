@@ -5,7 +5,7 @@ extern crate alloc;
 use core::ptr::NonNull;
 
 use creamy_engine_core::{
-    Constants, GroupTable, WasmModule, WasmRuntime,
+    GroupTable, WasmModule, WasmRuntime,
     bus::{config::BusConfig, core::Subscriber},
 };
 use wasmtime::{Config, Engine, Instance, Module, PoolingAllocationConfig, Store, TypedFunc};
@@ -96,6 +96,7 @@ impl Subscriber for WasmPlugin {
 }
 
 pub struct WasmtimeRuntime {
+    heap_size: u32,
     engine: Engine,
 }
 
@@ -112,6 +113,7 @@ impl WasmtimeRuntime {
         config.compiler_inlining(wasmtime::Inlining::Yes);
         config.allocation_strategy(pooling);
         Ok(Self {
+            heap_size,
             engine: Engine::new(&config)?,
         })
     }
@@ -121,11 +123,7 @@ impl<C: BusConfig> WasmRuntime<C> for WasmtimeRuntime {
     type Error = RuntimeError;
     type Module = WasmPlugin;
 
-    fn init_module(
-        &mut self,
-        constants: &Constants,
-        module: &[u8],
-    ) -> Result<Self::Module, Self::Error> {
+    fn init_module(&mut self, module: &[u8]) -> Result<Self::Module, Self::Error> {
         let module = Module::from_binary(&self.engine, module)?;
         let mut store = Store::new(&self.engine, ());
 
@@ -140,7 +138,7 @@ impl<C: BusConfig> WasmRuntime<C> for WasmtimeRuntime {
         let outgoing_ptr = export_outgoing_buffer.call(&mut store, C::MAX_MESSAGES.get())?;
 
         let init_func = instance.get_typed_func::<u32, u32>(&mut store, "internal__init_plugin")?;
-        let result = init_func.call(&mut store, constants.heap_size)?;
+        let result = init_func.call(&mut store, self.heap_size)?;
         assert!(result == 0, "plugin init error");
 
         let notify_func = instance.get_typed_func::<(), ()>(&mut store, "internal__notify")?;

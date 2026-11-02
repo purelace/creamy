@@ -799,7 +799,6 @@ dependencies = [
  "cbus",
  "creamy-phf",
  "creamy-plugin-package",
- "serde",
 ]
 
 [[package]]
