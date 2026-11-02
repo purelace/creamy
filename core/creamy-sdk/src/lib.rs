@@ -1,3 +1,4 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![allow(clippy::inline_always)]
 #![no_std]
 

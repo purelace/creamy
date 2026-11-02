@@ -1,13 +1,14 @@
-use cbus_core::{SubscriberId, buffer::DynOutBuf};
+use cbus_core::buffer::DynOutBuf;
 
 use crate::{
     message::Message,
+    state::Table,
     stream::{StreamId, StreamMessage, StreamWriter},
 };
 
 pub struct Sender {
     buffer: DynOutBuf,
-    table: &'static [Option<SubscriberId>; 256],
+    table: *const Table,
 }
 
 impl Sender {
@@ -23,15 +24,30 @@ impl Sender {
     /// # Returns
     /// Returns `false` if the buffer is full or a destination point is not set
     pub fn send<T: Message>(&mut self, mut message: T) -> bool {
-        let Some(dst) = self.table[T::GROUP.get() as usize] else {
-            return false;
-        };
+        cfg_select! {
+            debug_assertions => {
+                #[allow(clippy::missing_panics_doc)]
+                let table = unsafe {
+                    self.table
+                        .as_ref()
+                        .expect("cast pointer to shared reference bug")
+                };
+            }
+            _ => {
+                let table = unsafe { self.table.as_ref_unchecked() };
+            }
+        }
+        let slice = table.get(T::GROUP);
+        let mut success = !slice.is_empty();
+        for dst in slice {
+            message.with_dst(dst.as_u8());
+            message.with_group(T::GROUP.get());
+            message.with_kind(T::KIND);
 
-        message.with_dst(dst.as_u8());
-        message.with_group(T::GROUP.get());
-        message.with_kind(T::KIND);
+            success &= self.buffer.send(&message);
+        }
 
-        self.buffer.send(&message)
+        success
     }
 
     pub fn send_to<T: Message>(&mut self, message: &T) -> bool {
@@ -39,13 +55,30 @@ impl Sender {
     }
 
     pub fn send_stream<T: StreamMessage>(&mut self, content: &T::Content) -> bool {
-        let Some(dst) = self.table[T::GROUP.get() as usize] else {
+        cfg_select! {
+            debug_assertions => {
+                #[allow(clippy::missing_panics_doc)]
+                let table = unsafe {
+                    self.table
+                        .as_ref()
+                        .expect("cast pointer to shared reference bug")
+                };
+            }
+            _ => {
+                let table = unsafe { self.table.as_ref_unchecked() };
+            }
+        }
+        let slice = table.get(T::GROUP);
+        if slice.is_empty() {
             return false;
-        };
+        }
 
-        //TODO: dynamic stream id
-        let mut writer = StreamWriter::<T>::new(dst.as_u8(), StreamId::new(10));
-        writer.send(content);
+        for dst in slice {
+            //TODO: dynamic stream id
+            let mut writer = StreamWriter::<T>::new(dst.as_u8(), StreamId::new(10));
+            writer.send(content);
+        }
+
         true
     }
 }
