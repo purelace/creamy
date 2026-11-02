@@ -48,7 +48,7 @@ impl<const MM: usize, const MS: usize> MessagePool<MM, MS> {
         self.count = 0;
     }
 
-    pub const fn slice(&mut self, len: u32, offset: u32) -> &[UntypedMessage] {
+    pub const fn slice(&mut self, len: u16, offset: u16) -> &[UntypedMessage] {
         unsafe {
             let ptr = self.ptr.add(offset as usize).as_ptr();
             core::slice::from_raw_parts(ptr, len as usize)

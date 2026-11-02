@@ -179,8 +179,8 @@ where
 
 #[derive(Default, Debug, Copy, Clone)]
 struct Slice {
-    pub count: u32,
-    pub offset: u32,
+    pub count: u16,
+    pub offset: u16,
 }
 
 #[derive(Debug)]

@@ -66,8 +66,8 @@ const fn is_valid_subscriber_parameter<const MS: usize>() -> bool {
 }
 
 const fn is_valid_message_parameter<const MM: usize>() -> bool {
-    // 0 < M <= u32::MAX
-    MM <= u32::MAX as usize && MM != 0
+    // 0 < M <= u16::MAX
+    MM <= u16::MAX as usize && MM != 0
 }
 
 #[derive(Debug)]

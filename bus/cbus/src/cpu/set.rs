@@ -83,11 +83,11 @@ pub trait InstructionSet<
             let read = data.memory.message.slice(count, offset);
             let sub_data = &mut data.memory.subscribers[id.as_usize()];
             let mut buffer = sub_data.incoming_mut();
-            let write = buffer.write_slice_mut(count);
+            let write = buffer.write_slice_mut(u32::from(count));
             Self::slices_send(read, write);
             // SAFETY: TODO
             unsafe {
-                buffer.add_count(count);
+                buffer.add_count(u32::from(count));
             }
         }
     }

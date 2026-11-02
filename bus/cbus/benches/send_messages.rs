@@ -158,13 +158,13 @@ mod _65k {
     use crate::general::init_bus_custom;
 
     define_bus! {
-        max_messages: 500_000,
+        max_messages: 65535,
         max_groups: 128,
         max_subscribers: 32,
     }
 
     fn send_mutlitple_65k_sender(indices: &[u8], out: &mut OutBuf) {
-        let total_count = indices.len() * 4096;
+        let total_count = indices.len() * 4095;
         let iter = indices.iter().flat_map(|&dst| {
             let msg = UntypedMessage {
                 dst,
@@ -173,7 +173,7 @@ mod _65k {
                 kind: 0,
                 payload: [0; 28],
             };
-            std::iter::repeat_n(msg, 4096)
+            std::iter::repeat_n(msg, 4095)
         });
 
         assert!(out.send_many_iter_with_count(iter, total_count));

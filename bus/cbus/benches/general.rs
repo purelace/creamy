@@ -122,23 +122,6 @@ pub fn init_bus_custom<F: SenderFn<MM>, const MM: usize, const MG: usize, const 
     Ok(bus)
 }
 
-//const MAX_MESSAGES_ULTRA_LARGE: usize = 500_000;
-//define_bus_config! {
-//    LegacyUltraLargeBuffer,
-//    max_subscribers: 32,
-//    max_messages: 500_000,
-//    max_groups: 128,
-//}
-//
-//pub fn init_bus_legacy_ularge_buf<F: SenderFn<MAX_MESSAGES_ULTRA_LARGE>>(
-//    indices: Vec<u8>,
-//    function: F,
-//    subs: usize,
-//) -> Result<BenchBus<LegacyUltraLargeBuffer, F, MAX_MESSAGES_ULTRA_LARGE>, Box<dyn std::error::Error>>
-//{
-//    init_bus_custom::<LegacyUltraLargeBuffer, F, MAX_MESSAGES_ULTRA_LARGE>(indices, function, subs)
-//}
-
 pub mod driver {
     use std::collections::HashMap;
 
