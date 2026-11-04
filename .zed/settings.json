@@ -2,6 +2,10 @@
   "lsp": {
     "rust-analyzer": {
       "initialization_options": {
+        "linkedProjects": [
+          "Cargo.toml",
+          "engine/creamy-wasmtime/fixtures/Cargo.toml",
+        ],
         "imports": {
           "prefix": "self",
         },

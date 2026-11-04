@@ -50,10 +50,11 @@ members = [
     "engine/creamy-wasmtime",
     "engine/pathenv",
 
-    "examples/ping",
-    "examples/pong",
-    "examples/shell",
-    "examples/shell/commands/*",
+    # TODO: move these crates to their own workspace
+    # "examples/shell",
+    # "examples/shell/commands/*",
+
+    "xtask",
 ]
 
 [workspace.dependencies]

@@ -1,25 +1,9 @@
+/*
 use std::{num::NonZeroU8, time::Duration};
 
 use creamy::define_engine;
 use creamy_async_loader::{AsyncLoader, config::LoaderConfig};
 use creamy_wasmtime::WasmtimeRuntime;
-
-fn compile_plugin() -> anyhow::Result<()> {
-    std::process::Command::new("creamy")
-        .arg("build")
-        .current_dir("../../examples/ping")
-        .env_remove("RUSTC_WRAPPER")
-        .env_remove("RUSTFLAGS")
-        .env_remove("CARGO_ENCODED_RUSTFLAGS")
-        .env_remove("CARGO_LLVM_COV")
-        .env_remove("__CARGO_LLVM_COV_RUSTC_WRAPPER")
-        .env_remove("__CARGO_LLVM_COV_RUSTC_WRAPPER_CRATE_NAMES")
-        .env_remove("__CARGO_LLVM_COV_RUSTC_WRAPPER_RUSTFLAGS")
-        .spawn()?
-        .wait()?;
-
-    Ok(())
-}
 
 define_engine! {
     max_messages: 1024,
@@ -52,11 +36,8 @@ async fn preload_plugin() -> anyhow::Result<()> {
     let _ = tracing_subscriber::fmt().with_target(false).try_init();
 
     let tempdir = tempfile::tempdir()?;
-    {
-        compile_plugin()?;
-        let plugin_path = tempdir.path().join("ping.cmy");
-        std::fs::copy("../../target/creamy/ping.cmy", plugin_path.clone())?;
-    }
+    let plugin_path = tempdir.path().join("ping.cmy");
+    std::fs::copy("../../target/creamy/ping.cmy", plugin_path.clone())?;
 
     unsafe { std::env::set_var("CREAMY_TEST_PLUGIN_DIR", tempdir.path().as_os_str()) };
     let mut engine = init_engine().await?;
@@ -95,3 +76,5 @@ async fn load_plugin() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+*/

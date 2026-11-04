@@ -1,0 +1,12 @@
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[workspace]
+resolver = "2"
+members = ["ping", "pong"]
+
+[workspace.dependencies]
+creamy-sdk = { path = "../../../core/creamy-sdk" }
+creamy-libgen-rs = { path = "../../../tools/creamy-libgen-rs" }
