@@ -17,7 +17,6 @@ idmint.workspace = true
 thiserror.workspace = true
 bitflags.workspace = true
 tracing = { workspace = true, optional = true }
-arrayvec = "0.7.8"
 
 [dev-dependencies]
 criterion.workspace = true

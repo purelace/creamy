@@ -78,7 +78,6 @@ creamy-protocol-model-macros = { path = "core/creamy-protocol-model-macros"}
 # Engine
 creamy = { path = "engine/creamy" }
 creamy-engine-core = { path = "engine/creamy-engine-core" }
-creamy-wasmtime= { path = "engine/creamy-wasmtime" }
 pathenv = { path = "engine/pathenv" }
 
 # no_std
