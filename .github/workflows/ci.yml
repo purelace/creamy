@@ -37,7 +37,7 @@ jobs:
         run: rustup update stable
 
       - name: Add wasm target
-        run: rustup target add wasm32-unknown-unknown --toolchain nightly
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
