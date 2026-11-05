@@ -59,7 +59,6 @@ impl TestContext {
 async fn preload_plugin() -> anyhow::Result<()> {
     let context = TestContext::new()?;
     std::fs::copy(&context.fixture, &context.plugin_path).with_context(|| {
-        execute_ls();
         format!(
             "From: {}. To: {}",
             context.fixture.display(),
@@ -100,7 +99,6 @@ async fn load_plugin() -> anyhow::Result<()> {
         if !loaded {
             loaded = true;
             std::fs::copy(&context.fixture, &context.plugin_path).with_context(|| {
-                execute_ls();
                 format!(
                     "From: {}. To: {}",
                     context.fixture.display(),
@@ -113,27 +111,4 @@ async fn load_plugin() -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-fn execute_ls() {
-    std::process::Command::new("ls")
-        .arg("/home/runner/work/creamy/creamy/engine/creamy-wasmtime/")
-        .spawn()
-        .unwrap()
-        .wait()
-        .unwrap();
-
-    std::process::Command::new("ls")
-        .arg("/home/runner/work/creamy/creamy/engine/creamy-wasmtime/fixtures")
-        .spawn()
-        .unwrap()
-        .wait()
-        .unwrap();
-
-    std::process::Command::new("ls")
-        .arg("/home/runner/work/creamy/creamy/engine/creamy-wasmtime/fixtures/output")
-        .spawn()
-        .unwrap()
-        .wait()
-        .unwrap();
 }
