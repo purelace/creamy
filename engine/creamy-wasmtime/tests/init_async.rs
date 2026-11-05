@@ -1,5 +1,6 @@
 use std::{num::NonZeroU8, path::PathBuf, time::Duration};
 
+use anyhow::Context;
 use creamy::define_engine;
 use creamy_wasmtime::{
     WTRuntime,
@@ -30,13 +31,13 @@ async fn init_engine() -> anyhow::Result<PluginEngine<WTRuntime, ()>> {
 
 const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 
-struct Context {
+struct TestContext {
     _tempdir: tempfile::TempDir,
     plugin_path: PathBuf,
     fixture: PathBuf,
 }
 
-impl Context {
+impl TestContext {
     fn new() -> anyhow::Result<Self> {
         let _ = tracing_subscriber::fmt().with_target(false).try_init();
 
@@ -56,8 +57,14 @@ impl Context {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn preload_plugin() -> anyhow::Result<()> {
-    let context = Context::new()?;
-    std::fs::copy(context.fixture, context.plugin_path)?;
+    let context = TestContext::new()?;
+    std::fs::copy(&context.fixture, &context.plugin_path).with_context(|| {
+        format!(
+            "From: {}. To: {}",
+            context.fixture.display(),
+            context.plugin_path.display()
+        )
+    })?;
 
     let mut engine = init_engine().await?;
 
@@ -74,7 +81,7 @@ async fn preload_plugin() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn load_plugin() -> anyhow::Result<()> {
-    let context = Context::new()?;
+    let context = TestContext::new()?;
 
     let mut engine = init_engine().await?;
     let mut loaded = false;
@@ -91,7 +98,13 @@ async fn load_plugin() -> anyhow::Result<()> {
         }
         if !loaded {
             loaded = true;
-            std::fs::copy(&context.fixture, &context.plugin_path)?;
+            std::fs::copy(&context.fixture, &context.plugin_path).with_context(|| {
+                format!(
+                    "From: {}. To: {}",
+                    context.fixture.display(),
+                    context.plugin_path.display()
+                )
+            })?;
         }
 
         std::thread::sleep(Duration::from_millis(16));
