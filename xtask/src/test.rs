@@ -90,8 +90,10 @@ pub fn run_all_tests() -> anyhow::Result<()> {
 
     for project in inner {
         if let Some(fixtures) = project.fixtures.as_ref() {
-            sh.change_dir(&fixtures.root);
-            cmd!(sh, "creamy build").run()?;
+            for fixture in &fixtures.inner {
+                sh.change_dir(fixture);
+                cmd!(sh, "creamy build").run()?;
+            }
         }
     }
 
@@ -122,8 +124,10 @@ pub fn run_project_tests(project_name: &str) -> anyhow::Result<()> {
         )
         .run()?;
 
-        sh.change_dir(&fixtures.root);
-        cmd!(sh, "creamy build").run()?;
+        for fixture in &fixtures.inner {
+            sh.change_dir(fixture);
+            cmd!(sh, "creamy build").run()?;
+        }
     }
 
     sh.change_dir(project.root);
