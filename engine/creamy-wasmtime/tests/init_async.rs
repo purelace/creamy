@@ -1,4 +1,4 @@
-use std::{num::NonZeroU8, time::Duration};
+use std::{num::NonZeroU8, path::PathBuf, time::Duration};
 
 use creamy::define_engine;
 use creamy_wasmtime::{
@@ -30,14 +30,34 @@ async fn init_engine() -> anyhow::Result<PluginEngine<WTRuntime, ()>> {
 
 const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 
+struct Context {
+    _tempdir: tempfile::TempDir,
+    plugin_path: PathBuf,
+    fixture: PathBuf,
+}
+
+impl Context {
+    fn new() -> anyhow::Result<Self> {
+        let _ = tracing_subscriber::fmt().with_target(false).try_init();
+
+        let tempdir = tempfile::tempdir()?;
+        let plugin_path = tempdir.path().join("ping.cmy");
+
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/output/ping.cmy");
+        unsafe { std::env::set_var("CREAMY_TEST_PLUGIN_DIR", tempdir.path().as_os_str()) };
+
+        Ok(Self {
+            _tempdir: tempdir,
+            plugin_path,
+            fixture,
+        })
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn preload_plugin() -> anyhow::Result<()> {
-    let _ = tracing_subscriber::fmt().with_target(false).try_init();
-
-    let tempdir = tempfile::tempdir()?;
-    let plugin_path = tempdir.path().join("ping.cmy");
-    std::fs::copy("fixtures/output/ping.cmy", plugin_path.clone())?;
-    unsafe { std::env::set_var("CREAMY_TEST_PLUGIN_DIR", tempdir.path().as_os_str()) };
+    let context = Context::new()?;
+    std::fs::copy(context.fixture, context.plugin_path)?;
 
     let mut engine = init_engine().await?;
 
@@ -54,11 +74,7 @@ async fn preload_plugin() -> anyhow::Result<()> {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn load_plugin() -> anyhow::Result<()> {
-    let _ = tracing_subscriber::fmt().with_target(false).try_init();
-
-    let tempdir = tempfile::tempdir()?;
-    let plugin_path = tempdir.path().join("ping.cmy");
-    unsafe { std::env::set_var("CREAMY_TEST_PLUGIN_DIR", tempdir.path().as_os_str()) };
+    let context = Context::new()?;
 
     let mut engine = init_engine().await?;
     let mut loaded = false;
@@ -75,7 +91,7 @@ async fn load_plugin() -> anyhow::Result<()> {
         }
         if !loaded {
             loaded = true;
-            std::fs::copy("fixtures/output/ping.cmy", plugin_path.clone())?;
+            std::fs::copy(&context.fixture, &context.plugin_path)?;
         }
 
         std::thread::sleep(Duration::from_millis(16));
