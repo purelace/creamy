@@ -3,15 +3,13 @@ use std::ffi::OsString;
 use futures_util::TryStreamExt;
 use inotify::{Event, EventStream, Inotify, WatchDescriptor, WatchMask};
 
-use crate::Result;
-
 pub struct FileWatcher {
     _descriptor: WatchDescriptor,
     inotify: EventStream<Vec<u8>>,
 }
 
 impl FileWatcher {
-    pub fn new(directory: &str) -> Result<Self> {
+    pub fn new(directory: &str) -> Result<Self, super::Error> {
         let inotify = Inotify::init()?;
         let descriptor = inotify.watches().add(
             directory,

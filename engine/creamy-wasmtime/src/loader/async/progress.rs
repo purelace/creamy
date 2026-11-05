@@ -50,16 +50,8 @@ impl<R: AsyncRead + Unpin> AsyncRead for ProgressReader<R> {
 }
 
 impl<R> ProgressReader<R> {
-    pub fn total(&self) -> usize {
-        if let Ok(value) = usize::try_from(self.total) {
-            value
-        } else {
-            panic!("value truncation");
-        }
-    }
-
-    pub fn loaded(&self) -> usize {
-        self.counter.load(Ordering::Relaxed)
+    pub const fn total(&self) -> u64 {
+        self.total
     }
 
     pub fn counter(&self) -> Arc<AtomicUsize> {

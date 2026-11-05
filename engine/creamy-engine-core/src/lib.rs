@@ -1,10 +1,18 @@
 #![no_std]
 
-use core::{num::NonZeroU8, ptr::NonNull};
+extern crate alloc;
+
+mod table;
+use alloc::vec::Vec;
+use core::ptr::NonNull;
 
 use cbus::core::Subscriber;
-use creamy_phf::get_hash;
-use creamy_plugin_package::BinaryPlugin;
+use creamy_plugin_package::{
+    manifest::Manifest,
+    model::{Version, definition::ProtocolModel},
+    pool::StringPool,
+};
+pub use table::GroupTable;
 
 pub mod bus {
     pub use cbus::*;
@@ -16,48 +24,11 @@ pub mod package {
 
 pub const PACKAGE_FILE_EXTENSION: &str = "cmy";
 
-pub trait PluginLoader {
-    fn preload(&mut self);
-    fn load(&mut self);
-    fn loaded(&self) -> u32;
-    fn take_loaded_package(&mut self) -> Option<BinaryPlugin>;
-}
-
-pub struct GroupTable<'a> {
-    table: &'a [u8],
-    table_size: u8,
-    special: &'a [u64],
-    special_size: u8,
-}
-
-impl<'a> GroupTable<'a> {
-    #[must_use]
-    pub const fn new(
-        table: &'a [u8],
-        table_size: u8,
-        special: &'a [u64],
-        special_size: u8,
-    ) -> Self {
-        Self {
-            table,
-            table_size,
-            special,
-            special_size,
-        }
-    }
-
-    #[must_use]
-    pub fn get_hash(&self, path: &str) -> u64 {
-        get_hash(0xdead_beef, path.as_bytes())
-    }
-
-    pub fn get_group_id(&self, path: &str) -> NonZeroU8 {
-        let group = self.get_hash(path) % u64::from(self.special_size);
-        let perfect_seed = self.special[group as usize];
-        let hash = get_hash(perfect_seed, path.as_bytes());
-        let id = self.table[(hash % u64::from(self.table_size)) as usize];
-        NonZeroU8::new(id).unwrap()
-    }
+pub struct Metadata {
+    pub version: Version,
+    pub manifest: Manifest,
+    pub pool: StringPool,
+    pub models: Vec<ProtocolModel>,
 }
 
 pub trait Module<const M: usize>: Subscriber {
@@ -66,10 +37,11 @@ pub trait Module<const M: usize>: Subscriber {
     fn get_group_table(&mut self) -> GroupTable<'_>;
 }
 
+#[allow(clippy::missing_errors_doc)]
 pub trait Runtime<const M: usize>: 'static {
     type Error: core::error::Error;
     type Module: Module<M>;
 
-    #[allow(clippy::missing_errors_doc)]
-    fn init_module(&mut self, module: &[u8]) -> Result<Self::Module, Self::Error>;
+    fn tick(&mut self);
+    fn pop_ready_plugin(&mut self) -> Result<Option<(Metadata, Self::Module)>, Self::Error>;
 }

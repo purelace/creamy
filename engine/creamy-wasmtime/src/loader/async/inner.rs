@@ -8,16 +8,24 @@ use creamy_engine_core::{PACKAGE_FILE_EXTENSION, package::BinaryPlugin};
 use inotify::{Event, EventMask};
 use tokio::{
     io::AsyncReadExt,
-    sync::{RwLock, Semaphore},
+    sync::{RwLock, Semaphore, mpsc::UnboundedSender},
     task::JoinHandle,
 };
 
-use crate::{
-    Result, config::ValidLoaderConfig, load_package, progress::ProgressReader, watcher::FileWatcher,
+use super::watcher::FileWatcher;
+use crate::loader::{
+    r#async::{load_package, progress::ProgressReader},
+    config::ValidLoaderConfig,
 };
 
+#[cfg(feature = "ui-events")]
+pub struct LoadingContext {
+    pub file_path: PathBuf,
+    pub progress: Arc<AtomicUsize>,
+    pub size: u64,
+}
+
 pub struct LoadingInProgress {
-    progress: Arc<AtomicUsize>,
     data: Vec<u8>,
     is_done: bool,
 }
@@ -28,22 +36,31 @@ pub struct InnerLoader {
     semaphore: Arc<Semaphore>,
     loading: Vec<JoinHandle<Option<BinaryPlugin>>>,
     loaded: Vec<BinaryPlugin>,
+
+    #[cfg(feature = "ui-events")]
+    sender: UnboundedSender<LoadingContext>,
 }
 
 impl InnerLoader {
-    pub async fn new(config: ValidLoaderConfig) -> Result<Self> {
+    pub async fn new(
+        config: ValidLoaderConfig,
+
+        #[cfg(feature = "ui-events")] in_progress_sender: UnboundedSender<LoadingContext>,
+    ) -> Result<Self, super::Error> {
         let mut instance = Self {
             semaphore: Arc::new(Semaphore::new(config.parallel_downloads as usize)),
             watcher: FileWatcher::new(&config.plugin_directory.to_string_lossy())?,
             directory: config.plugin_directory,
             loading: vec![],
             loaded: vec![],
+            #[cfg(feature = "ui-events")]
+            sender: in_progress_sender,
         };
         instance.load_all_plugins_from_directory().await?;
         Ok(instance)
     }
 
-    async fn load_all_plugins_from_directory(&mut self) -> Result<()> {
+    async fn load_all_plugins_from_directory(&mut self) -> Result<(), super::Error> {
         let mut iter = tokio::fs::read_dir(&self.directory).await?;
         while let Some(entry) = iter.next_entry().await? {
             if entry.path().extension() == Some(OsStr::new(PACKAGE_FILE_EXTENSION)) {
@@ -72,8 +89,8 @@ impl InnerLoader {
                             loaded.push(package);
                         }
                     }
-                    Err(error) => {
-                        tracing::error!("{error}");
+                    Err(e) => {
+                        tracing::error!("{e}");
                     }
                 }
                 loading.swap_remove(i);
@@ -83,22 +100,37 @@ impl InnerLoader {
         }
     }
 
+    fn send_ui_event(&mut self, file: PathBuf, size: u64, progress: Arc<AtomicUsize>) {
+        let status = self.sender.send(LoadingContext {
+            file_path: file,
+            size,
+            progress,
+        });
+
+        if let Err(e) = status {
+            tracing::error!("{e}");
+        }
+    }
+
     async fn load_file(&mut self, file: PathBuf) {
         let permit = self.semaphore.clone().acquire_owned().await.unwrap();
 
-        tracing::info!("[Loader] Loading package: {}", file.display());
-        //let file_name = file.file_name().unwrap().to_str().unwrap().to_string();
-        let mut reader = ProgressReader::from_file(file).await;
+        tracing::info!("Loading package: {}", file.display());
+
+        #[cfg(feature = "ui-events")]
+        let mut reader = {
+            let reader = ProgressReader::from_file(file.clone()).await;
+            self.send_ui_event(file, reader.total(), reader.counter());
+            reader
+        };
+
+        #[cfg(not(feature = "ui-events"))]
+        let mut reader = tokio::fs::File::open(file).await.unwrap();
 
         let state = Arc::new(RwLock::new(LoadingInProgress {
-            progress: reader.counter(),
-            data: Vec::with_capacity(reader.total()),
+            data: Vec::new(),
             is_done: false,
         }));
-
-        // Mostly used for loading visualization
-        // TODO: send event instead
-        //assert!(self.in_progress.insert(file_name, state.clone()).is_none());
 
         let handle = tokio::spawn(async move {
             let mut state_write = state.write().await;
@@ -136,8 +168,8 @@ impl InnerLoader {
         let is_valid = is_valid_ext
             && match tokio::fs::metadata(&path).await {
                 Ok(metadata) => metadata.is_file(),
-                Err(error) => {
-                    eprintln!("Loader error: {error}");
+                Err(e) => {
+                    eprintln!("{e}");
                     false
                 }
             };
@@ -156,10 +188,11 @@ impl InnerLoader {
             semaphore: _,
             loading,
             loaded,
+            ..
         } = self;
 
         tokio::select! {
-            _ = Self::store_loaded(loading, loaded) => {}
+            () = Self::store_loaded(loading, loaded) => {}
 
             maybe_event = watcher.run_file_watcher() => {
                 if let Some(event) = maybe_event

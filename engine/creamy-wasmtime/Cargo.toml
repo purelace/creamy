@@ -9,9 +9,11 @@ workspace = true
 
 [dependencies]
 creamy-engine-core.workspace = true
+creamy-binary = { path = "../../core/creamy-binary", features=["std"] }
+inotify.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-wasmtime = { version = "50.0.0", default-features = false, features = [
+wasmtime = { version = "50.0.1", default-features = false, features = [
     "runtime",
     "cranelift",
     "pooling-allocator",
@@ -23,9 +25,28 @@ wasmtime = { version = "50.0.0", default-features = false, features = [
     "debug-builtins",
 ] }
 
+garde = { version = "0.23.0", features = [ "derive" ] }
+serde.workspace = true
+pathenv.workspace = true
+
+# async
+futures-util = { version = "0.3.34", optional = true }
+[dependencies.tokio]
+version = "1.54.1"
+default-features = false
+optional = true
+features = ["fs", "rt", "io-util", "macros", "sync", "time", "rt-multi-thread"]
+
+[features]
+async-loader = [
+    "dep:tokio",
+    "dep:futures-util",
+]
+
+ui-events = []
+
 [dev-dependencies]
 creamy.workspace = true
-creamy-loader.workspace = true
 anyhow.workspace = true
 pathenv.workspace = true
 tracing-subscriber.workspace = true

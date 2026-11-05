@@ -2,7 +2,7 @@ use alloc::{boxed::Box, format, vec::Vec};
 use core::num::NonZeroU8;
 
 use creamy_engine_core::{
-    GroupTable, Module, PluginLoader, Runtime,
+    GroupTable, Metadata, Module, Runtime,
     bus::{
         MessageBus, SubscriberLookupData,
         core::{
@@ -42,13 +42,13 @@ struct PluginPackage {
 }
 
 impl PluginPackage {
-    fn from_package(
-        BinaryPlugin {
+    fn from_metadata(
+        Metadata {
             manifest,
             pool,
             mut models,
             ..
-        }: BinaryPlugin,
+        }: Metadata,
     ) -> Result<Self, PluginError> {
         let mut map = HashMap::default();
         for (name, request) in manifest.requested_groups() {
@@ -103,7 +103,7 @@ where
 {
     System(SystemPlugin<MM, MS>),
     Custom(H),
-    Wasm(R::Module),
+    Module(R::Module),
 }
 
 impl<R, H, const MM: usize, const MS: usize> Subscriber for Plugin<R, H, MM, MS>
@@ -115,7 +115,7 @@ where
         match &mut self.kind {
             SubscriberType::System(s) => s.notify(),
             SubscriberType::Custom(s) => s.notify(),
-            SubscriberType::Wasm(s) => s.notify(),
+            SubscriberType::Module(s) => s.notify(),
         }
     }
 }
@@ -137,35 +137,26 @@ struct ValidationContext {
 
 pub struct PluginEngine<
     R: Runtime<MM>,
-    L: PluginLoader,
     H: HostSubscriber,
     const MM: usize,
     const MG: usize,
     const MS: usize,
 > {
-    bus: MessageBus<EngineBusDriver<MS>, MM, MG, MS, Plugin<R, H, MM, MS>>,
     runtime: R,
-    loader: L,
+    bus: MessageBus<EngineBusDriver<MS>, MM, MG, MS, Plugin<R, H, MM, MS>>,
     registry: ProtocolRegistry,
     errors: Vec<PluginError>,
 }
 
-impl<
-    R: Runtime<MM>,
-    L: PluginLoader,
-    H: HostSubscriber,
-    const MM: usize,
-    const MG: usize,
-    const MS: usize,
-> PluginEngine<R, L, H, MM, MG, MS>
+impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const MS: usize>
+    PluginEngine<R, H, MM, MG, MS>
 {
-    pub fn new(runtime: R, loader: L) -> Self {
+    pub fn new(runtime: R) -> Self {
         let bus = MessageBus::new(EngineBusDriver::new());
 
         let mut instance = Self {
             bus,
             runtime,
-            loader,
             registry: ProtocolRegistry::default(),
             errors: Vec::with_capacity(32),
         };
@@ -210,7 +201,7 @@ impl<
 
         match &plugin.kind {
             SubscriberType::System(s) => s,
-            SubscriberType::Custom(_) | SubscriberType::Wasm(_) => unreachable!("{UNREACHABLE}"),
+            SubscriberType::Custom(_) | SubscriberType::Module(_) => unreachable!("{UNREACHABLE}"),
         }
     }
 
@@ -225,7 +216,7 @@ impl<
 
         match &mut plugin.kind {
             SubscriberType::System(s) => s,
-            SubscriberType::Custom(_) | SubscriberType::Wasm(_) => unreachable!("{UNREACHABLE}"),
+            SubscriberType::Custom(_) | SubscriberType::Module(_) => unreachable!("{UNREACHABLE}"),
         }
     }
 
@@ -276,10 +267,10 @@ impl<
 
     fn create_custom_validation_context(
         &mut self,
-        package: BinaryPlugin,
+        metadata: Metadata,
         custom: impl Fn(IncBuf<MM>, OutBuf<MM>) -> H,
     ) -> Result<Option<ValidationContext>, Error> {
-        let package = match PluginPackage::from_package(package) {
+        let package = match PluginPackage::from_metadata(metadata) {
             Ok(v) => v,
             Err(e) => {
                 self.errors.push(e);
@@ -302,16 +293,12 @@ impl<
         }))
     }
 
-    fn create_wasm_validation_context(
+    fn create_validation_context(
         &mut self,
-        package: BinaryPlugin,
+        metadata: Metadata,
+        module: R::Module,
     ) -> Result<Option<ValidationContext>, Error> {
-        let module = self
-            .runtime
-            .init_module(package.core())
-            .map_err(|e| Error::Other(Box::new(e)))?;
-
-        let package = match PluginPackage::from_package(package) {
+        let package = match PluginPackage::from_metadata(metadata) {
             Ok(v) => v,
             Err(e) => {
                 self.errors.push(e);
@@ -331,7 +318,7 @@ impl<
             out,
             Plugin {
                 manifest: package.manifest,
-                kind: SubscriberType::Wasm(module),
+                kind: SubscriberType::Module(module),
             },
         )?;
 
@@ -375,7 +362,7 @@ impl<
         let group_table = match &mut self.bus.get_subscriber_mut(provider).unwrap().kind {
             SubscriberType::System(_) => unreachable!(),
             SubscriberType::Custom(s) => s.get_group_table(),
-            SubscriberType::Wasm(s) => s.get_group_table(),
+            SubscriberType::Module(s) => s.get_group_table(),
         };
 
         let mut to_send = alloc::vec![];
@@ -419,7 +406,7 @@ impl<
             let group_table = match &mut self.bus.get_subscriber_mut(plugin_id).unwrap().kind {
                 SubscriberType::System(_) => todo!(),
                 SubscriberType::Custom(s) => s.get_group_table(),
-                SubscriberType::Wasm(s) => s.get_group_table(),
+                SubscriberType::Module(s) => s.get_group_table(),
             };
 
             let path = format!("{model_name}.{}", group_name.as_str());
@@ -481,7 +468,7 @@ impl<
         Ok(())
     }
 
-    fn handle_loaded_plugin(&mut self, context: Result<Option<ValidationContext>, Error>) {
+    fn handle_ready_plugin(&mut self, context: Result<Option<ValidationContext>, Error>) {
         match context {
             Ok(result) => {
                 let Some(mut context) = result else {
@@ -512,23 +499,31 @@ impl<
             }
         };
 
-        let context = self.create_custom_validation_context(package, custom);
-        self.handle_loaded_plugin(context);
+        let metadata = Metadata {
+            version: package.version,
+            manifest: package.manifest,
+            pool: package.pool,
+            models: package.models,
+        };
+
+        let context = self.create_custom_validation_context(metadata, custom);
+        self.handle_ready_plugin(context);
     }
 
-    fn load_wasm_plugins(&mut self) {
-        self.loader.load();
-
-        while self.loader.loaded() != 0
-            && let Some(package) = self.loader.take_loaded_package()
-        {
-            let context = self.create_wasm_validation_context(package);
-            self.handle_loaded_plugin(context);
+    fn load_plugins(&mut self) {
+        match self.runtime.pop_ready_plugin() {
+            Ok(Some((metadata, module))) => {
+                let context = self.create_validation_context(metadata, module);
+                self.handle_ready_plugin(context);
+            }
+            Ok(None) => {}
+            Err(e) => log::error!("{e}"),
         }
     }
 
     pub fn tick(&mut self, roundtrip: NonZeroU8) {
-        self.load_wasm_plugins();
+        self.runtime.tick();
+        self.load_plugins();
         for _ in 0..roundtrip.get() {
             self.bus.tick();
         }
@@ -547,5 +542,13 @@ impl<
 
     pub const fn errors(&mut self) -> &mut Vec<PluginError> {
         &mut self.errors
+    }
+
+    pub const fn runtime(&self) -> &R {
+        &self.runtime
+    }
+
+    pub const fn runtime_mut(&mut self) -> &mut R {
+        &mut self.runtime
     }
 }

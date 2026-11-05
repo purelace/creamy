@@ -1,10 +1,13 @@
+#![cfg(not(feature = "async-loader"))]
+
 use std::num::NonZeroU8;
 
 use creamy::{core::package::version::Version, define_engine};
 use creamy_engine_core::package::pool::StringPoolResolver;
-use creamy_loader::Loader;
-use creamy_wasmtime::WasmtimeRuntime;
-use pathenv::to_absolute_path;
+use creamy_wasmtime::{
+    WTRuntime,
+    loader::{Loader, config::LoaderConfig},
+};
 
 const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
 
@@ -14,14 +17,13 @@ define_engine! {
     max_subscribers: 32,
 }
 
-fn init_engine() -> anyhow::Result<PluginEngine<WasmtimeRuntime, Loader, ()>> {
+fn init_engine() -> anyhow::Result<PluginEngine<WTRuntime, ()>> {
     const HEAP_SIZE: u32 = 67_108_864;
-    let runtime = WasmtimeRuntime::new(HEAP_SIZE)?;
-    let loader = Loader::new(to_absolute_path("$CREAMY_TEST_PLUGIN_DIR").unwrap())?;
-
-    let engine = PluginEngine::new(runtime, loader);
-
-    Ok(engine)
+    let cfg = LoaderConfig {
+        plugin_directory: "$CREAMY_TEST_PLUGIN_DIR".into(),
+    };
+    let runtime = WTRuntime::new(HEAP_SIZE, Loader::new(cfg.into_valid()?)?)?;
+    Ok(PluginEngine::new(runtime))
 }
 
 #[test]

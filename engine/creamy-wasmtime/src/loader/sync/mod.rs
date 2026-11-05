@@ -1,20 +1,21 @@
 mod watcher;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use creamy_binary::BinaryReader;
-use creamy_engine_core::{PluginLoader, package::BinaryPlugin};
+use creamy_engine_core::package::BinaryPlugin;
 
 use self::watcher::FileWatcher;
+use super::{PluginLoader, config::ValidLoaderConfig};
 
 fn load_file(path: PathBuf) -> Result<BinaryPlugin, std::io::Error> {
-    tracing::info!("[Loader] Loading package: {}", path.display());
+    tracing::info!("Loading package: {}", path.display());
     let file = std::fs::File::open(path)?;
     let mut file = creamy_binary::adapters::FromStd::new(file);
 
     let package = BinaryPlugin::read_ne(&mut file).unwrap();
     tracing::info!(
-        "[Loader] Plugin '{name}@{version}' loaded",
+        "Plugin '{name}@{version}' loaded",
         name = package.manifest.name(),
         version = package.version
     );
@@ -32,18 +33,16 @@ impl Loader {
     /// # Errors
     ///
     /// This function will return an error if the underlying inotify instance fails to initialize.
-    pub fn new(directory: impl AsRef<Path>) -> Result<Self, std::io::Error> {
+    pub fn new(config: ValidLoaderConfig) -> Result<Self, std::io::Error> {
         Ok(Self {
-            watcher: FileWatcher::new(directory.as_ref())?,
+            watcher: FileWatcher::new(config.plugin_directory)?,
             loaded: vec![],
         })
     }
 }
 
 impl PluginLoader for Loader {
-    fn preload(&mut self) {}
-
-    fn load(&mut self) {
+    fn tick(&mut self) {
         let mut loaded = std::mem::take(&mut self.loaded);
         match self.watcher.try_read_events() {
             Ok(iter) => {
@@ -60,11 +59,6 @@ impl PluginLoader for Loader {
         }
 
         self.loaded = loaded;
-    }
-
-    #[allow(clippy::cast_possible_truncation)]
-    fn loaded(&self) -> u32 {
-        self.loaded.len() as u32
     }
 
     fn take_loaded_package(&mut self) -> Option<BinaryPlugin> {

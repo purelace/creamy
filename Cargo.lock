@@ -766,27 +766,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "creamy-async-loader"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "creamy",
- "creamy-binary",
- "creamy-engine-core",
- "creamy-wasmtime",
- "futures-util",
- "garde",
- "inotify",
- "pathenv",
- "serde",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "creamy-binary"
 version = "0.1.0"
 dependencies = [
@@ -860,16 +839,6 @@ dependencies = [
  "creamy-libgen",
  "genco",
  "heck",
-]
-
-[[package]]
-name = "creamy-loader"
-version = "0.1.0"
-dependencies = [
- "creamy-binary",
- "creamy-engine-core",
- "inotify",
- "tracing",
 ]
 
 [[package]]
@@ -978,11 +947,16 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "creamy",
+ "creamy-binary",
  "creamy-engine-core",
- "creamy-loader",
+ "futures-util",
+ "garde",
+ "inotify",
  "pathenv",
+ "serde",
  "tempfile",
  "thiserror 2.0.21",
+ "tokio",
  "tracing",
  "tracing-subscriber",
  "wasmtime",
@@ -1868,15 +1842,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dae608c151f68243f2b000364e1f7b186d9c29845f7d2d85bd31b9ad77ad552b"
 
 [[package]]
-name = "math"
-version = "0.1.0"
-dependencies = [
- "creamy-libgen-rs",
- "creamy-sdk",
- "smol_str",
-]
-
-[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1949,9 +1914,9 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "1.2.3"
+version = "1.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b18443e9c262bfe8fa82f51666e2642c53393f7e5c27b3e1aeab922cff5b9d8"
+checksum = "1788edb87fdc09c7e26304471e2f5be8cdefb1b6930d6e3985fc02ff53bf86ee"
 dependencies = [
  "libc",
  "wasi",
@@ -2744,19 +2709,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static 1.5.0",
-]
-
-[[package]]
-name = "shell"
-version = "0.1.0"
-dependencies = [
- "creamy",
- "creamy-async-loader",
- "creamy-libgen-rs",
- "creamy-plugin-package",
- "creamy-wasmtime",
- "tokio",
- "tracing-subscriber",
 ]
 
 [[package]]

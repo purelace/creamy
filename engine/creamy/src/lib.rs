@@ -32,6 +32,6 @@ macro_rules! define_engine {
         pub const MAX_SUBSCRIBERS: usize = $ms;
         pub type IncBuf = $crate::core::bus::core::buffer::IncBuf<$mm>;
         pub type OutBuf = $crate::core::bus::core::buffer::OutBuf<$mm>;
-        pub type PluginEngine<R, L, H> = $crate::engine::PluginEngine<R, L, H, $mm, $mg, $ms>;
+        pub type PluginEngine<R, H> = $crate::engine::PluginEngine<R, H, $mm, $mg, $ms>;
     };
 }
