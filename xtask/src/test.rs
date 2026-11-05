@@ -59,6 +59,12 @@ fn collect_projects() -> anyhow::Result<Projects> {
                 }
             }
         }
+
+        inner.push(Project {
+            name: package.name.to_string(),
+            root: package_root,
+            fixtures: Some(fixtures),
+        });
     }
 
     Ok(Projects {
