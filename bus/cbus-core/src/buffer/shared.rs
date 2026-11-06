@@ -237,7 +237,10 @@ impl<const M: usize> Clone for SharedBuf<M> {
 
 impl<const M: usize> Drop for SharedBuf<M> {
     fn drop(&mut self) {
-        self.remove_reference();
+        if self.is_should_be_dropped {
+            self.remove_reference();
+        }
+
         if self.is_should_be_dropped() {
             unsafe {
                 alloc::alloc::dealloc(self.ptr.as_ptr(), Self::LAYOUT);

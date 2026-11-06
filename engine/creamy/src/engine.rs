@@ -17,65 +17,21 @@ use creamy_engine_core::{
             definition::{BinaryReader, ProtocolModel},
             strpool::{StringPool, StringPoolResolver},
         },
+        pool::StringId,
     },
 };
-use hashbrown::HashMap;
-use rustc_hash::FxBuildHasher;
 use smol_str::{SmolStr, ToSmolStr};
 
 use crate::{
     driver::EngineBusDriver,
     error::{Error, PluginError},
+    package::{Models, PluginPackage},
     registry::{Owner, ProtocolRegistry},
     system::SystemPlugin,
 };
 
 const SYSTEM_PLUGIN: SubscriberId = SubscriberId::new(NonZeroU8::new(1).unwrap());
 const SYSTEM_GROUP: NonZeroU8 = NonZeroU8::new(1).unwrap();
-
-type Models = HashMap<Box<str>, (ProtocolModel, RequestedProtocol), FxBuildHasher>;
-
-struct PluginPackage {
-    manifest: Package,
-    pool: StringPool,
-    models: Models,
-}
-
-impl PluginPackage {
-    fn from_metadata(
-        Metadata {
-            manifest,
-            pool,
-            mut models,
-            ..
-        }: Metadata,
-    ) -> Result<Self, PluginError> {
-        let mut map = HashMap::default();
-        for (name, request) in manifest.requested_groups() {
-            if let Some(index) = models.iter().enumerate().find_map(|(idx, def)| {
-                if def.name().resolve(&pool) == name.as_str() {
-                    Some(idx)
-                } else {
-                    None
-                }
-            }) {
-                let definition = models.swap_remove(index);
-                map.insert(name.as_str().into(), (definition, request.clone()));
-            } else {
-                return Err(PluginError::ProtocolModelNotFound {
-                    target_model: manifest.name().into(),
-                    version: request.version().clone(),
-                });
-            }
-        }
-
-        Ok(Self {
-            manifest: manifest.into_package_manifest(),
-            pool,
-            models: map,
-        })
-    }
-}
 
 pub trait HostSubscriber: Subscriber {
     fn get_group_table(&self) -> GroupTable<'_>;
@@ -128,11 +84,27 @@ where
  * Finish the plugin initialization
  */
 
+/*
+ * Unload a plugin
+ * Remove from the bus
+ * Send system messages
+ */
+
 struct ValidationContext {
     id: SubscriberId,
     name: SmolStr,
     pool: StringPool,
     models: Models,
+}
+
+struct Groups {
+    inner: Vec<StringId>,
+    provide: bool,
+}
+
+#[derive(Default)]
+struct PluginData {
+    models: Vec<(StringId, Groups)>,
 }
 
 pub struct PluginEngine<
@@ -146,6 +118,7 @@ pub struct PluginEngine<
     bus: MessageBus<EngineBusDriver<MS>, MM, MG, MS, Plugin<R, H, MM, MS>>,
     registry: ProtocolRegistry,
     errors: Vec<PluginError>,
+    data: Box<[PluginData; MS]>,
 }
 
 impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const MS: usize>
@@ -159,6 +132,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
             runtime,
             registry: ProtocolRegistry::default(),
             errors: Vec::with_capacity(32),
+            data: Box::new(core::array::from_fn(|_| PluginData::default())),
         };
 
         instance.setup_system_plugin();
@@ -237,7 +211,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         request: &RequestedProtocol,
     ) -> Result<(), PluginError> {
         let pool = self.registry.pool();
-        if let Some(context) = self.registry.get_protocol_context(model.name()) {
+        if let Some(context) = self.registry.try_get_protocol_context(model.name()) {
             if context.model() != model {
                 return Err(PluginError::DifferentProtocolModels {
                     target_model: model.name().resolve(pool).into(),
@@ -247,7 +221,9 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
             }
 
             for group_name in request.groups() {
-                if let Some(owner) = context.get_owner_of_group(pool.get_id(group_name.as_str())) {
+                if let Some(owner) =
+                    context.try_get_owner_of_group(pool.get_id(group_name.as_str()))
+                {
                     return Err(PluginError::GroupAlreadyProvided {
                         group: group_name.as_str().into(),
                         protocol: model.name().resolve(pool).into(),
@@ -414,7 +390,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
             let group_name_id = pool.get_id(group_name.as_str());
 
             if context.try_add_consumer(group_name_id, plugin_id, group_id)
-                && let Some(owner) = context.get_owner_of_group(group_name_id)
+                && let Some(owner) = context.try_get_owner_of_group(group_name_id)
             {
                 self.bus.get_driver_mut().provide_api(
                     plugin_id,
@@ -427,7 +403,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
                 to_send.push((owner, plugin_id));
             }
 
-            log::debug!("Provide group ({group_id}) for subscriber ({plugin_id})",);
+            log::debug!("Provide group ({group_id}) for subscriber ({plugin_id})");
         }
 
         for (owner, consumer) in to_send {
@@ -436,21 +412,44 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
                 owner.group_id(),
                 consumer,
             );
+
+            self.get_system_mut().send_consumer_appeared(
+                owner.provider_id(),
+                owner.group_id(),
+                consumer,
+            );
         }
     }
 
     fn resolve_dependencies(&mut self, models: Models, id: SubscriberId) {
+        let mut data = PluginData::default();
+
         for (_, (def, request)) in models {
+            let name = def.name();
             if request.provide() {
                 self.provide_model(id, def, &request);
             } else {
                 self.consume_model(id, def, &request);
             }
+
+            let inner = request
+                .groups()
+                .iter()
+                .map(|s| self.registry.pool_mut().get_id(s))
+                .collect::<Vec<_>>();
+            data.models.push((
+                name,
+                Groups {
+                    inner,
+                    provide: request.provide(),
+                },
+            ));
         }
 
         self.provide_system_group(id);
         self.bus.update_lookup_table(id);
         self.bus.update_lookup_table(SYSTEM_PLUGIN);
+        self.data[id.as_usize()] = data;
     }
 
     fn register_plugin(&mut self, context: ValidationContext) {
@@ -461,10 +460,46 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
             .send_group_declared(SYSTEM_PLUGIN, SYSTEM_GROUP, context.id);
     }
 
-    fn unregister_plugin(&mut self, id: SubscriberId) -> Result<(), Error> {
-        //TODO: resolve dependencies
+    pub fn unregister_plugin(&mut self, id: SubscriberId) -> Result<(), Error> {
+        let mut to_send_disappeared = Vec::new();
+        let mut to_send_undeclared = Vec::new();
+
         self.get_system_mut().remove_plugin_name(id);
         self.bus.remove_subscriber(id)?;
+        let PluginData { models, .. } = core::mem::take(&mut self.data[id.as_usize()]);
+        for (name, requested) in models {
+            let protocol = self.registry.get_mut_protocol_context_by_name(name);
+            if requested.provide {
+                for group in requested.inner {
+                    let context = protocol.undeclare_group(group);
+                    to_send_undeclared.push(context);
+                }
+            } else {
+                for group in requested.inner {
+                    protocol.remove_consumer(group, id);
+                    let owner = protocol.get_owner_of_group(group);
+                    to_send_disappeared.push(owner);
+                }
+            }
+        }
+
+        for owner in to_send_disappeared {
+            self.get_system_mut().send_consumer_disappeared(
+                owner.provider_id(),
+                owner.group_id(),
+                id,
+            );
+        }
+
+        for context in to_send_undeclared {
+            for (consumer, group) in context.consumer_list() {
+                self.get_system_mut()
+                    .send_group_undeclared(id, group, consumer);
+            }
+        }
+
+        //TODO: обнулить слайсы в lookup table
+
         Ok(())
     }
 
@@ -528,8 +563,6 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
             self.bus.tick();
         }
     }
-
-    pub fn unload(&mut self, id: SubscriberId) {}
 
     #[must_use]
     pub const fn loaded_plugins(&self) -> u8 {

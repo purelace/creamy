@@ -15,7 +15,10 @@ use smol_str::SmolStr;
 
 use crate::generated::{
     dispatcher::{self, MessageHandler},
-    system::builtin::{GroupDeclared, Log, StreamCancel, StreamKeepAlive},
+    system::builtin::{
+        ConsumerAppeared, ConsumerDisappeared, GroupDeclared, GroupUndeclared, Log, StreamCancel,
+        StreamKeepAlive,
+    },
 };
 
 pub struct SystemPlugin<const MM: usize, const MS: usize> {
@@ -81,6 +84,54 @@ impl<const MM: usize, const MS: usize> SystemPlugin<MM, MS> {
                     .with_dst(consumer.as_u8())
                     .with_provider(provider.as_u8())
                     .with_group_id(group_id.get())
+            )
+        );
+    }
+
+    pub fn send_group_undeclared(
+        &mut self,
+        provider: SubscriberId,
+        group_id: NonZeroU8,
+        consumer: SubscriberId,
+    ) {
+        assert!(
+            self.out.send(
+                GroupUndeclared::PREPARED
+                    .with_dst(consumer.as_u8())
+                    .with_group_id(group_id.get())
+                    .with_provider(provider.as_u8())
+            )
+        );
+    }
+
+    pub fn send_consumer_appeared(
+        &mut self,
+        provider: SubscriberId,
+        group_id: NonZeroU8,
+        consumer: SubscriberId,
+    ) {
+        assert!(
+            self.out.send(
+                ConsumerAppeared::PREPARED
+                    .with_dst(provider.as_u8())
+                    .with_group_id(group_id.get())
+                    .with_consumer_id(consumer.as_u8())
+            )
+        );
+    }
+
+    pub fn send_consumer_disappeared(
+        &mut self,
+        provider: SubscriberId,
+        group_id: NonZeroU8,
+        consumer: SubscriberId,
+    ) {
+        assert!(
+            self.out.send(
+                ConsumerDisappeared::PREPARED
+                    .with_dst(provider.as_u8())
+                    .with_group_id(group_id.get())
+                    .with_consumer_id(consumer.as_u8())
             )
         );
     }

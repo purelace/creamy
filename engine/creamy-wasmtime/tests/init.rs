@@ -2,7 +2,7 @@
 
 use std::num::NonZeroU8;
 
-use creamy::{core::package::version::Version, define_engine};
+use creamy::{core::package::version::Version, define_engine, sdk::SubscriberId};
 use creamy_engine_core::package::pool::StringPoolResolver;
 use creamy_wasmtime::{
     WTRuntime,
@@ -46,7 +46,7 @@ fn init() -> anyhow::Result<()> {
     assert!(engine.errors().is_empty());
 
     let registry = engine.protocol_registry();
-    let result = registry.get_protocol_context_by_str("ping");
+    let result = registry.try_get_protocol_context_by_str("ping");
     if let Some(model) = result {
         assert_eq!(model.model().name().resolve(registry.pool()), "ping");
         assert_eq!(model.model().version(), &Version::new(1, 0, 0));
@@ -54,7 +54,9 @@ fn init() -> anyhow::Result<()> {
         panic!("result is_none() == true");
     }
 
-    //engine.unload();
+    engine
+        .unregister_plugin(SubscriberId::new_u8(2).unwrap())
+        .unwrap();
 
     Ok(())
 }

@@ -5,7 +5,10 @@ use crate::{
     api::{CustomHandler, Plugin},
     generated::{
         dispatcher::{self, MessageHandler},
-        system::builtin::{GroupDeclared, GroupUndeclared, StreamCancel, StreamKeepAlive},
+        system::builtin::{
+            ConsumerAppeared, ConsumerDisappeared, GroupDeclared, GroupUndeclared, StreamCancel,
+            StreamKeepAlive,
+        },
     },
     message::UntypedMessage,
 };
@@ -193,6 +196,18 @@ impl<P: Plugin> MessageHandler for InnerState<P> {
             (*DST_TABLE.0.get()).remove(message.group_id, message.provider);
         }
         self.plugin.handle_on_group_disabled_event(message.group_id);
+    }
+
+    fn handle_consumer_appeared(&mut self, message: ConsumerAppeared) {
+        unsafe {
+            (*DST_TABLE.0.get()).add(message.group_id, message.consumer_id);
+        }
+    }
+
+    fn handle_consumer_disappeared(&mut self, message: ConsumerDisappeared) {
+        unsafe {
+            (*DST_TABLE.0.get()).remove(message.group_id, message.consumer_id);
+        }
     }
 
     fn handle_stream_keep_alive(&mut self, message: StreamKeepAlive) {}

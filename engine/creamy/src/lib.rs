@@ -7,6 +7,7 @@ include!(concat!(env!("OUT_DIR"), "/system.rs"));
 mod driver;
 pub mod engine;
 pub mod error;
+mod package;
 mod registry;
 mod system;
 mod utils;

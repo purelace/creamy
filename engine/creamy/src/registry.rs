@@ -242,6 +242,12 @@ pub struct GroupContext {
     owner: Option<Owner>,
 }
 
+impl GroupContext {
+    pub fn consumer_list(&self) -> ConsumerList<'_> {
+        self.access.iter()
+    }
+}
+
 pub struct ProtocolContext {
     model: ProtocolModel,
     groups: HashMap<StringId, GroupContext, FxBuildHasher>,
@@ -273,7 +279,11 @@ impl ProtocolContext {
         Self { model, groups }
     }
 
-    pub(crate) fn get_owner_of_group(&self, group: StringId) -> Option<Owner> {
+    pub(crate) fn get_owner_of_group(&self, group: StringId) -> Owner {
+        self.try_get_owner_of_group(group).expect("Unreachable!")
+    }
+
+    pub(crate) fn try_get_owner_of_group(&self, group: StringId) -> Option<Owner> {
         self.groups.get(&group).and_then(|c| c.owner)
     }
 
@@ -342,6 +352,11 @@ impl ProtocolContext {
         self.groups.get(&group).map(|c| c.access.iter()).unwrap()
     }
 
+    pub(crate) fn undeclare_group(&mut self, group: StringId) -> GroupContext {
+        debug_assert!(self.groups.contains_key(&group));
+        self.groups.remove(&group).expect("Unreachable!")
+    }
+
     pub const fn model(&self) -> &ProtocolModel {
         &self.model
     }
@@ -366,7 +381,16 @@ impl ProtocolRegistry {
         model.replace_identifiers(pool, &mut self.pool);
     }
 
-    pub fn get_or_declare_protocol(
+    pub(crate) fn get_mut_protocol_context_by_name(
+        &mut self,
+        name: StringId,
+    ) -> &mut ProtocolContext {
+        self.map
+            .get_mut(&name)
+            .expect("Context for protocol model not found")
+    }
+
+    pub(crate) fn get_or_declare_protocol(
         &mut self,
         model: ProtocolModel,
     ) -> (&StringPool, &mut ProtocolContext) {
@@ -377,30 +401,20 @@ impl ProtocolRegistry {
         (&self.pool, context)
     }
 
-    //pub(crate) fn declare_protocol(&mut self, model: ProtocolDefinition) {
-    //    self.map
-    //        .entry(model.name())
-    //        .insert(ProtocolContext::new(model));
-    //}
-
-    pub(crate) fn get_protocol_context(&self, name: StringId) -> Option<&ProtocolContext> {
+    pub(crate) fn try_get_protocol_context(&self, name: StringId) -> Option<&ProtocolContext> {
         self.map.get(&name)
     }
 
-    pub fn get_protocol_context_by_str(&self, name: &str) -> Option<&ProtocolContext> {
+    pub fn try_get_protocol_context_by_str(&self, name: &str) -> Option<&ProtocolContext> {
         self.pool.try_get_id(name).and_then(|id| self.map.get(&id))
     }
 
-    //pub(crate) fn set_owner_of(&mut self, protocol: StringId, group: StringId, owner: Owner) {
-    //    debug_assert!(self.map.contains_key(&protocol));
-
-    //    if let Some(c) = self.map.get_mut(&protocol) {
-    //        c.set_group_owner(group, owner);
-    //    }
-    //}
-
     pub const fn pool(&self) -> &StringPool {
         &self.pool
+    }
+
+    pub(crate) const fn pool_mut(&mut self) -> &mut StringPool {
+        &mut self.pool
     }
 }
 
