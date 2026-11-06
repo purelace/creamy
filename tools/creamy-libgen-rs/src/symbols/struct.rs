@@ -5,7 +5,9 @@ use creamy_libgen::{
 use genco::{lang::rust::Tokens, quote};
 
 use crate::{
-    args::Args, binary_utils::generate_binary_writer_trait_impl, derive::generate_derive,
+    args::Args,
+    binary_utils::{generate_binary_reader_trait_impl, generate_binary_writer_trait_impl},
+    derive::generate_derive,
     path_to_string,
 };
 
@@ -30,6 +32,7 @@ where
         .collect::<Vec<_>>();
 
     let binary_writer_impl = generate_binary_writer_trait_impl(args, symbol.name);
+    let binary_reader_impl = generate_binary_reader_trait_impl(args, symbol.name);
 
     quote! {
         $derives
@@ -39,5 +42,8 @@ where
         }
 
         $binary_writer_impl
+
+        $binary_reader_impl
+
     }
 }

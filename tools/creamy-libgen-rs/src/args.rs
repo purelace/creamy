@@ -119,17 +119,17 @@ impl Args {
         format!("{}::binary::BinaryWriter", self.creamy_sdk_path)
     }
 
-    //pub(crate) fn binary_reader_trait_path(&self) -> String {
-    //    format!("{}::binary::BinaryReader", self.creamy_sdk_path)
-    //}
+    pub(crate) fn binary_reader_trait_path(&self) -> String {
+        format!("{}::binary::BinaryReader", self.creamy_sdk_path)
+    }
 
     pub(crate) fn binary_write_error_path(&self) -> String {
         format!("{}::binary::WriteError", self.creamy_sdk_path)
     }
 
-    //pub(crate) fn binary_read_error_path(&self) -> String {
-    //    format!("{}::binary::ReadError", self.creamy_sdk_path)
-    //}
+    pub(crate) fn binary_read_error_path(&self) -> String {
+        format!("{}::binary::ReadError", self.creamy_sdk_path)
+    }
 
     pub(crate) fn binary_write_trait_path(&self) -> String {
         format!("{}::binary::Write", self.creamy_sdk_path)
@@ -139,9 +139,9 @@ impl Args {
         format!("{}::binary::Endianness", self.creamy_sdk_path)
     }
 
-    //pub(crate) fn binary_read_trait_path(&self) -> String {
-    //    format!("{}::binary::Read", self.creamy_sdk_path)
-    //}
+    pub(crate) fn binary_read_trait_path(&self) -> String {
+        format!("{}::binary::Read", self.creamy_sdk_path)
+    }
 
     pub(crate) fn binary_read_derive_path(&self) -> String {
         format!("{}::binary::BinRead", self.creamy_sdk_path)
