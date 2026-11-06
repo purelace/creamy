@@ -8,6 +8,7 @@ on:
       - "core/**"
       - "engine/**"
       - "tools/**"
+      - "xtask/**"
   pull_request:
     branches: [main]
     paths:
@@ -15,6 +16,8 @@ on:
       - "core/**"
       - "engine/**"
       - "tools/**"
+      - "xtask/**"
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
