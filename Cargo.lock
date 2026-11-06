@@ -754,7 +754,6 @@ dependencies = [
  "rustc-hash",
  "smol_str",
  "thiserror 2.0.21",
- "tracing",
  "tracing-subscriber",
 ]
 
@@ -945,12 +944,12 @@ dependencies = [
  "futures-util",
  "garde",
  "inotify",
+ "log",
  "pathenv",
  "serde",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
- "tracing",
  "tracing-subscriber",
  "wasmtime",
 ]

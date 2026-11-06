@@ -379,7 +379,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
             }
             to_send.push((provider, group_id, provider));
 
-            tracing::debug!(
+            log::debug!(
                 "Set id {group_id} for `{model_name}.{}` group",
                 group_name.as_str()
             );
@@ -427,7 +427,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
                 to_send.push((owner, plugin_id));
             }
 
-            tracing::debug!("Provide group ({group_id}) for subscriber ({plugin_id})",);
+            log::debug!("Provide group ({group_id}) for subscriber ({plugin_id})",);
         }
 
         for (owner, consumer) in to_send {
@@ -477,12 +477,12 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
 
                 if let Err(e) = self.validate_plugin(&mut context) {
                     self.remove_validation_context(context);
-                    tracing::error!("{e}");
+                    log::error!("{e}");
                 } else {
                     self.register_plugin(context);
                 }
             }
-            Err(e) => tracing::error!("{e}"),
+            Err(e) => log::error!("{e}"),
         }
     }
 

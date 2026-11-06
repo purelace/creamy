@@ -17,7 +17,7 @@ pub type Loader = AsyncLoader;
 
 fn load_package(mut data: &[u8]) -> Result<BinaryPlugin, Error> {
     let package = BinaryPlugin::read_ne(&mut data)?;
-    tracing::info!(
+    log::info!(
         "Plugin '{name}@{version}' loaded",
         name = package.manifest.name(),
         version = package.version

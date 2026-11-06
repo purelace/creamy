@@ -88,6 +88,7 @@ smol_str = { version = "0.3.7", default-features = false }
 strum = { version = "0.28.0", default-features = false, features = ["derive"] }
 as-guard = "0.1.0"
 tracing = { version = "0.1.44", default-features = false, features = ["attributes"] }
+log = "0.4.35"
 
 
 anyhow = "1.0.104"

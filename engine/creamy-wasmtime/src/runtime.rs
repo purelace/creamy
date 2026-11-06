@@ -79,7 +79,7 @@ impl<const M: usize> Runtime<M> for WTRuntime {
 
         let notify_func = instance.get_typed_func::<(), ()>(&mut store, "internal__notify")?;
 
-        tracing::debug!("iptr: {incoming_ptr}, optr: {outgoing_ptr}");
+        log::debug!("iptr: {incoming_ptr}, optr: {outgoing_ptr}");
 
         let memory = instance
             .get_memory(&mut store, "memory")

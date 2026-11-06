@@ -90,7 +90,7 @@ impl InnerLoader {
                         }
                     }
                     Err(e) => {
-                        tracing::error!("{e}");
+                        log::error!("{e}");
                     }
                 }
                 loading.swap_remove(i);
@@ -108,14 +108,14 @@ impl InnerLoader {
         });
 
         if let Err(e) = status {
-            tracing::error!("{e}");
+            log::error!("{e}");
         }
     }
 
     async fn load_file(&mut self, file: PathBuf) {
         let permit = self.semaphore.clone().acquire_owned().await.unwrap();
 
-        tracing::info!("Loading package: {}", file.display());
+        log::info!("Loading package: {}", file.display());
 
         #[cfg(feature = "ui-events")]
         let mut reader = {
@@ -142,7 +142,7 @@ impl InnerLoader {
             match load_package(&state_write.data) {
                 Ok(package) => Some(package),
                 Err(err) => {
-                    tracing::error!("Got an error while the plugin is loading:");
+                    log::error!("Got an error while the plugin is loading:");
                     println!("{err}");
                     None
                 }

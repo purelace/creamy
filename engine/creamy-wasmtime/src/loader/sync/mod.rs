@@ -9,12 +9,12 @@ use self::watcher::FileWatcher;
 use super::{PluginLoader, config::ValidLoaderConfig};
 
 fn load_file(path: PathBuf) -> Result<BinaryPlugin, std::io::Error> {
-    tracing::info!("Loading package: {}", path.display());
+    log::info!("Loading package: {}", path.display());
     let file = std::fs::File::open(path)?;
     let mut file = creamy_binary::adapters::FromStd::new(file);
 
     let package = BinaryPlugin::read_ne(&mut file).unwrap();
-    tracing::info!(
+    log::info!(
         "Plugin '{name}@{version}' loaded",
         name = package.manifest.name(),
         version = package.version
@@ -50,12 +50,12 @@ impl PluginLoader for Loader {
                     match load_file(path) {
                         Ok(package) => loaded.push(package),
                         Err(e) => {
-                            tracing::error!("y:{e}");
+                            log::error!("y:{e}");
                         }
                     }
                 }
             }
-            Err(e) => tracing::error!("x: {e}"),
+            Err(e) => log::error!("x: {e}"),
         }
 
         self.loaded = loaded;
