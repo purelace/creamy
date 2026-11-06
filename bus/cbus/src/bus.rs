@@ -250,6 +250,12 @@ where
     D: BusDriver,
     S: Subscriber,
 {
+    pub fn subscriber_list(&self) -> impl Iterator<Item = &S> {
+        self.subscribers[1..=self.mint.last() as usize]
+            .iter()
+            .flat_map(|d| &d.sub)
+    }
+
     pub const fn subscribers(&self) -> u8 {
         self.mint.used() - 1
     }

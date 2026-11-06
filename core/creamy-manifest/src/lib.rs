@@ -25,8 +25,28 @@ pub struct Package {
 
 impl Package {
     #[must_use]
-    pub fn name(&self) -> &str {
-        &self.name
+    pub const fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    #[must_use]
+    pub const fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    #[must_use]
+    pub const fn version(&self) -> &Version {
+        &self.version
+    }
+
+    #[must_use]
+    pub const fn description(&self) -> &str {
+        self.description.as_str()
+    }
+
+    #[must_use]
+    pub const fn authors(&self) -> &[String] {
+        self.authors.as_slice()
     }
 }
 

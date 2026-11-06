@@ -43,15 +43,6 @@ impl HostSubscriber for () {
     }
 }
 
-struct Plugin<R, H, const MM: usize, const MS: usize>
-where
-    R: Runtime<MM>,
-    H: HostSubscriber,
-{
-    manifest: Package,
-    kind: SubscriberType<R, H, MM, MS>,
-}
-
 pub enum SubscriberType<R, H, const MM: usize, const MS: usize>
 where
     R: Runtime<MM>,
@@ -60,6 +51,51 @@ where
     System(SystemPlugin<MM, MS>),
     Custom(H),
     Module(R::Module),
+}
+
+impl<R, H, const MM: usize, const MS: usize> SubscriberType<R, H, MM, MS>
+where
+    R: Runtime<MM>,
+    H: HostSubscriber,
+{
+    pub fn as_custom_mut(&mut self) -> &mut H {
+        match self {
+            SubscriberType::Custom(c) => c,
+            SubscriberType::System(_) => {
+                panic!("invalid subscriber type: System, expected: Custom")
+            }
+            SubscriberType::Module(_) => {
+                panic!("invalid subscriber type: Module, expected: Custom")
+            }
+        }
+    }
+}
+
+pub struct Plugin<R, H, const MM: usize, const MS: usize>
+where
+    R: Runtime<MM>,
+    H: HostSubscriber,
+{
+    manifest: Package,
+    kind: SubscriberType<R, H, MM, MS>,
+}
+
+impl<R, H, const MM: usize, const MS: usize> Plugin<R, H, MM, MS>
+where
+    R: Runtime<MM>,
+    H: HostSubscriber,
+{
+    pub const fn manifest(&self) -> &Package {
+        &self.manifest
+    }
+
+    pub const fn inner(&self) -> &SubscriberType<R, H, MM, MS> {
+        &self.kind
+    }
+
+    pub const fn inner_mut(&mut self) -> &mut SubscriberType<R, H, MM, MS> {
+        &mut self.kind
+    }
 }
 
 impl<R, H, const MM: usize, const MS: usize> Subscriber for Plugin<R, H, MM, MS>
@@ -503,21 +539,28 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         Ok(())
     }
 
-    fn handle_ready_plugin(&mut self, context: Result<Option<ValidationContext>, Error>) {
+    fn handle_ready_plugin(
+        &mut self,
+        context: Result<Option<ValidationContext>, Error>,
+    ) -> Option<SubscriberId> {
         match context {
             Ok(result) => {
-                let Some(mut context) = result else {
-                    return;
-                };
+                let mut context = result?;
 
                 if let Err(e) = self.validate_plugin(&mut context) {
                     self.remove_validation_context(context);
                     log::error!("{e}");
+                    None
                 } else {
+                    let id = context.id;
                     self.register_plugin(context);
+                    Some(id)
                 }
             }
-            Err(e) => log::error!("{e}"),
+            Err(e) => {
+                log::error!("{e}");
+                None
+            }
         }
     }
 
@@ -525,12 +568,12 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         &mut self,
         mut package: &[u8],
         custom: impl Fn(IncBuf<MM>, OutBuf<MM>) -> H,
-    ) {
+    ) -> Option<SubscriberId> {
         let package = match BinaryPlugin::read_ne(&mut package) {
             Ok(v) => v,
             Err(e) => {
                 self.errors.push(PluginError::Binary(e));
-                return;
+                return None;
             }
         };
 
@@ -542,7 +585,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         };
 
         let context = self.create_custom_validation_context(metadata, custom);
-        self.handle_ready_plugin(context);
+        self.handle_ready_plugin(context)
     }
 
     fn load_plugins(&mut self) {
@@ -562,6 +605,18 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         for _ in 0..roundtrip.get() {
             self.bus.tick();
         }
+    }
+
+    pub fn get_plugin(&self, id: SubscriberId) -> Option<&Plugin<R, H, MM, MS>> {
+        self.bus.get_subscriber(id)
+    }
+
+    pub fn get_plugin_mut(&mut self, id: SubscriberId) -> Option<&mut Plugin<R, H, MM, MS>> {
+        self.bus.get_subscriber_mut(id)
+    }
+
+    pub fn plugins(&self) -> impl Iterator<Item = &Plugin<R, H, MM, MS>> {
+        self.bus.subscriber_list()
     }
 
     #[must_use]
