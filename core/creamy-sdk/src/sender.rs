@@ -50,7 +50,8 @@ impl Sender {
         success
     }
 
-    pub fn send_to<T: Message>(&mut self, message: &T) -> bool {
+    #[must_use]
+    pub const fn send_to<T: Message>(&mut self, message: &T) -> bool {
         self.buffer.send(message)
     }
 
@@ -75,7 +76,8 @@ impl Sender {
 
         for dst in slice {
             //TODO: dynamic stream id
-            let mut writer = StreamWriter::<T>::new(dst.as_u8(), StreamId::new(10));
+            let mut writer =
+                StreamWriter::<T>::new(self.buffer.clone(), dst.as_u8(), StreamId::new(10));
             writer.send(content);
         }
 

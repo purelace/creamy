@@ -122,6 +122,12 @@ impl<const M: usize> OutBuf<M> {
         self.buf.as_mut_buf()
     }
 
+    #[must_use]
+    #[doc(hidden)]
+    pub const fn as_dyn_buf(&self) -> DynOutBuf {
+        unsafe { DynOutBuf::from_shared_buf(self.buf.as_dyn_buf()) }
+    }
+
     const fn reserve(&mut self, count: u32) {
         // SAFETY: not safety
         unsafe {
@@ -289,5 +295,10 @@ impl DynOutBuf {
         let message_ptr = self.write_ptr();
         self.buf.set_count(self.buf.count() + 1);
         Some(message_ptr)
+    }
+
+    #[must_use]
+    const unsafe fn from_shared_buf(buf: DynSharedBuf) -> Self {
+        Self { buf }
     }
 }

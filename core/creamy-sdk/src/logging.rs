@@ -3,8 +3,8 @@ use core::fmt::Arguments;
 
 use cbus_core::SubscriberId;
 
-use crate::generated::system::builtin::log::LogContent;
 pub use crate::generated::system::builtin::{Log, LogType};
+use crate::{generated::system::builtin::log::LogContent, get_outgoing};
 
 const SYSTEM: SubscriberId = SubscriberId::new_u8(1).unwrap();
 
@@ -12,8 +12,11 @@ pub fn send_log(string: Arguments, log_type: LogType) {
     // TODO: use const
     // TODO: fix allocations
     // TODO: implement dynamic stream id
-    let mut stream =
-        crate::stream::StreamWriter::<Log>::new(SYSTEM.as_u8(), crate::stream::StreamId::new(0));
+    let mut stream = crate::stream::StreamWriter::<Log>::new(
+        get_outgoing(),
+        SYSTEM.as_u8(),
+        crate::stream::StreamId::new(0),
+    );
     let content = if let Some(string) = string.as_str() {
         Box::from(string.as_bytes())
     } else {

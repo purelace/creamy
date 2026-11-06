@@ -1,9 +1,10 @@
+use cbus_core::buffer::DynOutBuf;
 use creamy_binary::{BinaryWriter, ErrorType, Write};
 
 use super::{MAX_STREAM_PAYLOAD, StreamContent, StreamId, StreamMessage, StreamType};
-use crate::get_outgoing;
 
 pub struct StreamWriter<W: StreamMessage> {
+    buffer: DynOutBuf,
     message: W,
     frame: u8,
     bytes_written: usize,
@@ -16,11 +17,12 @@ impl<W: StreamMessage> ErrorType for StreamWriter<W> {
 
 impl<W: StreamMessage> StreamWriter<W> {
     #[must_use]
-    pub fn new(dst: u8, stream_id: StreamId) -> Self {
+    pub fn new(buffer: DynOutBuf, dst: u8, stream_id: StreamId) -> Self {
         let mut message = W::PREPARED;
         message.with_dst(dst);
         message.with_stream_id(stream_id);
         Self {
+            buffer,
             message,
             frame: 0,
             bytes_written: 0,
@@ -38,9 +40,8 @@ impl<W: StreamMessage> StreamWriter<W> {
         self.flush_packet();
     }
 
-    fn send_message(&self) {
-        let mut outgoing = get_outgoing();
-        assert!(outgoing.send(&self.message));
+    fn send_message(&mut self) {
+        assert!(self.buffer.send(&self.message));
     }
 
     fn flush_packet(&mut self) {
