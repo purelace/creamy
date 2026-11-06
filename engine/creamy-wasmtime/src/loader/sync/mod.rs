@@ -1,6 +1,6 @@
 mod watcher;
 
-use std::path::PathBuf;
+use std::{io::ErrorKind, path::PathBuf};
 
 use creamy_binary::BinaryReader;
 use creamy_engine_core::package::BinaryPlugin;
@@ -55,7 +55,12 @@ impl PluginLoader for Loader {
                     }
                 }
             }
-            Err(e) => log::error!("x: {e}"),
+            Err(e) => {
+                if e.kind() == ErrorKind::WouldBlock {
+                    return;
+                }
+                log::error!("x: {e}");
+            }
         }
 
         self.loaded = loaded;
