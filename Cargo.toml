@@ -46,7 +46,6 @@ members = [
     "engine/creamy",
     "engine/creamy-engine-core",
     "engine/creamy-wasmtime",
-    "engine/pathenv",
 
     # TODO: move these crates to their own workspace
     # "examples/shell",
@@ -78,7 +77,6 @@ creamy-protocol-model-macros = { path = "core/creamy-protocol-model-macros"}
 # Engine
 creamy = { path = "engine/creamy" }
 creamy-engine-core = { path = "engine/creamy-engine-core" }
-pathenv = { path = "engine/pathenv" }
 
 # no_std
 thiserror = { version = "2.0.21", default-features = false }

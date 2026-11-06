@@ -4,6 +4,7 @@ mod r#async;
 mod sync;
 
 pub mod config;
+mod path;
 
 use creamy_engine_core::package::BinaryPlugin;
 

@@ -1,3 +1,5 @@
+// AI Slop
+
 #![allow(clippy::missing_errors_doc)]
 
 use std::{env, fs, path::PathBuf};

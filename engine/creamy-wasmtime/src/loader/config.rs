@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
 use garde::Validate;
-use pathenv::to_absolute_path;
 use serde::Deserialize;
+
+use super::path::to_absolute_path;
 
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn check_path(path: &str, _: &()) -> garde::Result {
