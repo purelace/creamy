@@ -8,6 +8,7 @@ mod driver;
 pub mod engine;
 pub mod error;
 mod package;
+mod plugin;
 mod registry;
 mod system;
 mod utils;

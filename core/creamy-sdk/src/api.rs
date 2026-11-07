@@ -8,6 +8,19 @@ pub trait Plugin: Sized + CustomHandler {
     fn notify(&mut self) {}
 }
 
+impl Plugin for () {
+    type CustomData = ();
+    fn init(_: Sender, (): Self::CustomData) -> Option<Self> {
+        Some(())
+    }
+}
+
+impl CustomHandler for () {
+    fn handle_message(&mut self, _: u32, _: UntypedMessage) {}
+    fn handle_on_group_enabled_event(&mut self, _: u8) {}
+    fn handle_on_group_disabled_event(&mut self, _: u8) {}
+}
+
 pub trait CustomHandler: 'static {
     fn handle_message(&mut self, dispatch_value: u32, message: UntypedMessage);
     fn handle_on_group_enabled_event(&mut self, group_id: u8);

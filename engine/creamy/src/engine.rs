@@ -1,12 +1,12 @@
 use alloc::{boxed::Box, format, string::ToString, vec::Vec};
-use core::{num::NonZeroU8, ops::Deref};
+use core::num::NonZeroU8;
 
 use creamy_engine_core::{
     GroupTable, Metadata, Module, Runtime,
     bus::{
         MessageBus, SubscriberLookupData,
         core::{
-            Subscriber, SubscriberId,
+            SubscriberId,
             buffer::{IncBuf, OutBuf},
         },
     },
@@ -27,6 +27,7 @@ use crate::{
     driver::EngineBusDriver,
     error::{Error, PluginError},
     package::{Models, PluginPackage},
+    plugin::{Plugin, SubscriberType},
     registry::{Owner, ProtocolRegistry},
     system::SystemPlugin,
 };
@@ -34,7 +35,7 @@ use crate::{
 const SYSTEM_PLUGIN: SubscriberId = SubscriberId::new(NonZeroU8::new(1).unwrap());
 const SYSTEM_GROUP: NonZeroU8 = NonZeroU8::new(1).unwrap();
 
-pub trait HostSubscriber: Subscriber {
+pub trait HostSubscriber: creamy_sdk::api::Plugin {
     fn get_group_table(&self) -> GroupTable<'_>;
 }
 
@@ -44,80 +45,6 @@ impl HostSubscriber for () {
     }
 }
 
-impl<T: creamy_sdk::api::Plugin + HostSubscriber> HostSubscriber for PluginState<T> {
-    fn get_group_table(&self) -> GroupTable<'_> {
-        self.deref().get_group_table()
-    }
-}
-
-pub enum SubscriberType<R, H, const MM: usize, const MS: usize>
-where
-    R: Runtime<MM>,
-    H: HostSubscriber,
-{
-    System(SystemPlugin<MM, MS>),
-    Custom(H),
-    Module(R::Module),
-}
-
-impl<R, H, const MM: usize, const MS: usize> SubscriberType<R, H, MM, MS>
-where
-    R: Runtime<MM>,
-    H: HostSubscriber,
-{
-    pub fn as_custom_mut(&mut self) -> &mut H {
-        match self {
-            SubscriberType::Custom(c) => c,
-            SubscriberType::System(_) => {
-                panic!("invalid subscriber type: System, expected: Custom")
-            }
-            SubscriberType::Module(_) => {
-                panic!("invalid subscriber type: Module, expected: Custom")
-            }
-        }
-    }
-}
-
-pub struct Plugin<R, H, const MM: usize, const MS: usize>
-where
-    R: Runtime<MM>,
-    H: HostSubscriber,
-{
-    manifest: Package,
-    kind: SubscriberType<R, H, MM, MS>,
-}
-
-impl<R, H, const MM: usize, const MS: usize> Plugin<R, H, MM, MS>
-where
-    R: Runtime<MM>,
-    H: HostSubscriber,
-{
-    pub const fn manifest(&self) -> &Package {
-        &self.manifest
-    }
-
-    pub const fn inner(&self) -> &SubscriberType<R, H, MM, MS> {
-        &self.kind
-    }
-
-    pub const fn inner_mut(&mut self) -> &mut SubscriberType<R, H, MM, MS> {
-        &mut self.kind
-    }
-}
-
-impl<R, H, const MM: usize, const MS: usize> Subscriber for Plugin<R, H, MM, MS>
-where
-    R: Runtime<MM>,
-    H: HostSubscriber,
-{
-    fn notify(&mut self) {
-        match &mut self.kind {
-            SubscriberType::System(s) => s.notify(),
-            SubscriberType::Custom(s) => s.notify(),
-            SubscriberType::Module(s) => s.notify(),
-        }
-    }
-}
 /*
  * Load a package
  * Init a plugin
@@ -324,7 +251,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
     fn create_custom_validation_context(
         &mut self,
         metadata: Metadata,
-        custom: impl Fn(IncBuf<MM>, OutBuf<MM>) -> H,
+        custom: impl Fn(IncBuf<MM>, OutBuf<MM>) -> PluginState<H>,
     ) -> Result<Option<ValidationContext>, Error> {
         let package = match PluginPackage::from_metadata(metadata) {
             Ok(v) => v,
@@ -619,7 +546,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
     pub fn register_custom_plugin(
         &mut self,
         mut package: &[u8],
-        custom: impl Fn(IncBuf<MM>, OutBuf<MM>) -> H,
+        custom: impl Fn(IncBuf<MM>, OutBuf<MM>) -> PluginState<H>,
     ) -> Option<SubscriberId> {
         let package = match BinaryPlugin::read_ne(&mut package) {
             Ok(v) => v,
