@@ -97,13 +97,10 @@ pub trait CodeGenerator<'s> {
 
     fn end_group(&mut self);
 
-    fn generate_dispatcher<I>(&mut self, messages: I)
+    fn generate_dispatcher<G, M>(&mut self, groups: G, messages: M)
     where
-        I: Iterator<Item = Path>;
-
-    fn generate_group_lifecycle_hook<I>(&mut self, groups: I)
-    where
-        I: Iterator<Item = Path>;
+        G: Iterator<Item = Path>,
+        M: Iterator<Item = Path>;
 
     fn generate_plugin_group_table(&mut self, pht: PerfectHashTable);
 
@@ -229,8 +226,7 @@ impl Codegen {
 
         generator.start_group("dispatcher", None);
 
-        generator.generate_dispatcher(message_paths.into_iter());
-        generator.generate_group_lifecycle_hook(group_paths.into_iter());
+        generator.generate_dispatcher(group_paths.into_iter(), message_paths.into_iter());
 
         generator.end_group();
 

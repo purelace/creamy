@@ -1,14 +1,14 @@
 use creamy_engine_core::{Runtime, bus::core::Subscriber, package::manifest::Package};
 use creamy_sdk::state::PluginState;
 
-use crate::{engine::HostSubscriber, system::SystemPlugin};
+use crate::{engine::HostSubscriber, system::System};
 
 pub enum SubscriberType<R, H, const MM: usize, const MS: usize>
 where
     R: Runtime<MM>,
     H: HostSubscriber,
 {
-    System(SystemPlugin<MM, MS>),
+    System(PluginState<System<MS>>),
     Custom(PluginState<H>),
     Module(R::Module),
 }

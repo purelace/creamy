@@ -1,15 +1,15 @@
 #![no_std]
 
-use creamy_sdk::{Sender, api::Plugin, message::UntypedMessage};
+use creamy_sdk::{Sender, api::Plugin};
 use creamy_sdk_wasm::declare_plugin;
 
 use self::generated::{
-    dispatcher::{GroupLifecycleHook, MessageHandler},
+    dispatcher::{Dispatcher, MessageHandler},
     ping::messages::{Ping, Pong},
 };
 
 include!(concat!(env!("OUT_DIR"), "/pong.rs"));
-declare_plugin!(PongPlugin, generated);
+declare_plugin!(PongPlugin);
 
 struct PongPlugin {
     sender: Sender,
@@ -17,15 +17,10 @@ struct PongPlugin {
 
 impl Plugin for PongPlugin {
     type CustomData = ();
+    type Delegate = Dispatcher<Self>;
     fn init(sender: Sender, _: Self::CustomData) -> Option<Self> {
         Some(Self { sender })
     }
-}
-
-impl GroupLifecycleHook for PongPlugin {
-    fn on_messages_group_enabled(&mut self) {}
-
-    fn on_messages_group_disabled(&mut self) {}
 }
 
 impl MessageHandler for PongPlugin {
@@ -48,6 +43,4 @@ impl MessageHandler for PongPlugin {
             )
         );
     }
-
-    fn handle_unknown_message(&mut self, _: u32, _: UntypedMessage) {}
 }

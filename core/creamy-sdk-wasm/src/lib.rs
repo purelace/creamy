@@ -50,8 +50,7 @@ pub fn get_outgoing() -> DynOutBuf {
 #[macro_export]
 macro_rules! declare_plugin {
     (
-        $plugin:ty,
-        $generated_module:ident
+        $plugin:ty
     ) => {
         #[doc(hidden)]
         static mut STATE: Option<$crate::sdk::state::PluginState<$plugin>> = None;
@@ -81,25 +80,6 @@ macro_rules! declare_plugin {
                 if let Some(state) = STATE.as_mut() {
                     state.notify();
                 }
-            }
-        }
-
-        #[doc(hidden)]
-        impl $crate::sdk::api::CustomHandler for $plugin {
-            fn handle_message(
-                &mut self,
-                dispatch_value: u32,
-                message: $crate::sdk::message::UntypedMessage,
-            ) {
-                $generated_module::dispatcher::dispatch_message(dispatch_value, message, self);
-            }
-
-            fn handle_on_group_enabled_event(&mut self, group_id: u8) {
-                $generated_module::dispatcher::handle_on_group_enabled_event(group_id, self);
-            }
-
-            fn handle_on_group_disabled_event(&mut self, group_id: u8) {
-                $generated_module::dispatcher::handle_on_group_disabled_event(group_id, self);
             }
         }
     };

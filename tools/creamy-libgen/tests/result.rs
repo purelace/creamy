@@ -347,15 +347,10 @@ impl<'s> CodeGenerator<'s> for Mock {
 
     fn end_group(&mut self) {}
 
-    fn generate_dispatcher<I>(&mut self, _: I)
+    fn generate_dispatcher<G, M>(&mut self, _: G, _: M)
     where
-        I: Iterator<Item = Path>,
-    {
-    }
-
-    fn generate_group_lifecycle_hook<I>(&mut self, _: I)
-    where
-        I: Iterator<Item = Path>,
+        G: Iterator<Item = Path>,
+        M: Iterator<Item = Path>,
     {
     }
 

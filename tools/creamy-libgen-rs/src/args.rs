@@ -83,8 +83,8 @@ impl Args {
         format!("{}::message::cast_message", self.creamy_sdk_path)
     }
 
-    pub(crate) fn custom_message_handler_trait_path(&self) -> String {
-        format!("{}::api::CustomHandler", self.creamy_sdk_path)
+    pub(crate) fn dispatch_delegate_trait_path(&self) -> String {
+        format!("{}::api::DispatchDelegate", self.creamy_sdk_path)
     }
 
     pub(crate) fn stream_id_path(&self) -> String {

@@ -11,9 +11,9 @@ use cbus_core::{
 
 use crate::{
     Sender, SubscriberId,
-    api::{CustomHandler, Plugin, handle_incoming},
+    api::{DispatchDelegate, Plugin},
     generated::{
-        dispatcher::{self, MessageHandler},
+        dispatcher::{Dispatcher, MessageHandler},
         system::builtin::{
             ConsumerAppeared, ConsumerDisappeared, GroupDeclared, GroupUndeclared, StreamCancel,
             StreamKeepAlive,
@@ -179,7 +179,15 @@ impl<P: Plugin> DerefMut for PluginState<P> {
 
 impl<P: Plugin> Subscriber for PluginState<P> {
     fn notify(&mut self) {
-        self.notify();
+        const HEADER_MASK: u32 = 0x00_FF_00_FF;
+        while let Some(message) = self.inc.pop() {
+            let dispatch_value = {
+                let message: &UntypedMessage = &message;
+                (u32::from(message.group) << 16 | u32::from(message.kind)) & HEADER_MASK
+            };
+            Dispatcher::dispatch_message(dispatch_value, message, self);
+        }
+        self.plugin.notify();
     }
 }
 
@@ -193,32 +201,17 @@ impl<P: Plugin> PluginState<P> {
         let plugin = P::init(sender, data)?;
         Some(Self { inc, table, plugin })
     }
-
-    pub fn notify(&mut self) {
-        handle_incoming(self, self.inc.clone());
-        self.plugin.notify();
-    }
-}
-
-impl<P: Plugin> CustomHandler for PluginState<P> {
-    fn handle_message(&mut self, dispatch_value: u32, message: cbus_core::UntypedMessage) {
-        dispatcher::dispatch_message(dispatch_value, message, self);
-    }
-
-    fn handle_on_group_enabled_event(&mut self, _: u8) {}
-
-    fn handle_on_group_disabled_event(&mut self, _: u8) {}
 }
 
 impl<P: Plugin> MessageHandler for PluginState<P> {
     fn handle_group_declared(&mut self, message: GroupDeclared) {
         self.table.add(message.group_id, message.provider);
-        self.plugin.handle_on_group_enabled_event(message.group_id);
+        P::Delegate::handle_on_group_enabled_event(message.group_id, &mut self.plugin);
     }
 
     fn handle_group_undeclared(&mut self, message: GroupUndeclared) {
         self.table.remove(message.group_id, message.provider);
-        self.plugin.handle_on_group_disabled_event(message.group_id);
+        P::Delegate::handle_on_group_disable_event(message.group_id, &mut self.plugin);
     }
 
     fn handle_consumer_appeared(&mut self, message: ConsumerAppeared) {
@@ -234,7 +227,7 @@ impl<P: Plugin> MessageHandler for PluginState<P> {
     fn handle_stream_cancel(&mut self, message: StreamCancel) {}
 
     fn handle_unknown_message(&mut self, dispatch_value: u32, message: UntypedMessage) {
-        self.plugin.handle_message(dispatch_value, message);
+        P::Delegate::dispatch_message(dispatch_value, message, &mut self.plugin);
     }
 }
 

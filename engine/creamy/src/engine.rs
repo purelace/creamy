@@ -29,7 +29,7 @@ use crate::{
     package::{Models, PluginPackage},
     plugin::{Plugin, SubscriberType},
     registry::{Owner, ProtocolRegistry},
-    system::SystemPlugin,
+    system::System,
 };
 
 const SYSTEM_PLUGIN: SubscriberId = SubscriberId::new(NonZeroU8::new(1).unwrap());
@@ -110,16 +110,19 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
     }
 
     fn setup_system_plugin(&mut self) {
-        let incoming = IncBuf::default();
-        let outgoing = OutBuf::default();
+        let inc = IncBuf::default();
+        let out = OutBuf::default();
 
         self.bus
             .add_subscriber_with(
-                incoming.clone(),
-                outgoing.clone(),
+                inc.clone(),
+                out.clone(),
                 Plugin {
                     manifest: Package::default(),
-                    kind: SubscriberType::System(SystemPlugin::new(incoming, outgoing)),
+                    kind: SubscriberType::System(
+                        PluginState::new(inc.as_dyn_buf(), out.as_dyn_buf(), out.as_dyn_buf())
+                            .unwrap(),
+                    ),
                 },
             )
             .unwrap_or_else(|_| unreachable!("Maximum subscribers cannot be zero."));
@@ -134,7 +137,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         );
     }
 
-    fn get_system(&self) -> &SystemPlugin<MM, MS> {
+    fn get_system(&self) -> &System<MS> {
         const UNREACHABLE: &str =
             "System plugin is registered when the engine instance is created.";
 
@@ -149,7 +152,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         }
     }
 
-    fn get_system_mut(&mut self) -> &mut SystemPlugin<MM, MS> {
+    fn get_system_mut(&mut self) -> &mut System<MS> {
         const UNREACHABLE: &str =
             "System plugin is registered when the engine instance is created.";
 
@@ -598,7 +601,6 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         self.bus.subscriber_list()
     }
 
-    #[must_use]
     pub const fn loaded_plugins(&self) -> u8 {
         self.bus.subscribers()
     }

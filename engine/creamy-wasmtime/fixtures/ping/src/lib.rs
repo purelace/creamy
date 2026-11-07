@@ -5,10 +5,12 @@ include!(concat!(env!("OUT_DIR"), "/ping.rs"));
 use creamy_sdk::{Sender, api::Plugin};
 use creamy_sdk_wasm::{declare_plugin, error, info, warn};
 
-use self::generated::dispatcher::{GroupLifecycleHook, MessageHandler};
-use crate::generated::ping::messages::{Ping, Pong};
+use self::generated::{
+    dispatcher::{Dispatcher, MessageHandler},
+    ping::messages::{Ping, Pong},
+};
 
-declare_plugin!(PingPlugin, generated);
+declare_plugin!(PingPlugin);
 
 struct PingPlugin {
     sender: Sender,
@@ -16,6 +18,7 @@ struct PingPlugin {
 
 impl Plugin for PingPlugin {
     type CustomData = ();
+    type Delegate = Dispatcher<Self>;
 
     fn init(sender: Sender, _: Self::CustomData) -> Option<Self> {
         info!("Hello, World!");
@@ -27,12 +30,6 @@ impl Plugin for PingPlugin {
     fn notify(&mut self) {
         info!("Йо-йо-йо 1-4-8-3 да 3-6-9, Альбукерке жжёт, чё-кого, сучара, жди сигнала");
     }
-}
-
-impl GroupLifecycleHook for PingPlugin {
-    fn on_messages_group_enabled(&mut self) {}
-
-    fn on_messages_group_disabled(&mut self) {}
 }
 
 impl MessageHandler for PingPlugin {
@@ -54,12 +51,5 @@ impl MessageHandler for PingPlugin {
                     .with_serial(message.serial),
             )
         );
-    }
-
-    fn handle_unknown_message(
-        &mut self,
-        _dispatch_value: u32,
-        _message: creamy_sdk::message::UntypedMessage,
-    ) {
     }
 }

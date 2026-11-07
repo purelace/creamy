@@ -9,6 +9,7 @@ pub mod libgen {
 mod args;
 mod binary_utils;
 mod derive;
+mod dispatcher;
 pub mod script;
 mod symbols;
 mod utils;
@@ -22,7 +23,6 @@ use std::{
 pub use args::Args;
 use creamy_libgen::prelude::*;
 use genco::{lang::rust::Tokens, quote};
-use heck::ToSnakeCase;
 pub use libgen::Target;
 
 const fn repr_to_string(repr: PrimitiveRepr) -> Cow<'static, str> {
@@ -168,105 +168,13 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
         self.modules.last_mut().unwrap().tokens.push(group);
     }
 
-    fn generate_dispatcher<I>(&mut self, messages: I)
+    fn generate_dispatcher<G, M>(&mut self, groups: G, messages: M)
     where
-        I: Iterator<Item = ::creamy_libgen::Path>,
+        G: Iterator<Item = ::creamy_libgen::Path>,
+        M: Iterator<Item = ::creamy_libgen::Path>,
     {
-        let mut trait_functions = vec![];
-        let mut match_branches = vec![];
-
-        for path in messages {
-            let postfix = &match &path {
-                Path::Global { name } => name.to_snake_case(),
-                Path::Absolute { components } => components.last().unwrap().to_snake_case(),
-            };
-            let kind = &path_to_string(&path);
-            trait_functions.push(quote! {
-                fn handle_$postfix(&mut self, message: $kind);
-            });
-
-            let cast_message = self.args.cast_message_fn_path();
-            match_branches.push(quote! {
-                $kind::DISPATCH_VALUE => {
-                    handler.handle_$postfix($cast_message(message))
-                }
-            });
-        }
-
-        let untyped_message = &self.args.untyped_message_path();
-        let trait_bound = self.args.custom_message_handler_trait_path();
-        let tokens = quote! {
-            pub trait MessageHandler:  $trait_bound {
-                $trait_functions
-                fn handle_unknown_message(&mut self, dispatch_value: u32, message: $untyped_message);
-            }
-
-            #[inline(always)]
-            pub fn dispatch_message(dispatch_value: u32, message: $untyped_message, handler: &mut impl MessageHandler) {
-                match dispatch_value {
-                    $match_branches
-                    _ => handler.handle_unknown_message(dispatch_value, message)
-                }
-            }
-        };
-
+        let tokens = dispatcher::generate_dispatcher(&self.args, groups, messages);
         self.push_tokens(tokens);
-    }
-
-    fn generate_group_lifecycle_hook<I>(&mut self, groups: I)
-    where
-        I: Iterator<Item = Path>,
-    {
-        let mut trait_functions = vec![];
-        let mut enable_match_branches = vec![];
-        let mut disable_match_branches = vec![];
-
-        for path in groups {
-            let postfix = &match &path {
-                Path::Global { name } => name.to_snake_case(),
-                Path::Absolute { components } => components[components.len() - 2].to_snake_case(),
-            };
-
-            trait_functions.push(quote! {
-                fn on_$(postfix)_group_enabled(&mut self);
-                fn on_$(postfix)_group_disabled(&mut self);
-            });
-
-            let path = &path_to_string(&path);
-            enable_match_branches.push(quote! {
-                $path => {
-                    handler.on_$(postfix)_group_enabled();
-                }
-            });
-            disable_match_branches.push(quote! {
-                $path => {
-                    handler.on_$(postfix)_group_disabled();
-                }
-            });
-        }
-
-        let trait_bound = self.args.custom_message_handler_trait_path();
-        self.push_tokens(quote! {
-            pub trait GroupLifecycleHook: $trait_bound {
-                $trait_functions
-            }
-
-            #[inline(always)]
-            pub fn handle_on_group_enabled_event(group_id: u8, handler: &mut impl GroupLifecycleHook) {
-                match group_id {
-                    $enable_match_branches
-                    _ => {}
-                }
-            }
-
-            #[inline(always)]
-            pub fn handle_on_group_disabled_event(group_id: u8, handler: &mut impl GroupLifecycleHook) {
-                match group_id {
-                    $disable_match_branches
-                    _ => {}
-                }
-            }
-        });
     }
 
     fn generate_plugin_group_table(&mut self, pht: PerfectHashTable) {
