@@ -1,3 +1,4 @@
+#![allow(unused)]
 #![allow(clippy::missing_errors_doc)]
 
 use std::path::PathBuf;
@@ -30,10 +31,15 @@ pub async fn init_engine() -> anyhow::Result<PluginEngine<WTRuntime, ()>> {
     Ok(PluginEngine::new(WTRuntime::new(HEAP_SIZE, loader)?))
 }
 
+#[must_use]
+pub fn fixtures_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/output")
+}
+
 pub struct TestContext {
     _tempdir: tempfile::TempDir,
     pub plugin_path: PathBuf,
-    pub fixture: PathBuf,
+    pub fixtures: PathBuf,
 }
 
 impl TestContext {
@@ -42,22 +48,22 @@ impl TestContext {
 
         let tempdir = tempfile::tempdir()?;
 
-        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/output");
+        let fixtures = fixtures_path();
         unsafe { std::env::set_var("CREAMY_TEST_PLUGIN_DIR", tempdir.path().as_os_str()) };
 
         Ok(Self {
             plugin_path: tempdir.path().into(),
             _tempdir: tempdir,
-            fixture,
+            fixtures,
         })
     }
 
     pub fn copy_to_plugin_dir(&self, other: &str) -> anyhow::Result<()> {
-        std::fs::copy(self.fixture.join(other), self.plugin_path.join(other)).with_context(
+        std::fs::copy(self.fixtures.join(other), self.plugin_path.join(other)).with_context(
             || {
                 format!(
                     "From: {}. To: {}",
-                    self.fixture.display(),
+                    self.fixtures.display(),
                     self.plugin_path.display()
                 )
             },

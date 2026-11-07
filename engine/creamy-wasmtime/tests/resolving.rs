@@ -1,11 +1,28 @@
 //TODO: move this tests to engine tests
 mod general;
 
-use std::{num::NonZeroU8, time::Duration};
+use std::{fs::File, num::NonZeroU8};
 
-use self::general::{TestContext, init_engine};
+use creamy_binary::BinaryReader;
+use creamy_engine_core::package::BinaryPlugin;
+use creamy_wasmtime::WTRuntime;
 
-const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(2).unwrap();
+use self::general::{PluginEngine, TestContext, fixtures_path, init_engine};
+
+const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(4).unwrap();
+
+fn read_plugin(plugin: &str) -> anyhow::Result<BinaryPlugin> {
+    let path = fixtures_path().join(plugin);
+    let mut adapter = creamy_binary::adapters::FromStd::new(File::open(path)?);
+    Ok(BinaryPlugin::read_ne(&mut adapter)?)
+}
+
+fn load_and_wait(engine: &mut PluginEngine<WTRuntime, ()>, plugin: &str) -> anyhow::Result<()> {
+    engine.runtime_mut().load_manually(read_plugin(plugin)?);
+    engine.tick(ROUNDTRIP);
+    println!("Loaded plugins: {}", engine.loaded_plugins());
+    Ok(())
+}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[should_panic(expected = "Group 'none' from protocol 'empty' is already provided by 'empty'")]
@@ -14,28 +31,16 @@ async fn try_provide_already_provided_group() {
 }
 
 async fn group_provided_runner() -> anyhow::Result<()> {
-    let context = TestContext::new()?;
-    context.copy_to_plugin_dir("empty.cmy")?;
-
+    let _c = TestContext::new()?;
     let mut engine = init_engine().await?;
+    load_and_wait(&mut engine, "empty.cmy")?;
+    load_and_wait(&mut engine, "empty.cmy")?;
 
-    let mut seconds = 16;
-    while seconds != 0 {
-        engine.tick(ROUNDTRIP);
-        if engine.loaded_plugins() == 2 {
-            context.copy_to_plugin_dir("empty.cmy")?;
-        }
-
-        println!("Loaded plugins: {}", engine.loaded_plugins());
-        if let Some(e) = engine.errors().drain(..).next() {
-            panic!("{e}");
-        }
-
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        seconds -= 1;
+    if let Some(e) = engine.errors().drain(..).next() {
+        panic!("{e}");
     }
 
-    Ok(())
+    panic!("no error occurred")
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -45,30 +50,15 @@ async fn try_consume_busy_group() {
 }
 
 async fn group_busy_runner() -> anyhow::Result<()> {
-    let context = TestContext::new()?;
-    context.copy_to_plugin_dir("empty.cmy")?;
-
+    let _c = TestContext::new()?;
     let mut engine = init_engine().await?;
+    load_and_wait(&mut engine, "empty.cmy")?;
+    load_and_wait(&mut engine, "empty_consumer.cmy")?;
+    load_and_wait(&mut engine, "empty_consumer.cmy")?;
 
-    let mut ticks = 16;
-    while ticks != 0 {
-        engine.tick(ROUNDTRIP);
-        if engine.loaded_plugins() == 2 {
-            context.copy_to_plugin_dir("empty_consumer.cmy")?;
-        }
-
-        if engine.loaded_plugins() == 3 {
-            context.copy_to_plugin_dir("empty_consumer.cmy")?;
-        }
-
-        println!("Loaded plugins: {}", engine.loaded_plugins());
-        if let Some(e) = engine.errors().drain(..).next() {
-            panic!("{e}");
-        }
-
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        ticks -= 1;
+    if let Some(e) = engine.errors().drain(..).next() {
+        panic!("{e}");
     }
 
-    Ok(())
+    panic!("no error occurred")
 }
