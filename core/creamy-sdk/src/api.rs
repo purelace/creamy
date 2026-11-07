@@ -18,9 +18,9 @@ pub trait DispatchDelegate {
 
 impl DispatchDelegate for () {
     type Handler = ();
-    fn dispatch_message(_: u32, _: UntypedMessage, _: &mut Self::Handler) {}
-    fn handle_on_group_enabled_event(_: u8, _: &mut Self::Handler) {}
-    fn handle_on_group_disable_event(_: u8, _: &mut Self::Handler) {}
+    fn dispatch_message(_: u32, _: UntypedMessage, (): &mut Self::Handler) {}
+    fn handle_on_group_enabled_event(_: u8, (): &mut Self::Handler) {}
+    fn handle_on_group_disable_event(_: u8, (): &mut Self::Handler) {}
 }
 
 impl Plugin for () {
