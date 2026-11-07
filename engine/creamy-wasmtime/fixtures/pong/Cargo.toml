@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 creamy-sdk.workspace = true
+creamy-sdk-wasm.workspace = true
 
 [build-dependencies]
 creamy-libgen-rs.workspace = true

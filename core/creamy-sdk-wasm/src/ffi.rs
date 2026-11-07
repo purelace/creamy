@@ -2,7 +2,7 @@ use core::{alloc::Layout, num::NonZeroU32, ptr::NonNull};
 
 use cbus_core::defines::{MESSAGE_SIZE, METADATA, TARGET_ALIGN};
 
-use crate::{INCOMING, MAX_HEAP, OUTGOING};
+use super::{INCOMING, MAX_HEAP, OUTGOING};
 
 #[unsafe(no_mangle)]
 pub extern "C" fn internal__init_plugin(max_heap: u32) -> u32 {
@@ -61,4 +61,11 @@ pub extern "C" fn internal__notify() {
 unsafe extern "C" {
     pub fn init() -> u32;
     pub fn notify();
+}
+
+#[cfg(target_arch = "wasm32")]
+#[inline(never)]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
 }

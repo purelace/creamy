@@ -7,7 +7,6 @@ use creamy_engine_core::bus::core::{
 };
 use creamy_sdk::{
     api::{CustomHandler, handle_incoming},
-    logging::LogType,
     stream::{StreamId, StreamMessage, StreamReader},
 };
 use hashbrown::HashMap;
@@ -16,15 +15,15 @@ use smol_str::SmolStr;
 use crate::generated::{
     dispatcher::{self, MessageHandler},
     system::builtin::{
-        ConsumerAppeared, ConsumerDisappeared, GroupDeclared, GroupUndeclared, Log, StreamCancel,
-        StreamKeepAlive,
+        ConsumerAppeared, ConsumerDisappeared, GroupDeclared, GroupUndeclared, Log, LogType,
+        StreamCancel, StreamKeepAlive,
     },
 };
 
 pub struct SystemPlugin<const MM: usize, const MS: usize> {
     inc: IncBuf<MM>,
     out: OutBuf<MM>,
-    logs: HashMap<StreamId, StreamReader<creamy_sdk::logging::Log>, rustc_hash::FxBuildHasher>,
+    logs: HashMap<StreamId, StreamReader<Log>, rustc_hash::FxBuildHasher>,
 
     names: Box<[Option<SmolStr>; MS]>,
     plugins: u8,
@@ -159,9 +158,6 @@ impl<const S: usize, const M: usize> MessageHandler for SystemPlugin<S, M> {
 
     fn handle_log(&mut self, message: Log) {
         let stream = self.logs.entry(message.stream_id()).or_default();
-
-        // конвертируем наш тип в тип creamy_sdk. они одинаковые
-        let message = unsafe { core::mem::transmute::<Log, creamy_sdk::logging::Log>(message) };
 
         if let Some(result) = stream.accept_message(&message) {
             match result {

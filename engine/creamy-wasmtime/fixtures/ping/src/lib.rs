@@ -2,7 +2,8 @@
 
 include!(concat!(env!("OUT_DIR"), "/ping.rs"));
 
-use creamy_sdk::{Sender, api::Plugin, declare_plugin, error, info, warn};
+use creamy_sdk::{Sender, api::Plugin};
+use creamy_sdk_wasm::{declare_plugin, error, info, warn};
 
 use self::generated::dispatcher::{GroupLifecycleHook, MessageHandler};
 use crate::generated::ping::messages::{Ping, Pong};
@@ -14,7 +15,9 @@ struct PingPlugin {
 }
 
 impl Plugin for PingPlugin {
-    fn init(sender: Sender) -> Option<Self> {
+    type CustomData = ();
+
+    fn init(sender: Sender, _: Self::CustomData) -> Option<Self> {
         info!("Hello, World!");
         warn!("Дарова, заебал!");
         error!("Как дела?");

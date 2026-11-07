@@ -1,5 +1,5 @@
 use alloc::{boxed::Box, format, string::ToString, vec::Vec};
-use core::num::NonZeroU8;
+use core::{num::NonZeroU8, ops::Deref};
 
 use creamy_engine_core::{
     GroupTable, Metadata, Module, Runtime,
@@ -20,6 +20,7 @@ use creamy_engine_core::{
         pool::StringId,
     },
 };
+use creamy_sdk::state::PluginState;
 use smol_str::{SmolStr, ToSmolStr};
 
 use crate::{
@@ -40,6 +41,12 @@ pub trait HostSubscriber: Subscriber {
 impl HostSubscriber for () {
     fn get_group_table(&self) -> GroupTable<'static> {
         GroupTable::new(&[], 0, &[], 0)
+    }
+}
+
+impl<T: creamy_sdk::api::Plugin + HostSubscriber> HostSubscriber for PluginState<T> {
+    fn get_group_table(&self) -> GroupTable<'_> {
+        self.deref().get_group_table()
     }
 }
 

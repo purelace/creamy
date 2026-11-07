@@ -1,6 +1,7 @@
 #![no_std]
 
-use creamy_sdk::{Sender, api::Plugin, declare_plugin, message::UntypedMessage};
+use creamy_sdk::{Sender, api::Plugin, message::UntypedMessage};
+use creamy_sdk_wasm::declare_plugin;
 
 use self::generated::dispatcher::{GroupLifecycleHook, MessageHandler};
 
@@ -11,7 +12,8 @@ declare_plugin!(EmptyPlugin, generated);
 struct EmptyPlugin;
 
 impl Plugin for EmptyPlugin {
-    fn init(_: Sender) -> Option<Self> {
+    type CustomData = ();
+    fn init(_: Sender, _: Self::CustomData) -> Option<Self> {
         Some(Self)
     }
 }

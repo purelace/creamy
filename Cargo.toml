@@ -33,6 +33,7 @@ members = [
     "core/creamy-manifest",
     "core/creamy-phf",
     "core/creamy-sdk",
+    "core/creamy-sdk-wasm",
     "core/creamy-utils",
     "core/creamy-phf",
 

@@ -12,13 +12,8 @@ pub struct Sender {
 }
 
 impl Sender {
-    #[must_use]
-    #[doc(hidden)]
-    pub const fn from_static_reference(buffer: DynOutBuf) -> Self {
-        Self {
-            buffer,
-            table: super::state::get_dst_table(),
-        }
+    pub(crate) const fn new(buffer: DynOutBuf, table: *const Table) -> Self {
+        Self { buffer, table }
     }
 
     /// # Returns

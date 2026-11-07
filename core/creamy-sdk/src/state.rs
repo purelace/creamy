@@ -1,8 +1,17 @@
-use core::{cell::UnsafeCell, num::NonZeroU8};
+use alloc::boxed::Box;
+use core::{
+    num::NonZeroU8,
+    ops::{Deref, DerefMut},
+};
+
+use cbus_core::{
+    Subscriber,
+    buffer::{DynIncBuf, DynOutBuf},
+};
 
 use crate::{
-    SubscriberId,
-    api::{CustomHandler, Plugin},
+    Sender, SubscriberId,
+    api::{CustomHandler, Plugin, handle_incoming},
     generated::{
         dispatcher::{self, MessageHandler},
         system::builtin::{
@@ -148,32 +157,50 @@ impl Table {
     }
 }
 
-#[repr(transparent)]
-struct SyncUnsafeCell<T>(UnsafeCell<T>);
-unsafe impl<T: Sync> Sync for SyncUnsafeCell<T> {}
-
-static DST_TABLE: SyncUnsafeCell<Table> = SyncUnsafeCell(UnsafeCell::new(Table::EMPTY));
-
-#[must_use]
-pub(crate) const fn get_dst_table() -> *const Table {
-    DST_TABLE.0.get().cast_const()
-}
-
-pub struct InnerState<P: Plugin> {
+pub struct PluginState<P: Plugin> {
+    inc: DynIncBuf,
+    table: Box<Table>,
     plugin: P,
 }
 
-impl<P: Plugin> InnerState<P> {
-    pub const fn new(plugin: P) -> Self {
-        Self { plugin }
+impl<P: Plugin> Deref for PluginState<P> {
+    type Target = P;
+
+    fn deref(&self) -> &Self::Target {
+        &self.plugin
+    }
+}
+
+impl<P: Plugin> DerefMut for PluginState<P> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.plugin
+    }
+}
+
+impl<P: Plugin> Subscriber for PluginState<P> {
+    fn notify(&mut self) {
+        self.notify();
+    }
+}
+
+impl<P: Plugin> PluginState<P> {
+    #[must_use]
+    pub fn new(inc: DynIncBuf, out: DynOutBuf, data: P::CustomData) -> Option<Self> {
+        let table = Box::new(Table::EMPTY);
+        let ptr = core::ptr::from_ref(table.as_ref());
+        let sender = Sender::new(out, ptr);
+
+        let plugin = P::init(sender, data)?;
+        Some(Self { inc, table, plugin })
     }
 
     pub fn notify(&mut self) {
+        handle_incoming(self, self.inc.clone());
         self.plugin.notify();
     }
 }
 
-impl<P: Plugin> CustomHandler for InnerState<P> {
+impl<P: Plugin> CustomHandler for PluginState<P> {
     fn handle_message(&mut self, dispatch_value: u32, message: cbus_core::UntypedMessage) {
         dispatcher::dispatch_message(dispatch_value, message, self);
     }
@@ -183,31 +210,23 @@ impl<P: Plugin> CustomHandler for InnerState<P> {
     fn handle_on_group_disabled_event(&mut self, _: u8) {}
 }
 
-impl<P: Plugin> MessageHandler for InnerState<P> {
+impl<P: Plugin> MessageHandler for PluginState<P> {
     fn handle_group_declared(&mut self, message: GroupDeclared) {
-        unsafe {
-            (*DST_TABLE.0.get()).add(message.group_id, message.provider);
-        }
+        self.table.add(message.group_id, message.provider);
         self.plugin.handle_on_group_enabled_event(message.group_id);
     }
 
     fn handle_group_undeclared(&mut self, message: GroupUndeclared) {
-        unsafe {
-            (*DST_TABLE.0.get()).remove(message.group_id, message.provider);
-        }
+        self.table.remove(message.group_id, message.provider);
         self.plugin.handle_on_group_disabled_event(message.group_id);
     }
 
     fn handle_consumer_appeared(&mut self, message: ConsumerAppeared) {
-        unsafe {
-            (*DST_TABLE.0.get()).add(message.group_id, message.consumer_id);
-        }
+        self.table.add(message.group_id, message.consumer_id);
     }
 
     fn handle_consumer_disappeared(&mut self, message: ConsumerDisappeared) {
-        unsafe {
-            (*DST_TABLE.0.get()).remove(message.group_id, message.consumer_id);
-        }
+        self.table.remove(message.group_id, message.consumer_id);
     }
 
     fn handle_stream_keep_alive(&mut self, message: StreamKeepAlive) {}

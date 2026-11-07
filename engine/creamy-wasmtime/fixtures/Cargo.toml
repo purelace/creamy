@@ -9,4 +9,5 @@ members = ["ping", "pong", "empty", "empty_consumer"]
 
 [workspace.dependencies]
 creamy-sdk = { path = "../../../core/creamy-sdk" }
+creamy-sdk-wasm.path = "../../../core/creamy-sdk-wasm"
 creamy-libgen-rs = { path = "../../../tools/creamy-libgen-rs" }

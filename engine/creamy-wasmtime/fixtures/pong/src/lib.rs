@@ -1,6 +1,7 @@
 #![no_std]
 
-use creamy_sdk::{Sender, api::Plugin, declare_plugin, message::UntypedMessage};
+use creamy_sdk::{Sender, api::Plugin, message::UntypedMessage};
+use creamy_sdk_wasm::declare_plugin;
 
 use self::generated::{
     dispatcher::{GroupLifecycleHook, MessageHandler},
@@ -15,7 +16,8 @@ struct PongPlugin {
 }
 
 impl Plugin for PongPlugin {
-    fn init(sender: Sender) -> Option<Self> {
+    type CustomData = ();
+    fn init(sender: Sender, _: Self::CustomData) -> Option<Self> {
         Some(Self { sender })
     }
 }

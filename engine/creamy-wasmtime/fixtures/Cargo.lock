@@ -245,6 +245,16 @@ dependencies = [
  "cbus-core",
  "creamy-binary",
  "creamy-libgen-rs",
+ "thiserror",
+]
+
+[[package]]
+name = "creamy-sdk-wasm"
+version = "0.1.0"
+dependencies = [
+ "cbus-core",
+ "creamy-binary",
+ "creamy-sdk",
  "rlsf",
  "thiserror",
 ]
@@ -319,6 +329,7 @@ version = "0.1.0"
 dependencies = [
  "creamy-libgen-rs",
  "creamy-sdk",
+ "creamy-sdk-wasm",
 ]
 
 [[package]]
@@ -327,6 +338,7 @@ version = "0.1.0"
 dependencies = [
  "creamy-libgen-rs",
  "creamy-sdk",
+ "creamy-sdk-wasm",
 ]
 
 [[package]]
@@ -706,6 +718,7 @@ version = "0.1.0"
 dependencies = [
  "creamy-libgen-rs",
  "creamy-sdk",
+ "creamy-sdk-wasm",
 ]
 
 [[package]]
@@ -733,6 +746,7 @@ version = "0.1.0"
 dependencies = [
  "creamy-libgen-rs",
  "creamy-sdk",
+ "creamy-sdk-wasm",
 ]
 
 [[package]]

@@ -910,6 +910,16 @@ dependencies = [
  "cbus-core",
  "creamy-binary",
  "creamy-libgen-rs",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "creamy-sdk-wasm"
+version = "0.1.0"
+dependencies = [
+ "cbus-core",
+ "creamy-binary",
+ "creamy-sdk",
  "rlsf",
  "thiserror 2.0.21",
 ]

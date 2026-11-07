@@ -11,9 +11,6 @@ pub use writer::StreamWriter;
 
 use crate::message::Message;
 
-//use self::allocator::CacheAllocator;
-//static mut STREAM_CACHE_ALLOCATOR: CacheAllocator = CacheAllocator::new();
-
 pub const MAX_STREAM_PAYLOAD: usize = 27;
 pub const STREAM_TYPE_MASK: u8 = 0b_1000_0000;
 pub const STREAM_ID_MASK: u8 = 0b_0111_1111;
