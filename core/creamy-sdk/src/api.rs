@@ -16,6 +16,7 @@ pub trait DispatchDelegate {
     fn handle_on_group_disable_event(group_id: u8, handler: &mut Self::Handler);
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl DispatchDelegate for () {
     type Handler = ();
     fn dispatch_message(_: u32, _: UntypedMessage, (): &mut Self::Handler) {}
@@ -23,6 +24,7 @@ impl DispatchDelegate for () {
     fn handle_on_group_disable_event(_: u8, (): &mut Self::Handler) {}
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 impl Plugin for () {
     type CustomData = ();
     type Delegate = ();
