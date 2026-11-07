@@ -594,7 +594,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
 
                 if let Err(e) = self.validate_plugin(&mut context) {
                     self.remove_validation_context(context);
-                    log::error!("{e}");
+                    self.errors.push(e);
                     None
                 } else {
                     let id = context.id;
