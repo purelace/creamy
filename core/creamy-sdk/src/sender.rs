@@ -3,7 +3,7 @@ use cbus_core::buffer::DynOutBuf;
 use crate::{
     message::Message,
     state::Table,
-    stream::{StreamId, StreamMessage, StreamWriter},
+    stream::{StreamContent, StreamId, StreamMessage, StreamWriter},
 };
 
 pub struct Sender {
@@ -50,7 +50,11 @@ impl Sender {
         self.buffer.send(message)
     }
 
-    pub fn send_stream<T: StreamMessage>(&mut self, content: &T::Content) -> bool {
+    pub fn send_stream<C>(&mut self, content: &C) -> bool
+    where
+        C: StreamContent,
+        C::Message: StreamMessage<Content = C>,
+    {
         cfg_select! {
             debug_assertions => {
                 #[allow(clippy::missing_panics_doc)]
@@ -64,15 +68,18 @@ impl Sender {
                 let table = unsafe { self.table.as_ref_unchecked() };
             }
         }
-        let slice = table.get(T::GROUP);
+        let slice = table.get(<C::Message>::GROUP);
         if slice.is_empty() {
             return false;
         }
 
         for dst in slice {
             //TODO: dynamic stream id
-            let mut writer =
-                StreamWriter::<T>::new(self.buffer.clone(), dst.as_u8(), StreamId::new(10));
+            let mut writer = StreamWriter::<C::Message>::new(
+                self.buffer.clone(),
+                dst.as_u8(),
+                StreamId::new(10),
+            );
             writer.send(content);
         }
 
