@@ -25,6 +25,8 @@ pub enum PluginError {
         protocol: Box<str>,
         provider: Box<str>,
     },
+    #[error("Group '{group}' from protocol '{protocol}' is busy")]
+    GroupIsBusy { group: Box<str>, protocol: Box<str> },
 
     #[error("{0}")]
     Binary(#[from] creamy_binary::ReadError<core::convert::Infallible>),

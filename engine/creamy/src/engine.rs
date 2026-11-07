@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, format, vec::Vec};
+use alloc::{boxed::Box, format, string::ToString, vec::Vec};
 use core::num::NonZeroU8;
 
 use creamy_engine_core::{
@@ -241,7 +241,44 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         );
     }
 
-    fn is_possible_to_resolve(
+    fn is_possible_to_consume(
+        &self,
+        model: &ProtocolModel,
+        request: &RequestedProtocol,
+    ) -> Result<(), PluginError> {
+        let pool = self.registry.pool();
+        if let Some(context) = self.registry.try_get_protocol_context(model.name()) {
+            if context.model() != model {
+                return Err(PluginError::DifferentProtocolModels {
+                    target_model: model.name().resolve(pool).into(),
+                    version_a: model.version().clone(),
+                    version_b: context.model().version().clone(),
+                });
+            }
+
+            for group_name in request.groups() {
+                if !context.can_add_consumer(pool.get_id(group_name)) {
+                    return Err(PluginError::GroupIsBusy {
+                        group: group_name.clone().into_boxed_str(),
+                        protocol: context
+                            .model()
+                            .name()
+                            .resolve(pool)
+                            .to_string()
+                            .into_boxed_str(),
+                    });
+                }
+            }
+            Ok(())
+        } else {
+            Err(PluginError::ProtocolModelNotFound {
+                target_model: model.name().resolve(pool).to_string().into_boxed_str(),
+                version: model.version().clone(),
+            })
+        }
+    }
+
+    fn is_possible_to_provide(
         &self,
         model: &ProtocolModel,
         request: &RequestedProtocol,
@@ -351,11 +388,11 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         for (model, request) in &mut context.models.values_mut() {
             self.registry.replace_strings(&context.pool, model);
 
-            if !request.provide() {
-                continue;
+            if request.provide() {
+                self.is_possible_to_provide(model, request)?;
+            } else {
+                self.is_possible_to_consume(model, request)?;
             }
-
-            self.is_possible_to_resolve(model, request)?;
         }
 
         Ok(())
@@ -408,7 +445,7 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
         plugin_id: SubscriberId,
         model: ProtocolModel,
         request: &RequestedProtocol,
-    ) {
+    ) -> bool {
         let (pool, context) = self.registry.get_or_declare_protocol(model);
 
         let model_name = context.model().name().resolve(pool);
@@ -437,9 +474,15 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
                     },
                 );
                 to_send.push((owner, plugin_id));
-            }
+                log::debug!("Provide group ({group_id}) for subscriber ({plugin_id})");
+            } else {
+                self.errors.push(PluginError::GroupIsBusy {
+                    group: group_name.clone().into_boxed_str(),
+                    protocol: model_name.to_string().into_boxed_str(),
+                });
 
-            log::debug!("Provide group ({group_id}) for subscriber ({plugin_id})");
+                return false;
+            }
         }
 
         for (owner, consumer) in to_send {
@@ -455,6 +498,8 @@ impl<R: Runtime<MM>, H: HostSubscriber, const MM: usize, const MG: usize, const 
                 consumer,
             );
         }
+
+        true
     }
 
     fn resolve_dependencies(&mut self, models: Models, id: SubscriberId) {

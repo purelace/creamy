@@ -287,6 +287,16 @@ impl ProtocolContext {
         self.groups.get(&group).and_then(|c| c.owner)
     }
 
+    pub fn can_add_consumer(&self, group: StringId) -> bool {
+        match self.groups.get(&group) {
+            Some(context) => match &context.access {
+                AccessPolicy::Public { .. } => true,
+                AccessPolicy::Private { consumer, .. } => consumer.is_none(),
+            },
+            None => todo!("invalid group name"),
+        }
+    }
+
     pub fn try_add_consumer(
         &mut self,
         group: StringId,
