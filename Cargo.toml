@@ -47,10 +47,6 @@ members = [
     "engine/creamy-engine-core",
     "engine/creamy-wasmtime",
 
-    # TODO: move these crates to their own workspace
-    # "examples/shell",
-    # "examples/shell/commands/*",
-
     "xtask",
 ]
 
