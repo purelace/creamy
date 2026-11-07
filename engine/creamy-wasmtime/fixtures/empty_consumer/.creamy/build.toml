@@ -1,0 +1,3 @@
+command = "cargo build --target wasm32-unknown-unknown --release -p empty_consumer"
+input = "../target/wasm32-unknown-unknown/release/empty_consumer.wasm"
+output="../output"

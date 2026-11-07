@@ -5,7 +5,7 @@ license = "Apache-2.0"
 
 [workspace]
 resolver = "2"
-members = ["ping", "pong"]
+members = ["ping", "pong", "empty", "empty_consumer"]
 
 [workspace.dependencies]
 creamy-sdk = { path = "../../../core/creamy-sdk" }
