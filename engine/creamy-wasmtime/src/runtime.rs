@@ -1,6 +1,6 @@
 use core::ptr::NonNull;
 
-use creamy_engine_core::{Metadata, Runtime};
+use creamy_engine_core::{Metadata, Runtime, package::BinaryPlugin};
 use wasmtime::{Config, Engine, Instance, PoolingAllocationConfig, Store};
 
 use crate::{
@@ -13,6 +13,7 @@ pub struct WTRuntime {
     heap_size: u32,
     engine: Engine,
     loader: Loader,
+    manully_loaded: Vec<BinaryPlugin>,
 }
 
 impl WTRuntime {
@@ -35,6 +36,7 @@ impl WTRuntime {
             heap_size,
             engine: Engine::new(&Self::new_config(heap_size))?,
             loader,
+            manully_loaded: vec![],
         })
     }
 
@@ -45,6 +47,10 @@ impl WTRuntime {
 
     pub const fn loader_mut(&mut self) -> &mut Loader {
         &mut self.loader
+    }
+
+    pub fn load_manually(&mut self, package: BinaryPlugin) {
+        self.manully_loaded.push(package);
     }
 }
 
@@ -57,7 +63,11 @@ impl<const M: usize> Runtime<M> for WTRuntime {
     }
 
     fn pop_ready_plugin(&mut self) -> Result<Option<(Metadata, Self::Module)>, Self::Error> {
-        let Some(package) = self.loader.take_loaded_package() else {
+        let Some(package) = self
+            .manully_loaded
+            .pop()
+            .or(self.loader.take_loaded_package())
+        else {
             return Ok(None);
         };
 
