@@ -13,7 +13,7 @@ pub struct WTRuntime {
     heap_size: u32,
     engine: Engine,
     loader: Loader,
-    manully_loaded: Vec<BinaryPlugin>,
+    manually_loaded: Vec<BinaryPlugin>,
 }
 
 impl WTRuntime {
@@ -36,7 +36,7 @@ impl WTRuntime {
             heap_size,
             engine: Engine::new(&Self::new_config(heap_size))?,
             loader,
-            manully_loaded: vec![],
+            manually_loaded: vec![],
         })
     }
 
@@ -50,7 +50,7 @@ impl WTRuntime {
     }
 
     pub fn load_manually(&mut self, package: BinaryPlugin) {
-        self.manully_loaded.push(package);
+        self.manually_loaded.push(package);
     }
 }
 
@@ -64,9 +64,9 @@ impl<const M: usize> Runtime<M> for WTRuntime {
 
     fn pop_ready_plugin(&mut self) -> Result<Option<(Metadata, Self::Module)>, Self::Error> {
         let Some(package) = self
-            .manully_loaded
+            .manually_loaded
             .pop()
-            .or(self.loader.take_loaded_package())
+            .or_else(|| self.loader.take_loaded_package())
         else {
             return Ok(None);
         };
