@@ -56,10 +56,9 @@ impl PluginLoader for Loader {
                 }
             }
             Err(e) => {
-                if e.kind() == ErrorKind::WouldBlock {
-                    return;
+                if e.kind() != ErrorKind::WouldBlock {
+                    log::error!("x: {e}");
                 }
-                log::error!("x: {e}");
             }
         }
 
