@@ -34,10 +34,17 @@ impl Loader {
     ///
     /// This function will return an error if the underlying inotify instance fails to initialize.
     pub fn new(config: ValidLoaderConfig) -> Result<Self, std::io::Error> {
-        Ok(Self {
-            watcher: FileWatcher::new(config.plugin_directory)?,
-            loaded: vec![],
-        })
+        let (watcher, found) = FileWatcher::new(config.plugin_directory)?;
+        let mut loaded = Vec::new();
+        for path in found {
+            match load_file(path) {
+                Ok(package) => loaded.push(package),
+                Err(e) => {
+                    log::error!("y:{e}");
+                }
+            }
+        }
+        Ok(Self { watcher, loaded })
     }
 }
 

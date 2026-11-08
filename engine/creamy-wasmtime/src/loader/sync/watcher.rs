@@ -50,20 +50,52 @@ pub struct FileWatcher {
     buffer: Vec<u8>,
 }
 
+fn is_valid_plugin_file(path: &Path) -> bool {
+    let Some(extension) = path.extension() else {
+        return false;
+    };
+
+    if extension != PACKAGE_FILE_EXTENSION {
+        return false;
+    }
+
+    match std::fs::metadata(path) {
+        Ok(metadata) => metadata.is_file(),
+        Err(error) => {
+            eprintln!("Loader error: {error}");
+            false
+        }
+    }
+}
+
 impl FileWatcher {
-    pub fn new(directory: impl AsRef<Path>) -> Result<Self, std::io::Error> {
+    pub fn new(directory: impl AsRef<Path>) -> Result<(Self, Vec<PathBuf>), std::io::Error> {
         let directory = directory.as_ref();
         let inotify = Inotify::init()?;
         let descriptor = inotify.watches().add(
             directory,
             WatchMask::DELETE | WatchMask::CLOSE_WRITE | WatchMask::MOVE,
         )?;
-        Ok(Self {
-            _descriptor: descriptor,
-            directory: directory.into(),
-            inotify,
-            buffer: vec![0u8; 4096],
-        })
+
+        let mut existing_files = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(directory) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if is_valid_plugin_file(&path) {
+                    existing_files.push(path);
+                }
+            }
+        }
+
+        Ok((
+            Self {
+                _descriptor: descriptor,
+                directory: directory.into(),
+                inotify,
+                buffer: vec![0u8; 4096],
+            },
+            existing_files,
+        ))
     }
 
     pub fn try_read_events(&mut self) -> Result<FileIterator<'_>, std::io::Error> {
