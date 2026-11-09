@@ -179,15 +179,7 @@ impl<P: Plugin> DerefMut for PluginState<P> {
 
 impl<P: Plugin> Subscriber for PluginState<P> {
     fn notify(&mut self) {
-        const HEADER_MASK: u32 = 0x00_FF_00_FF;
-        while let Some(message) = self.inc.pop() {
-            let dispatch_value = {
-                let message: &UntypedMessage = &message;
-                (u32::from(message.group) << 16 | u32::from(message.kind)) & HEADER_MASK
-            };
-            Dispatcher::dispatch_message(dispatch_value, message, self);
-        }
-        self.plugin.notify();
+        self.notify();
     }
 }
 
@@ -200,6 +192,18 @@ impl<P: Plugin> PluginState<P> {
 
         let plugin = P::init(sender, data)?;
         Some(Self { inc, table, plugin })
+    }
+
+    pub fn notify(&mut self) {
+        const HEADER_MASK: u32 = 0x00_FF_00_FF;
+        while let Some(message) = self.inc.pop() {
+            let dispatch_value = {
+                let message: &UntypedMessage = &message;
+                (u32::from(message.group) << 16 | u32::from(message.kind)) & HEADER_MASK
+            };
+            Dispatcher::dispatch_message(dispatch_value, message, self);
+        }
+        self.plugin.notify();
     }
 }
 
