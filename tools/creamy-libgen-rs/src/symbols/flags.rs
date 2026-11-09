@@ -3,6 +3,20 @@ use genco::{lang::rust::Tokens, quote};
 
 use crate::{args::Args, derive::generate_derive};
 
+fn generate_set_methods(target: &str) -> Tokens {
+    quote! {
+        impl $target {
+            pub const fn set(&mut self, rhs: Self) {
+                self.0 |= rhs.0;
+            }
+
+            pub const fn unset(&mut self, rhs: Self) {
+                self.0 &= !rhs.0;
+            }
+        }
+    }
+}
+
 fn generate_bitxor_impl(target: &str, kind: &str) -> Tokens {
     quote! {
         impl core::ops::BitXor for $target {
@@ -27,6 +41,44 @@ fn generate_bitor_impl(target: &str, kind: &str) -> Tokens {
     }
 }
 
+fn generate_iterator_impl(target: &str, repr: &str, max_iterations: usize) -> Tokens {
+    quote! {
+        impl IntoIterator for $target {
+            type Item = Self;
+            type IntoIter = $(target)Iterator;
+
+            fn into_iter(self) -> Self::IntoIter {
+                $(target)Iterator {
+                    flags: self,
+                    index: 1,
+                }
+            }
+        }
+
+        pub struct $(target)Iterator {
+            flags: $target,
+            index: $repr,
+        }
+
+        impl Iterator for $(target)Iterator {
+            type Item = $target;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                const MAX_ITERATIONS: $repr = $max_iterations;
+
+                let mask = 1 << self.index;
+                self.index += 1;
+
+                if self.index >= MAX_ITERATIONS || self.flags.0 & mask == 0 {
+                    return None;
+                }
+
+                Some($target(mask))
+            }
+        }
+    }
+}
+
 #[allow(clippy::similar_names)]
 pub fn generate_flags<'s, I>(args: &Args, symbol: EnrichedFlagsSymbol<'s, I>) -> Tokens
 where
@@ -43,6 +95,7 @@ where
     let derives = generate_derive(
         args,
         &[
+            "Default".to_string(),
             args.binary_write_derive_path(),
             args.binary_read_derive_path(),
         ],
@@ -59,8 +112,10 @@ where
         })
         .collect::<Vec<_>>();
 
+    let set_methods = generate_set_methods(name);
     let bitor = generate_bitor_impl(name, repr);
     let bitxor = generate_bitxor_impl(name, repr);
+    let iterator = generate_iterator_impl(name, repr, variants.len());
 
     quote! {
         $derives
@@ -69,7 +124,9 @@ where
         impl $name {
             $variants
         }
+        $set_methods
         $bitor
         $bitxor
+        $iterator
     }
 }
