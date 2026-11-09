@@ -77,6 +77,7 @@ impl<const M: usize> RefMutBuf<'_, M> {
     //TODO: non zero u32
     pub fn write_slice_mut(&mut self, slice_size: u32) -> &mut [UntypedMessage] {
         let count = *self.count as usize;
+        // TODO: possible `out of range`
         &mut self.data[count..count + slice_size as usize]
     }
 }
