@@ -12,7 +12,6 @@ creamy-binary = { path = "../../core/creamy-binary", features = ["std"] }
 creamy-plugin-package = { path = "../../core/creamy-plugin-package", features = ["compile"]}
 creamy-xmlc.workspace = true
 
-creamy-protocol-tui.workspace = true
 creamy-template.workspace = true
 clap.workspace = true
 serde.workspace = true
@@ -20,6 +19,8 @@ toml.workspace = true
 rustyline = "19.0.0"
 anyhow.workspace = true
 fs-err = { version = "3.3.2", features = ["debug"] }
+ptree = "0.5.2"
+console = "0.16.6"
 
 [dev-dependencies]
 assert_cmd = "2.2.2"

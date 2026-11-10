@@ -1,8 +1,3 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
-#![cfg_attr(coverage_nightly, coverage(off))]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-
 mod memory;
 use std::num::NonZeroU8;
 
@@ -15,7 +10,7 @@ use creamy_xmlc::model::{
     symbols::{FieldSymbol, FieldType, MessageSymbolType, Type},
 };
 
-use crate::memory::{ArrayField, MemoryReport, SimpleField};
+use crate::tui::memory::{ArrayField, MemoryReport, SimpleField};
 
 const STRUCT_COLOR: (u8, u8, u8) = (78, 201, 176);
 const GROUP_COLOR: (u8, u8, u8) = (219, 219, 169);

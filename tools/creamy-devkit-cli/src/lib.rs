@@ -2,12 +2,14 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
 
 mod build;
 pub mod cli;
 mod generate;
 mod init;
 mod show;
+mod tui;
 mod utils;
 
 use clap::Parser;
