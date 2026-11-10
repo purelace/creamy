@@ -106,7 +106,6 @@ pub enum Token<'src> {
     },
     #[strum(to_string = "<message>")]
     Message {
-        kind: u8,
         name: Identifier<'src>,
         direction: Direction,
         span: SourceSpan,
@@ -136,7 +135,6 @@ pub enum Token<'src> {
     },
     #[strum(to_string = "<stream>")]
     Stream {
-        kind: u8,
         name: Identifier<'src>,
         timeout: u8,
         direction: Direction,
@@ -492,7 +490,6 @@ impl<'a, 'src: 'a> Token<'src> {
 
     fn new_message(ctx: &Context<'a, 'src>) -> Token<'src> {
         Token::Message {
-            kind: ctx.read_u8("kind"),
             name: ctx.read_ident("name"),
             direction: ctx.read_direction(),
             span: span_for(ctx.node),
@@ -562,7 +559,6 @@ impl<'a, 'src: 'a> Token<'src> {
 
     fn new_stream(ctx: &Context<'a, 'src>) -> Token<'src> {
         Token::Stream {
-            kind: ctx.read_u8("kind"),
             name: ctx.read_ident("name"),
             timeout: ctx.read_u8("timeout"),
             direction: ctx.read_direction(),

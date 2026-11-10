@@ -105,7 +105,6 @@ define_readonly_struct! {
         name: StringId,
         fields: FieldsRange,
         direction: Direction,
-        kind: u8,
     }
 }
 
@@ -208,7 +207,6 @@ define_readonly_struct! {
         name: StringId,
         direction: Direction,
         timeout: u8,
-        kind: u8,
         fields: FieldsRange,
     }
 }

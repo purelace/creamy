@@ -26,29 +26,29 @@
     </global>
 
     <group name="first" access="Public">
-        <stream kind="0" name="PlayerList" timeout="8" direction="Incoming">
+        <stream name="PlayerList" timeout="8" direction="Incoming">
             <field name="count" type="u32" />
             <field name="checksum" type="u32" />
         </stream>
 
-        <stream kind="1" name="Log" timeout="3" direction="Duplex">
+        <stream name="Log" timeout="3" direction="Duplex">
             <field name="kind" type="LogType" />
             <field name="length" type="u32"/>
             <field name="data" type="Array[u8]"/>
         </stream>
 
-        <message kind="0" name="Snapshot" direction="Outgoing">
+        <message name="Snapshot" direction="Outgoing">
             <field name="flag" type="u8" />
             <field name="small_val" type="u16" />
             <field name="timestamp" type="u64" />
             <field name="guid" type="u128" />
         </message>
 
-        <message kind="1" name="VectorArray" direction="Incoming">
+        <message name="VectorArray" direction="Incoming">
             <field name="coordinates" type="[f32; 6]" />
         </message>
 
-        <message kind="2" name="SendSignedLimits" direction="Duplex">
+        <message name="SendSignedLimits" direction="Duplex">
             <field name="small_int" type="i16" />
             <field name="mid_int" type="i64" />
             <field name="big_int" type="i128" />
@@ -65,7 +65,7 @@
             <field name="a" type="u8" />
         </struct>
 
-        <message kind="0" name="NestedValid" direction="Duplex">
+        <message name="NestedValid" direction="Duplex">
             <field name="data" type="BucketSmall" />
             <field name="extra" type="[u8; 8]" />
         </message>
@@ -74,12 +74,12 @@
 
     <group name="third" access="Private">
 
-        <message kind="0" name="StatusWithData" direction="Incoming">
+        <message name="StatusWithData" direction="Incoming">
             <field name="status" type="Status" />
             <field name="buffer" type="[u8; 26]" />
         </message>
 
-        <message kind="1" name="StatusWithRemainder" direction="Incoming">
+        <message name="StatusWithRemainder" direction="Incoming">
             <field name="status" type="Status" />
         </message>
 

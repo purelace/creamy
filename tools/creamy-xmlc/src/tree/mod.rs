@@ -235,23 +235,12 @@ impl ProtocolTree {
                 },
                 AnalysisState::Group { name, access } => match iter.peek() {
                     Some(&Token::Message {
-                        kind,
-                        name,
-                        direction,
-                        ..
+                        name, direction, ..
                     }) => {
                         let _ = iter.next().unwrap();
-                        messages.parse_single(
-                            kind,
-                            name,
-                            direction,
-                            &mut storage,
-                            &mut iter,
-                            &mut ctx,
-                        );
+                        messages.parse_single(name, direction, &mut storage, &mut iter, &mut ctx);
                     }
                     Some(&Token::Stream {
-                        kind,
                         name,
                         timeout,
                         direction,
@@ -259,7 +248,6 @@ impl ProtocolTree {
                     }) => {
                         let _ = iter.next().unwrap();
                         messages.parse_stream(
-                            kind,
                             name,
                             direction,
                             timeout,

@@ -60,7 +60,6 @@ pub(crate) struct MessageParser {
 impl MessageParser {
     pub fn parse_single(
         &mut self,
-        kind: u8,
         name: Identifier,
         direction: Direction,
         storage: &mut crate::tree::storage::NodeStorage,
@@ -68,12 +67,8 @@ impl MessageParser {
         ctx: &mut crate::tree::ParserContext,
     ) {
         let range = ctx.field.parse_fields(ctx.diag, ctx.pool, storage, iter);
-        let node = MessageNodeType::Single(MessageNode::new(
-            name.intern(ctx.pool),
-            range,
-            direction,
-            kind,
-        ));
+        let node =
+            MessageNodeType::Single(MessageNode::new(name.intern(ctx.pool), range, direction));
         self.builder.next();
         crate::push_node!(to: storage, node: node,flag: self.has_error,ctx.diag,AstError::TooManyMessages);
     }
@@ -84,7 +79,6 @@ impl MessageParser {
 
     pub fn parse_stream(
         &mut self,
-        kind: u8,
         name: Identifier,
         direction: Direction,
         timeout: u8,
@@ -100,7 +94,6 @@ impl MessageParser {
             name.intern(ctx.pool),
             direction,
             timeout,
-            kind,
             fields,
         ));
 

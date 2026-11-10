@@ -217,6 +217,7 @@ struct Resolver<'a> {
     storage: &'a mut SymbolStorage,
     pool: &'a mut StringPool,
     group: NonZeroU8,
+    kind: idmint::StackMint,
 }
 
 impl<'a> Resolver<'a> {
@@ -233,6 +234,7 @@ impl<'a> Resolver<'a> {
             storage,
             pool,
             group,
+            kind: idmint::StackMint::new(0),
         }
     }
 
@@ -419,12 +421,7 @@ impl<'a> Resolver<'a> {
         }
 
         if has_errors {
-            MessageSymbol::new(
-                m.name(),
-                FieldsRange::new(0, 0),
-                Direction::Incoming,
-                m.kind(),
-            )
+            MessageSymbol::new(m.name(), FieldsRange::new(0, 0), Direction::Incoming, 0)
         } else {
             let new_range = self.resolve_fields(fields, HEADER_BYTES, Some(32), m.fields());
 
@@ -432,7 +429,12 @@ impl<'a> Resolver<'a> {
             ProtocolModel::get_message_meta(self.storage.get_symbol_range(new_range))
                 .or_recover(self.diag);
 
-            MessageSymbol::new(m.name(), new_range, m.direction(), m.kind())
+            MessageSymbol::new(
+                m.name(),
+                new_range,
+                m.direction(),
+                self.kind.issue().unwrap(),
+            )
         }
     }
 
@@ -502,7 +504,13 @@ impl<'a> Resolver<'a> {
 
     fn resolve_stream_message(&mut self, m: StreamNode, from: &[StreamFieldNode]) -> StreamSymbol {
         let new_range = self.resolve_stream_fields(from, m.fields());
-        StreamSymbol::new(m.name(), m.direction(), m.timeout(), m.kind(), new_range)
+        StreamSymbol::new(
+            m.name(),
+            m.direction(),
+            m.timeout(),
+            self.kind.issue().unwrap(),
+            new_range,
+        )
     }
 
     fn resolve_messages(

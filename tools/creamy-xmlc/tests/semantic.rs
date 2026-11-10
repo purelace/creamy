@@ -27,7 +27,7 @@ const CONTENT: &str = r#"
     </struct>
 
     <!-- Message size limit -->
-    <message kind="0" name="Signal" direction="Duplex">
+    <message name="Signal" direction="Duplex">
         <field name="value0" type="u8"/>
         <field name="value1" type="u16"/>
         <field name="value2" type="u32"/>

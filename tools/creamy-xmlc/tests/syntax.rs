@@ -53,7 +53,7 @@ const CONTENT: &str = r#"
 
 <!-- Missing attributes -->
 <group>
-    <message kind="0" direction="Incoming">
+    <message direction="Incoming">
         <field/>
     </message>
 
@@ -68,7 +68,7 @@ const CONTENT: &str = r#"
 </group>
 
 <group name="test" access="Private">
-    <message kind="0" name="test" direction="Duplex">
+    <message name="test" direction="Duplex">
         <field name="field0" type="[u8; should_be_a_number]"/>
         <field name="field1" type="[u8;28"/>
         <field name="field2" type="u8;28]"/>
@@ -78,7 +78,7 @@ const CONTENT: &str = r#"
 </group>
 
 <group name="42bratuha" access="Private">
-    <message kind="0" name="penis@gmail.com" direction="Incoming">
+    <message name="penis@gmail.com" direction="Incoming">
         <field name="" type="u32"/>
     </message>
 

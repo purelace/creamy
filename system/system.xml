@@ -3,33 +3,33 @@
 
     <!-- Builtin group -->
     <group name="builtin" access="Public">
-        <message kind="0" name="GroupDeclared" direction="Incoming">
+        <message name="GroupDeclared" direction="Incoming">
             <field name="version" type="u32" />
             <field name="provider" type="u8" />
             <field name="group_id" type="u8"/>
         </message>
 
-        <message kind="1" name="GroupUndeclared" direction="Incoming">
+        <message name="GroupUndeclared" direction="Incoming">
             <field name="provider" type="u8" />
             <field name="group_id" type="u8"/>
         </message>
 
-        <message kind="2" name="ConsumerAppeared" direction="Incoming">
+        <message name="ConsumerAppeared" direction="Incoming">
             <field name="group_id" type="u8"/>
             <field name="consumer_id" type="u8"/>
         </message>
 
-        <message kind="3" name="ConsumerDisappeared" direction="Incoming">
+        <message name="ConsumerDisappeared" direction="Incoming">
             <field name="group_id" type="u8"/>
             <field name="consumer_id" type="u8"/>
         </message>
 
-        <message kind="4" name="StreamKeepAlive" direction="Duplex">
+        <message name="StreamKeepAlive" direction="Duplex">
             <field name="stream_kind" type="u8" />
             <field name="stream_id" type="u8" />
         </message>
 
-        <message kind="5" name="StreamCancel" direction="Duplex">
+        <message name="StreamCancel" direction="Duplex">
             <field name="stream_kind" type="u8" />
             <field name="stream_id" type="u8" />
         </message>
@@ -41,7 +41,7 @@
             <variant name="Error" value="3" />
         </enum>
 
-        <stream kind="6" name="Log" timeout="4" direction="Outgoing">
+        <stream name="Log" timeout="4" direction="Outgoing">
             <field name="log_type" type="LogType" />
             <field name="content" type="Array[u8]" />
         </stream>
