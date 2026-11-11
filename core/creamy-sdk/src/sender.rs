@@ -35,8 +35,8 @@ impl Sender {
         let slice = table.get(T::GROUP);
         let mut success = !slice.is_empty();
         for dst in slice {
-            message.with_dst(dst.as_u8());
-            message.with_group(T::GROUP.get());
+            message.with_dst(*dst);
+            message.with_group(T::GROUP);
             message.with_kind(T::KIND);
 
             success &= self.buffer.send(&message);
@@ -75,11 +75,8 @@ impl Sender {
 
         for dst in slice {
             //TODO: dynamic stream id
-            let mut writer = StreamWriter::<C::Message>::new(
-                self.buffer.clone(),
-                dst.as_u8(),
-                StreamId::new(10),
-            );
+            let mut writer =
+                StreamWriter::<C::Message>::new(self.buffer.clone(), *dst, StreamId::new(10));
             writer.send(content);
         }
 

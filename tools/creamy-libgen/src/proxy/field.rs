@@ -9,9 +9,16 @@ use creamy_xmlc::model::{
 use crate::{Path, SymbolIterator, utils::AbsolutePath};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpecialFieldType {
+    SubscriberId,
+    GroupId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EnrichedFieldType<'s> {
     Type { name: Path },
     Array { kind: Cow<'s, str>, len: u8 },
+    Special(SpecialFieldType),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

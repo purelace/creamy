@@ -1,12 +1,11 @@
-use core::num::NonZeroU8;
-
+use cbus_core::GroupId;
 pub use cbus_core::{
     UntypedMessage,
     message::{TypedMessage, cast_message},
 };
 
 pub trait Message: TypedMessage {
-    const GROUP: NonZeroU8;
+    const GROUP: GroupId;
     const KIND: u8;
 }
 

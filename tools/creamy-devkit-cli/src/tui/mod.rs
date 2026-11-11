@@ -110,7 +110,7 @@ pub fn show_memory_layout(
     let message = messages[msg as usize];
     let field_range = match message {
         MessageSymbolType::Single(s) => s.fields(),
-        MessageSymbolType::Stream(s) => todo!(), //TODO: support stream messages in memory report
+        MessageSymbolType::Stream(_) => todo!(), //TODO: support stream messages in memory report
     };
     let fields = def.fields_range(field_range);
 
@@ -173,8 +173,8 @@ fn make_flat_report(
                         align: align as usize,
                     });
                 }
-                Type::Flags(flags_symbol) => todo!(),
-                Type::Bitset(bitset_symbol) => todo!(),
+                Type::Flags(_) => todo!(),
+                Type::Bitset(_) => todo!(),
             },
             FieldType::Array(array) => {
                 report.add_array_field(ArrayField {
@@ -239,8 +239,8 @@ fn make_report(
                     align: align as usize,
                 });
             }
-            Type::Flags(flags_symbol) => todo!(),
-            Type::Bitset(bitset_symbol) => todo!(),
+            Type::Flags(_) => todo!(),
+            Type::Bitset(_) => todo!(),
         }
     }
 }

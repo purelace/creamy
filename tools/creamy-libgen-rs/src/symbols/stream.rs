@@ -52,12 +52,14 @@ where
     }
 }
 
-fn message_header() -> Tokens {
+fn message_header(args: &Args) -> Tokens {
+    let sub_id = &args.subscriber_id_path();
+    let grp_id = args.group_id_path();
     quote! {
         /* -------- HEADER -------- */
-        pub dst: u8,
-        pub group: u8,
-        pub src: u8,
+        pub dst: $sub_id,
+        pub group: $grp_id,
+        pub src: $sub_id,
         pub kind: u8,
     }
 }
@@ -73,14 +75,9 @@ where
     let name = symbol.name;
     let derive = generate_derive(args, &[]);
     //TODO: iterate over fields
-    let header = message_header();
-    let const_block = generate_message_const_block(
-        &args.message_size_path(),
-        name,
-        symbol.group,
-        symbol.kind,
-        symbol.dispatch_value,
-    );
+    let header = message_header(args);
+    let const_block =
+        generate_message_const_block(args, name, symbol.group, symbol.kind, symbol.dispatch_value);
     let kind_path = &args.stream_type_path();
     let id_path = &args.stream_id_path();
     let typed_message_impl = generate_typed_message_trait_impl(args, name);

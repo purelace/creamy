@@ -41,7 +41,8 @@ pub use utils::{AbsolutePath, Path};
 use self::proxy::{
     BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
     EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStreamFieldSymbol,
-    EnrichedVariantSymbol, FieldList, FlagUnderlyingType, OptionList, StreamFieldList,
+    EnrichedVariantSymbol, FieldList, FlagUnderlyingType, OptionList, SpecialFieldType,
+    StreamFieldList,
 };
 
 #[derive(Clone, Copy)]
@@ -545,23 +546,17 @@ fn message_header() -> [EnrichedFieldSymbol<'static>; 4] {
     [
         EnrichedFieldSymbol {
             name: Cow::Borrowed("dst"),
-            kind: EnrichedFieldType::Type {
-                name: Path::from_global("u8"),
-            },
+            kind: EnrichedFieldType::Special(SpecialFieldType::SubscriberId),
             is_padding: false,
         },
         EnrichedFieldSymbol {
             name: Cow::Borrowed("group"),
-            kind: EnrichedFieldType::Type {
-                name: Path::from_global("u8"),
-            },
+            kind: EnrichedFieldType::Special(SpecialFieldType::GroupId),
             is_padding: false,
         },
         EnrichedFieldSymbol {
             name: Cow::Borrowed("src"),
-            kind: EnrichedFieldType::Type {
-                name: Path::from_global("u8"),
-            },
+            kind: EnrichedFieldType::Special(SpecialFieldType::SubscriberId),
             is_padding: false,
         },
         EnrichedFieldSymbol {

@@ -1,11 +1,8 @@
 use alloc::boxed::Box;
-use core::{
-    num::NonZeroU8,
-    ops::{Deref, DerefMut},
-};
+use core::ops::{Deref, DerefMut};
 
 use cbus_core::{
-    Subscriber,
+    GroupId, Subscriber,
     buffer::{DynIncBuf, DynOutBuf},
 };
 
@@ -147,8 +144,8 @@ impl Table {
         self.slices[group] = s;
     }
 
-    pub fn get(&self, group: NonZeroU8) -> &[SubscriberId] {
-        let Slice { offset, length } = self.slices[group.get() as usize];
+    pub fn get(&self, group: GroupId) -> &[SubscriberId] {
+        let Slice { offset, length } = self.slices[group.as_usize()];
         let offset = offset as usize;
         let length = length as usize;
         let slice = &self.inner[offset..offset + length];
@@ -240,7 +237,7 @@ mod tests {
     use alloc::{vec, vec::Vec};
     use core::num::NonZeroU8;
 
-    use cbus_core::SubscriberId;
+    use cbus_core::{GroupId, SubscriberId};
 
     use super::Table;
 
@@ -268,7 +265,7 @@ mod tests {
         assert_eq!(table.inner[g10_start].unwrap().as_u8(), 43);
 
         assert_eq!(
-            table.get(NonZeroU8::new(5).unwrap()),
+            table.get(GroupId::new_u8(5).unwrap()),
             [SubscriberId::new(NonZeroU8::new(100).unwrap())]
         );
     }

@@ -1,6 +1,10 @@
 use std::{borrow::Cow, fs::File, io::Write};
 
-use creamy_libgen::{AbsolutePath, prelude::*, proxy::EnrichedStreamFieldType};
+use creamy_libgen::{
+    AbsolutePath,
+    prelude::*,
+    proxy::{EnrichedStreamFieldType, SpecialFieldType},
+};
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
@@ -27,12 +31,13 @@ fn setup_root() -> std::io::Result<TempDir> {
     Ok(dir)
 }
 
-fn header_field<'s>(name: impl Into<Cow<'s, str>>) -> EnrichedFieldSymbol<'s> {
+fn header_field<'s>(
+    name: impl Into<Cow<'s, str>>,
+    kind: EnrichedFieldType<'s>,
+) -> EnrichedFieldSymbol<'s> {
     EnrichedFieldSymbol {
         name: name.into(),
-        kind: EnrichedFieldType::Type {
-            name: Path::from_global("u8"),
-        },
+        kind,
         is_padding: false,
     }
 }
@@ -41,6 +46,7 @@ struct Mock;
 impl<'s> CodeGenerator<'s> for Mock {
     fn start_group(&mut self, _: &'s str, _: Option<u8>) {}
 
+    #[allow(clippy::too_many_lines)]
     fn generate_single_message<I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
     where
         I: SymbolIterator<EnrichedFieldSymbol<'s>>,
@@ -53,10 +59,24 @@ impl<'s> CodeGenerator<'s> for Mock {
         assert_eq!(
             fields,
             [
-                header_field("dst"),
-                header_field("group"),
-                header_field("src"),
-                header_field("kind"),
+                header_field(
+                    "dst",
+                    EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
+                ),
+                header_field(
+                    "group",
+                    EnrichedFieldType::Special(SpecialFieldType::GroupId)
+                ),
+                header_field(
+                    "src",
+                    EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
+                ),
+                header_field(
+                    "kind",
+                    EnrichedFieldType::Type {
+                        name: Path::Global { name: "u8".into() }
+                    }
+                ),
                 EnrichedFieldSymbol {
                     name: "permissions".into(),
                     kind: EnrichedFieldType::Type {
@@ -110,10 +130,24 @@ impl<'s> CodeGenerator<'s> for Mock {
         assert_eq!(
             message_fields,
             [
-                header_field("dst"),
-                header_field("group"),
-                header_field("src"),
-                header_field("kind"),
+                header_field(
+                    "dst",
+                    EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
+                ),
+                header_field(
+                    "group",
+                    EnrichedFieldType::Special(SpecialFieldType::GroupId)
+                ),
+                header_field(
+                    "src",
+                    EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
+                ),
+                header_field(
+                    "kind",
+                    EnrichedFieldType::Type {
+                        name: Path::Global { name: "u8".into() }
+                    }
+                ),
                 EnrichedFieldSymbol {
                     name: "meta".into(),
                     kind: EnrichedFieldType::Type {

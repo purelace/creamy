@@ -1,4 +1,4 @@
-use cbus_core::buffer::DynOutBuf;
+use cbus_core::{SubscriberId, buffer::DynOutBuf};
 use creamy_binary::{BinaryWriter, ErrorType, Write};
 
 use super::{MAX_STREAM_PAYLOAD, StreamContent, StreamId, StreamMessage, StreamType};
@@ -17,7 +17,7 @@ impl<W: StreamMessage> ErrorType for StreamWriter<W> {
 
 impl<W: StreamMessage> StreamWriter<W> {
     #[must_use]
-    pub fn new(buffer: DynOutBuf, dst: u8, stream_id: StreamId) -> Self {
+    pub fn new(buffer: DynOutBuf, dst: SubscriberId, stream_id: StreamId) -> Self {
         let mut message = W::PREPARED;
         message.with_dst(dst);
         message.with_stream_id(stream_id);

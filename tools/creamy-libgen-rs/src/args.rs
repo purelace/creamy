@@ -150,4 +150,12 @@ impl Args {
     pub(crate) fn binary_write_derive_path(&self) -> String {
         format!("{}::binary::BinWrite", self.creamy_sdk_path)
     }
+
+    pub(crate) fn subscriber_id_path(&self) -> String {
+        format!("{}::SubscriberId", self.creamy_sdk_path)
+    }
+
+    pub(crate) fn group_id_path(&self) -> String {
+        format!("{}::GroupId", self.creamy_sdk_path)
+    }
 }

@@ -72,7 +72,7 @@ impl<const MS: usize> System<MS> {
         assert!(
             self.out.send(
                 &GroupDeclared::PREPARED
-                    .with_dst(consumer.as_u8())
+                    .with_dst(consumer)
                     .with_provider(provider.as_u8())
                     .with_group_id(group_id.get())
             )
@@ -88,7 +88,7 @@ impl<const MS: usize> System<MS> {
         assert!(
             self.out.send(
                 &GroupUndeclared::PREPARED
-                    .with_dst(consumer.as_u8())
+                    .with_dst(consumer)
                     .with_group_id(group_id.get())
                     .with_provider(provider.as_u8())
             )
@@ -104,7 +104,7 @@ impl<const MS: usize> System<MS> {
         assert!(
             self.out.send(
                 &ConsumerAppeared::PREPARED
-                    .with_dst(provider.as_u8())
+                    .with_dst(provider)
                     .with_group_id(group_id.get())
                     .with_consumer_id(consumer.as_u8())
             )
@@ -120,7 +120,7 @@ impl<const MS: usize> System<MS> {
         assert!(
             self.out.send(
                 &ConsumerDisappeared::PREPARED
-                    .with_dst(provider.as_u8())
+                    .with_dst(provider)
                     .with_group_id(group_id.get())
                     .with_consumer_id(consumer.as_u8())
             )
@@ -141,7 +141,7 @@ impl<const MS: usize> MessageHandler for System<MS> {
                     self.logs.remove(&message.stream_id()).unwrap();
                     let data = converter.read();
                     let content = str::from_utf8(data.read_content()).unwrap();
-                    let target = self.names[message.src as usize - Self::ARRAY_OFFSET]
+                    let target = self.names[message.src.as_usize() - Self::ARRAY_OFFSET]
                         .as_ref()
                         .unwrap();
 

@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use static_assertions::assert_eq_size;
 
-use crate::{defines::MESSAGE_SIZE, message::TypedMessage};
+use crate::{GroupId, SubscriberId, defines::MESSAGE_SIZE, message::TypedMessage};
 
 assert_eq_size!(UntypedMessage, [u8; MESSAGE_SIZE]);
 
@@ -23,8 +23,8 @@ impl TypedMessage for UntypedMessage {
         self.dst
     }
 
-    fn with_dst(&mut self, dst: u8) -> &mut Self {
-        self.dst = dst;
+    fn with_dst(&mut self, dst: SubscriberId) -> &mut Self {
+        self.dst = dst.as_u8();
         self
     }
 
@@ -36,8 +36,8 @@ impl TypedMessage for UntypedMessage {
         self.group
     }
 
-    fn with_group(&mut self, group: u8) -> &mut Self {
-        self.group = group;
+    fn with_group(&mut self, group: GroupId) -> &mut Self {
+        self.group = group.as_u8();
         self
     }
 

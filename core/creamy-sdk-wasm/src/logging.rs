@@ -15,7 +15,7 @@ pub fn send_log(string: Arguments, log_type: LogType) {
     // TODO: use const
     // TODO: fix allocations
     // TODO: implement dynamic stream id
-    let mut stream = StreamWriter::<Log>::new(get_outgoing(), SYSTEM.as_u8(), StreamId::new(0));
+    let mut stream = StreamWriter::<Log>::new(get_outgoing(), SYSTEM, StreamId::new(0));
     let content = if let Some(string) = string.as_str() {
         Box::from(string.as_bytes())
     } else {
