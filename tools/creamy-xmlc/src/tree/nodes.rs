@@ -1,212 +1,124 @@
-use creamy_protocol_model::{
-    Access, BitsetValuesRange, BitsetsRange, Direction, EnumsRange, FieldsRange, FlagsRange,
-    GroupsRange, MessagesRange, OptionsRange, StructsRange, VariantsRange, VectorElement,
-    constraints::{
-        MAX_BITSET_VALUES, MAX_BITSETS, MAX_ENUMS, MAX_FIELDS, MAX_FLAGS, MAX_GROUPS, MAX_MESSAGES,
-        MAX_OPTIONS, MAX_STRUCTS, MAX_VARIANTS,
-    },
-    symbols::VariantValue,
-};
-use creamy_utils::strpool::{StringId, StringPool};
+use creamy_protocol_model::{Access, Direction, symbols::VariantValue};
 
-use crate::{define_readonly_struct, tokenizer::IdentifierOrArray};
+use super::StreamFieldNode;
+use crate::tokenizer::Identifier;
 
-#[macro_export]
-macro_rules! define_node {
-    ($key:expr, $name:ident, $is_type: expr) => {
-        impl $crate::tree::storage::Node for $name {
-            const KEY: $crate::tree::storage::NodeKey = $crate::tree::storage::NodeKey::new($key);
-            const IS_TYPE: bool = $is_type;
-        }
-    };
+pub struct EnumNode<'src> {
+    pub name: Identifier<'src>,
+    pub repr: Identifier<'src>,
+    pub variants: Vec<VariantNode<'src>>,
 }
 
-define_node!("enum.node", EnumNode, true);
-define_readonly_struct! {
-    [no_brw]
-    [element(MAX_ENUMS, EnumsRange)]
-    struct EnumNode {
-        name: StringId,
-        repr: StringId,
-        variants: VariantsRange,
+pub struct VariantNode<'src> {
+    pub name: Identifier<'src>,
+    pub value: VariantValue,
+}
+
+#[derive(Default)]
+pub struct GlobalTypesNode<'src> {
+    pub structs: Vec<StructNode<'src>>,
+    pub enums: Vec<EnumNode<'src>>,
+    pub flags: Vec<FlagsNode<'src>>,
+    pub bitsets: Vec<BitsetNode<'src>>,
+}
+
+impl GlobalTypesNode<'_> {
+    pub const fn type_count(&self) -> u16 {
+        (self.structs.len() + self.enums.len() + self.flags.len() + self.bitsets.len()) as u16
     }
 }
 
-define_node!("enum.variant.node", VariantNode, false);
-define_readonly_struct! {
-    [no_brw]
-    [element(MAX_VARIANTS, VariantsRange)]
-    struct VariantNode {
-        name: StringId,
-        value: VariantValue,
+pub struct GroupNode<'src> {
+    pub name: Identifier<'src>,
+    pub access: Access,
+    pub structs: Vec<StructNode<'src>>,
+    pub enums: Vec<EnumNode<'src>>,
+    pub flags: Vec<FlagsNode<'src>>,
+    pub bitsets: Vec<BitsetNode<'src>>,
+    pub messages: Vec<MessageNodeType<'src>>,
+}
+
+impl GroupNode<'_> {
+    pub const fn type_count(&self) -> u16 {
+        (self.structs.len() + self.enums.len() + self.flags.len() + self.bitsets.len()) as u16
     }
 }
 
-define_readonly_struct! {
-    [no_brw]
-    struct GlobalTypesNode {
-        structs: StructsRange,
-        enums: EnumsRange,
-        flags: FlagsRange,
-        bitsets: BitsetsRange,
-    }
+pub enum MessageNodeType<'src> {
+    Single(MessageNode<'src>),
+    Stream(StreamNode<'src>),
 }
 
-impl Default for GlobalTypesNode {
-    fn default() -> Self {
-        Self {
-            structs: StructsRange::new(0, 0),
-            enums: EnumsRange::new(0, 0),
-            flags: FlagsRange::new(0, 0),
-            bitsets: BitsetsRange::new(0, 0),
-        }
-    }
-}
-
-define_node!("group.node", GroupNode, false);
-define_readonly_struct! {
-    [no_brw]
-    [element(MAX_GROUPS, GroupsRange)]
-    struct GroupNode {
-        name: StringId,
-        access: Access,
-        messages: MessagesRange,
-        structs: StructsRange,
-        enums: EnumsRange,
-        flags: FlagsRange,
-        bitsets: BitsetsRange,
-    }
-}
-
-define_node!("message.node.type", MessageNodeType, false);
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MessageNodeType {
-    Single(MessageNode),
-    Stream(StreamNode),
-}
-
-impl VectorElement for MessageNodeType {
-    const MAX_SIZE: usize = MAX_MESSAGES;
-    type RangeType = MessagesRange;
-}
-
-impl MessageNodeType {
-    pub const fn name(&self) -> StringId {
+impl MessageNodeType<'_> {
+    pub fn name(&self) -> &str {
         match self {
-            MessageNodeType::Single(m) => m.name(),
-            MessageNodeType::Stream(s) => s.name(),
+            MessageNodeType::Single(m) => &m.name,
+            MessageNodeType::Stream(s) => &s.name,
         }
     }
 }
 
-define_readonly_struct! {
-    [no_brw]
-    struct MessageNode {
-        name: StringId,
-        fields: FieldsRange,
-        direction: Direction,
-    }
+pub struct MessageNode<'src> {
+    pub name: Identifier<'src>,
+    pub fields: Vec<FieldNode<'src>>,
+    pub direction: Direction,
 }
 
-define_node!("struct.node", StructNode, true);
-define_readonly_struct! {
-    [no_brw]
-    [element(MAX_STRUCTS, StructsRange)]
-    struct StructNode {
-        name: StringId,
-        fields: FieldsRange,
-    }
+pub struct StructNode<'src> {
+    pub name: Identifier<'src>,
+    pub fields: Vec<FieldNode<'src>>,
 }
 
-define_readonly_struct! {
-    [no_brw]
-    struct ArrayNode {
-        kind: StringId,
-        size: u8,
-    }
+#[derive(Debug)]
+pub struct ArrayNode<'src> {
+    pub kind: Identifier<'src>,
+    pub size: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FieldTypeNode {
-    Type(StringId),
-    Array(ArrayNode),
+#[derive(Debug)]
+pub enum FieldTypeNode<'src> {
+    Type(Identifier<'src>),
+    Array(ArrayNode<'src>),
 }
 
-impl FieldTypeNode {
-    pub fn new(token: IdentifierOrArray, pool: &mut StringPool) -> Self {
-        match token {
-            IdentifierOrArray::Identifier(ident) => FieldTypeNode::Type(pool.get_id_or_add(&ident)),
-            IdentifierOrArray::Array(ident, size) => {
-                let ident = pool.get_id_or_add(ident);
-                FieldTypeNode::Array(ArrayNode::new(ident, size))
-            }
-        }
-    }
-
-    pub const fn type_name(self) -> StringId {
+impl FieldTypeNode<'_> {
+    pub fn type_name(&self) -> &str {
         match self {
             FieldTypeNode::Type(id) => id,
-            FieldTypeNode::Array(node) => node.kind,
+            FieldTypeNode::Array(node) => &node.kind,
         }
     }
 }
 
-define_node!("field.node", FieldNode, false);
-define_readonly_struct! {
-    [no_brw]
-    [element(MAX_FIELDS, FieldsRange)]
-    struct FieldNode {
-        name: StringId,
-        kind: FieldTypeNode,
-    }
+pub struct FieldNode<'src> {
+    pub name: Identifier<'src>,
+    pub kind: FieldTypeNode<'src>,
 }
 
-define_node!("flags.node", FlagsNode, true);
-define_readonly_struct! {
-    [no_brw]
-    [element(MAX_FLAGS, FlagsRange)]
-    struct FlagsNode {
-        ident: StringId,
-        options: OptionsRange,
-    }
+pub struct FlagsNode<'src> {
+    pub name: Identifier<'src>,
+    pub options: Vec<OptionNode<'src>>,
 }
 
-define_node!("option.node", OptionNode, false);
-define_readonly_struct! {
-    [no_brw]
-    [element(MAX_OPTIONS, OptionsRange)]
-    struct OptionNode {
-        ident: StringId,
-    }
+#[derive(Copy, Clone)]
+pub struct OptionNode<'src> {
+    pub name: Identifier<'src>,
 }
 
-define_node!("bitset.node", BitsetNode, true);
-define_readonly_struct! {
-    [no_brw]
-    [element(MAX_BITSETS, BitsetsRange)]
-    struct BitsetNode {
-        ident: StringId,
-        values: BitsetValuesRange,
-    }
+pub struct BitsetNode<'src> {
+    pub name: Identifier<'src>,
+    pub values: Vec<BitsetValueNode<'src>>,
 }
 
-define_node!("bitset.value.node", BitsetValueNode, false);
-define_readonly_struct! {
-    [no_brw]
-    [element(MAX_BITSET_VALUES, BitsetValuesRange)]
-    struct BitsetValueNode {
-        ident: StringId,
-        repr: StringId,
-        bits: usize,
-    }
+pub struct BitsetValueNode<'src> {
+    pub name: Identifier<'src>,
+    pub repr: Identifier<'src>,
+    pub bits: usize,
 }
 
-define_readonly_struct! {
-    [no_brw]
-    struct StreamNode {
-        name: StringId,
-        direction: Direction,
-        timeout: u8,
-        fields: FieldsRange,
-    }
+pub struct StreamNode<'src> {
+    pub name: Identifier<'src>,
+    pub direction: Direction,
+    pub timeout: u8,
+    pub fields: Vec<StreamFieldNode<'src>>,
 }

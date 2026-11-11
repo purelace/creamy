@@ -1,10 +1,6 @@
-use creamy_protocol_model::VariantsRange;
-use creamy_utils::strpool::StringPoolIntern;
-
 use super::nodes::{EnumNode, VariantNode};
 use crate::{
     define_misc_parser, define_toplevel_parser,
-    error::AstError,
     tokenizer::{Identifier, Token},
 };
 
@@ -15,29 +11,23 @@ const fn token_variant(t: &Token) -> bool {
 
 define_misc_parser! {
     name:      VariantParser,
-    type:      VariantNode,
-    return:    VariantsRange,
-    error:     AstError::TooManyVariants,
+    type:      VariantNode<'src>,
     fn:        parse_variants,
-    builder:   build_variants,
     token:     Token::Variant,
-    fields:    [ name, value, span ],
+    fields:    [ name, value ],
     predicate: token_variant,
-    ctor:      |pool, name, kind, span| {
-        VariantNode::new(name.intern(pool), value)
+    ctor:      |name, value | {
+        VariantNode { name, value }
     }
 }
 
 define_toplevel_parser!(
     name:       EnumParser,
-    type:       EnumNode,
-    error:      AstError::TooManyEnums,
+    type:       EnumNode<'src>,
     top_parse:  parse_enum,
-    misc_parse: variant.parse_variants,
-    args:       [ name: Identifier, repr: Identifier ],
-    ctor:       |ctx, range, name, repr| EnumNode::new(
-        name.intern(ctx.pool),
-        repr.intern(ctx.pool),
-        range
-    )
+    misc_parse: VariantParser::parse_variants,
+    args:       [ name: Identifier<'src>, repr: Identifier<'src> ],
+    ctor:       |variants, name, repr| {
+        EnumNode { name, repr, variants }
+    }
 );

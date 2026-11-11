@@ -1,8 +1,9 @@
 mod common;
 mod generator;
 
-use creamy_protocol_model::constraints::{
-    MAX_ENUMS, MAX_GROUPS, MAX_MESSAGES_PER_GROUP, MAX_STRUCTS, MAX_VARIANTS,
+use creamy_protocol_model::{
+    constraints::{MAX_GROUPS, MAX_MESSAGES_PER_GROUP},
+    error::SemanticError,
 };
 use creamy_xmlc::error::AstError;
 
@@ -29,7 +30,7 @@ fn ast_errors() {
     );
 }
 
-fn assert_constraint(generator: XMLGenerator, err: AstError) {
+fn assert_constraint(generator: XMLGenerator, err: SemanticError) {
     let content = get_xml("0.0.1", &generator.collect::<String>());
     assert_diag!(compile(&content).unwrap_err(), vec![err.into()], &content);
 }
@@ -42,7 +43,7 @@ fn too_many_groups_start() {
         .fields_per_message(1)
         .build();
 
-    assert_constraint(generator, AstError::TooManyGroups);
+    assert_constraint(generator, SemanticError::TooManyGroups);
 }
 
 #[test]
@@ -53,29 +54,7 @@ fn too_many_groups_end() {
         .fields_per_message(1)
         .build();
 
-    assert_constraint(generator, AstError::TooManyGroups);
-}
-
-#[test]
-fn message_too_many_fields() {
-    let generator = XMLGeneratorBuilder::default()
-        .groups(1)
-        .messages_per_group(MAX_MESSAGES_PER_GROUP)
-        .fields_per_message(28)
-        .build();
-
-    assert_constraint(generator, AstError::TooManyFields);
-}
-
-#[test]
-fn structs_too_many_fields() {
-    let generator = XMLGeneratorBuilder::default()
-        .groups(1)
-        .structs_per_group(MAX_MESSAGES_PER_GROUP)
-        .fields_per_struct(28)
-        .build();
-
-    assert_constraint(generator, AstError::TooManyFields);
+    assert_constraint(generator, SemanticError::TooManyGroups);
 }
 
 #[test]
@@ -84,39 +63,8 @@ fn too_many_messages() {
     let generator = XMLGeneratorBuilder::default()
         .groups(MAX_GROUPS)
         .messages_per_group(MAX_MESSAGES_PER_GROUP + 1) //TODO check
+        .fields_per_message(1)
         .build();
 
-    assert_constraint(generator, AstError::TooManyMessages);
-}
-
-#[test]
-fn too_many_structs() {
-    let generator = XMLGeneratorBuilder::default()
-        .groups(1)
-        .structs_per_group(MAX_STRUCTS + 1)
-        .build();
-
-    assert_constraint(generator, AstError::TooManyStructs);
-}
-
-#[test]
-fn too_many_enums() {
-    let generator = XMLGeneratorBuilder::default()
-        .groups(1)
-        .enums_per_group(MAX_ENUMS + 1)
-        .build();
-
-    assert_constraint(generator, AstError::TooManyEnums);
-}
-
-#[test]
-#[ignore = "test causes panic due to string pool overflow"]
-fn too_many_variants() {
-    let generator = XMLGeneratorBuilder::default()
-        .groups(1)
-        .enums_per_group(1)
-        .variants_per_enum(MAX_VARIANTS + 1)
-        .build();
-
-    assert_constraint(generator, AstError::TooManyVariants);
+    assert_constraint(generator, SemanticError::TooManyMessages);
 }

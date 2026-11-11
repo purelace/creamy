@@ -64,6 +64,16 @@ impl<T: VectorElement> BoundedVec<T> {
         true
     }
 
+    pub fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) -> bool {
+        //TODO: possible overflow
+        if self.inner.len() >= T::MAX_SIZE {
+            return false;
+        }
+
+        self.inner.extend(iter);
+        true
+    }
+
     #[must_use]
     #[allow(clippy::len_without_is_empty)]
     pub const fn len(&self) -> u32 {

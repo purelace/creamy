@@ -12,7 +12,7 @@ use super::symbols::{
 };
 use crate::{
     symbols::StreamFieldSymbol,
-    utils::{BoundedVec, Range, VectorElement},
+    utils::{Range, VectorElement},
 };
 
 #[repr(u8)]
@@ -80,7 +80,7 @@ pub trait UntypedStorage: DynBinaryWrite + Send + Sync + core::fmt::Debug + 'sta
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
     fn key(&self) -> SymbolKey;
-    fn count(&self) -> u32;
+    fn count(&self) -> usize;
     fn eq_dyn(&self, rhs: &dyn UntypedStorage) -> bool;
 }
 
@@ -92,12 +92,9 @@ impl PartialEq for dyn UntypedStorage {
 
 impl Eq for dyn UntypedStorage {}
 
-//pub trait WriteSeek: Write + Seek {}
-//impl<T: Write + Seek + ?Sized> WriteSeek for T {}
-
 #[derive(Debug, PartialEq, Eq, BinRead, BinWrite)]
 struct TypedStorage<S: Symbol> {
-    inner: BoundedVec<S>,
+    inner: Vec<S>,
 }
 
 impl<S: Symbol> TypedStorage<S> {
@@ -113,7 +110,7 @@ impl<S: Symbol> TypedStorage<S> {
 impl<S: Symbol> Default for TypedStorage<S> {
     fn default() -> Self {
         Self {
-            inner: BoundedVec::default(),
+            inner: Vec::default(),
         }
     }
 }
@@ -131,7 +128,7 @@ impl<S: Symbol> UntypedStorage for TypedStorage<S> {
         S::KEY
     }
 
-    fn count(&self) -> u32 {
+    fn count(&self) -> usize {
         self.inner.len()
     }
 
@@ -203,13 +200,31 @@ impl BinaryWriter for SymbolStorage {
 }
 
 impl SymbolStorage {
-    pub fn add_symbol<S: Symbol>(&mut self, symbol: S) -> bool {
+    pub fn add_symbol_from_iter<S, I>(&mut self, iter: I) -> (usize, usize)
+    where
+        S: Symbol,
+        I: IntoIterator<Item = S>,
+    {
         let storage = &mut self.inner[S::KEY as usize];
         let Some(storage) = storage.as_any_mut().downcast_mut::<TypedStorage<S>>() else {
             unreachable!();
         };
 
-        storage.inner.push(symbol)
+        let start = storage.inner.len();
+        storage.inner.extend(iter);
+        let end = storage.inner.len();
+        let len = end - start;
+        (start, len)
+    }
+
+    pub fn add_symbol<S: Symbol>(&mut self, symbol: S) -> usize {
+        let storage = &mut self.inner[S::KEY as usize];
+        let Some(storage) = storage.as_any_mut().downcast_mut::<TypedStorage<S>>() else {
+            unreachable!();
+        };
+
+        storage.inner.push(symbol);
+        storage.inner.len()
     }
 
     #[must_use]
@@ -237,7 +252,7 @@ impl SymbolStorage {
     }
 
     #[must_use]
-    pub fn len_of<S: Symbol>(&self) -> usize {
+    pub fn count_of<S: Symbol>(&self) -> usize {
         self.get_symbol_slice::<S>().len()
     }
 }

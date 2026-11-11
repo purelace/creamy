@@ -113,57 +113,6 @@ pub enum AstError {
         span: SourceSpan,
         //should_be: String,
     },
-
-    // --- Protocol Limits ---
-    #[error("[P101] Too many groups in protocol")]
-    #[diagnostic(code(ast::too_many_groups))]
-    #[diagnostic(help("max 255"))]
-    TooManyGroups,
-
-    #[error("[P102] Too many messages in protocol")]
-    #[diagnostic(code(ast::too_many_messages))]
-    #[diagnostic(help("max 255"))]
-    TooManyMessages,
-
-    #[error("[P103] Too many structures in protocol")]
-    #[diagnostic(code(ast::too_many_structs))]
-    #[diagnostic(help("max 2048"))]
-    TooManyStructs,
-
-    #[error("[P105] Too many enums in protocol")]
-    #[diagnostic(code(ast::too_many_enums))]
-    #[diagnostic(help("max 2048"))]
-    TooManyEnums,
-
-    #[error("[P106] Too many total fields in protocol")]
-    #[diagnostic(code(ast::too_many_fields))]
-    #[diagnostic(help("max 2048"))]
-    TooManyFields,
-
-    #[error("[P107] Too many enum variants in protocol)")]
-    #[diagnostic(code(ast::too_many_variants))]
-    #[diagnostic(help("max 65535"))]
-    TooManyVariants,
-
-    #[error("[P108] Too many flag options in protocol")]
-    #[diagnostic(code(ast::too_many_options))]
-    #[diagnostic(help("max 65535"))]
-    TooManyOptions,
-
-    #[error("[P109] Too many flags in protocol")]
-    #[diagnostic(code(ast::too_many_flags))]
-    #[diagnostic(help("max 2048"))]
-    TooManyFlags,
-
-    #[error("[P110] Too many bitset values in protocol")]
-    #[diagnostic(code(ast::too_many_bitset_values))]
-    #[diagnostic(help("max 65535"))]
-    TooManyBitsetValues,
-
-    #[error("[P111] Too many bitsets in protocol")]
-    #[diagnostic(code(ast::too_many_bitsets))]
-    #[diagnostic(help("max 2048"))]
-    TooManyBitsets,
 }
 
 #[derive(Debug, Error, Diagnostic, Clone, PartialEq, Eq)]

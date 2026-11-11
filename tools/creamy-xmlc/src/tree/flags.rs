@@ -1,10 +1,6 @@
-use creamy_protocol_model::OptionsRange;
-use creamy_utils::strpool::StringPoolIntern;
-
 use super::nodes::{FlagsNode, OptionNode};
 use crate::{
     define_misc_parser, define_toplevel_parser,
-    error::AstError,
     tokenizer::{Identifier, Token},
 };
 
@@ -15,28 +11,26 @@ const fn token_option(t: &Token) -> bool {
 
 define_misc_parser! {
     name:      OptionParser,
-    type:      OptionNode,
-    return:    OptionsRange,
-    error:     AstError::TooManyOptions,
+    type:      OptionNode<'src>,
     fn:        parse_options,
-    builder:   build_options,
     token:     Token::Option,
-    fields:    [ name, span ],
+    fields:    [ name ],
     predicate: token_option,
-    ctor:      |pool, name, span| {
-        OptionNode::new(name.intern(pool))
+    ctor:      |name| {
+        OptionNode { name }
     }
 }
 
 define_toplevel_parser!(
     name:       FlagsParser,
-    type:       FlagsNode,
-    error:      AstError::TooManyFlags,
+    type:       FlagsNode<'src>,
     top_parse:  parse_flags,
-    misc_parse: option.parse_options,
-    args:       [ name: Identifier ],
-    ctor:       |ctx, range, name| FlagsNode::new(
-        name.intern(ctx.pool),
-        range
-    )
+    misc_parse: OptionParser::parse_options,
+    args:       [ name: Identifier<'src> ],
+    ctor:       |options, name|  {
+        FlagsNode {
+            name,
+            options,
+        }
+    }
 );

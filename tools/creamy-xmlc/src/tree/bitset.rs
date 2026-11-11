@@ -1,9 +1,5 @@
-use creamy_protocol_model::BitsetValuesRange;
-use creamy_utils::strpool::StringPoolIntern;
-
 use crate::{
     define_misc_parser, define_toplevel_parser,
-    error::AstError,
     tokenizer::{Identifier, Token},
     tree::nodes::{BitsetNode, BitsetValueNode},
 };
@@ -15,28 +11,29 @@ const fn token_bvalue(t: &Token) -> bool {
 
 define_misc_parser! {
     name:      BValueParser,
-    type:      BValueNode,
-    return:    BitsetValuesRange,
-    error:     AstError::TooManyBitsetValues,
+    type:      BitsetValueNode<'src>,
     fn:        parse_bvalues,
-    builder:   build_bvalues,
     token:     Token::BValue,
-    fields:    [ name, bits, repr, span ],
+    fields:    [ name, bits, repr],
     predicate: token_bvalue,
-    ctor:      |pool, name, bits, repr, span| {
-        BitsetValueNode::new(name.intern(pool), repr.intern(pool), bits)
+    ctor:      |name, bits, repr| {
+        BitsetValueNode {
+            name,
+            repr,
+            bits,
+        }
     }
 }
 
 define_toplevel_parser!(
     name:       BitsetParser,
-    type:       BitsetNode,
-    error:      AstError::TooManyBitsets,
+    type:       BitsetNode<'src>,
     top_parse:  parse_bitset,
-    misc_parse: bvalue.parse_bvalues,
-    args:       [ name: Identifier ],
-    ctor:       |ctx, range, name| BitsetNode::new(
-        name.intern(ctx.pool),
-        range
-    )
+    misc_parse: BValueParser::parse_bvalues,
+    args:       [ name: Identifier<'src> ],
+    ctor:       |values, name|
+    BitsetNode {
+        name,
+        values
+    }
 );

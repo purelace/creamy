@@ -13,6 +13,13 @@ use crate::{
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct Identifier<'a>(&'a str);
+impl Identifier<'_> {
+    #[must_use]
+    pub const fn as_str(&self) -> &str {
+        self.0
+    }
+}
+
 impl Deref for Identifier<'_> {
     type Target = str;
 
@@ -36,7 +43,7 @@ impl Fallback for Identifier<'_> {
 #[derive(Debug, Clone, Copy)]
 pub enum IdentifierOrArray<'src> {
     Identifier(Identifier<'src>),
-    Array(&'src str, u8),
+    Array(Identifier<'src>, u8),
 }
 
 impl Fallback for IdentifierOrArray<'_> {
@@ -48,8 +55,8 @@ impl Fallback for IdentifierOrArray<'_> {
 #[derive(Debug, Clone, Copy)]
 pub enum IdentifierOrArrayOrDynArray<'src> {
     Identifier(Identifier<'src>),
-    Array(&'src str, u8),
-    DynArray(&'src str),
+    Array(Identifier<'src>, u8),
+    DynArray(Identifier<'src>),
 }
 
 impl Fallback for IdentifierOrArrayOrDynArray<'_> {
@@ -389,7 +396,7 @@ impl<'src> Context<'_, 'src> {
             self.report_err(SyntaxError::InvalidArraySyntax {
                 span: self.attribute_value_span(attr),
             });
-            return Some(IdentifierOrArray::Array(ERROR_IDENT, 1));
+            return Some(IdentifierOrArray::Array(Identifier(ERROR_IDENT), 1));
         } else if !l_bracket && !r_bracket {
             return None;
         }
@@ -403,17 +410,17 @@ impl<'src> Context<'_, 'src> {
                 self.report_err(SyntaxError::InvalidArraySyntax {
                     span: self.attribute_value_span(attr),
                 });
-                return Some(IdentifierOrArray::Array(ERROR_IDENT, 1));
+                return Some(IdentifierOrArray::Array(Identifier(ERROR_IDENT), 1));
             };
 
         Some(match count.parse::<u8>() {
-            Ok(count) => IdentifierOrArray::Array(type_ident, count),
+            Ok(count) => IdentifierOrArray::Array(Identifier(type_ident), count),
             Err(error) => {
                 self.report_err(SyntaxError::IntParse {
                     span: self.attribute_value_span(attr),
                     error,
                 });
-                IdentifierOrArray::Array(ERROR_IDENT, 1)
+                IdentifierOrArray::Array(Identifier(ERROR_IDENT), 1)
             }
         })
     }
@@ -439,7 +446,9 @@ impl<'src> Context<'_, 'src> {
         if let Some(without_prefix) = s.strip_prefix("Array[") {
             if let Some(inner_type) = without_prefix.strip_suffix("]") {
                 let inner_type = inner_type.trim();
-                return Some(IdentifierOrArrayOrDynArray::DynArray(inner_type));
+                return Some(IdentifierOrArrayOrDynArray::DynArray(Identifier(
+                    inner_type,
+                )));
             }
         }
 

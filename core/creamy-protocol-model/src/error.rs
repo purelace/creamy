@@ -108,4 +108,15 @@ pub enum SemanticError {
 
     #[error("[P210] {0}: Message reference is not allowed.")]
     MessageReference(String),
+
+    // --- Protocol Limits ---
+    #[error("[P211] Too many groups in protocol")]
+    #[cfg_attr(feature = "std", diagnostic(code(ast::too_many_groups)))]
+    #[cfg_attr(feature = "std", diagnostic(help("max 255")))]
+    TooManyGroups,
+
+    #[error("[P212] Too many messages in group")]
+    #[cfg_attr(feature = "std", diagnostic(code(ast::too_many_messages)))]
+    #[cfg_attr(feature = "std", diagnostic(help("max 256")))]
+    TooManyMessages,
 }
