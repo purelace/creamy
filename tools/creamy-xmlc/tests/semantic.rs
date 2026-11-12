@@ -51,6 +51,8 @@ const CONTENT: &str = r#"
     <!-- ZST messages are allowed -->
     <message kind ="0" name="test1" direction="Outgoing"/>
     <enum name="test2" repr="u8"/>
+    <flags name="test3"/>
+    <bitset name="test4"/>
 </group>
 
 <!-- Enum errors -->
@@ -79,6 +81,9 @@ fn semantic_errors() {
             SemanticError::InvalidSize { actual: 224 }.into(),
             SemanticError::InvalidSize { actual: 92 }.into(),
             // ZST
+            SemanticError::InvalidSize { actual: 0 }.into(),
+            SemanticError::InvalidSize { actual: 0 }.into(),
+            SemanticError::InvalidSize { actual: 0 }.into(),
             SemanticError::InvalidSize { actual: 0 }.into(),
             // Enum errors
             SemanticError::InvalidEnumUnderlyingType.into(),

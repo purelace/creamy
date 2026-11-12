@@ -209,6 +209,11 @@ impl<'a> Resolver<'a> {
             let bits = f.options.len();
             let bytes = bits.div_ceil(8);
             let meta = match bytes {
+                0 => {
+                    self.diag
+                        .report_err(SemanticError::InvalidSize { actual: 0 });
+                    TypeMeta::S1B_A1B
+                }
                 1 => TypeMeta::S1B_A1B,
                 2 => TypeMeta::S2B_A2B,
                 3 | 4 => TypeMeta::S4B_A4B,
@@ -274,6 +279,11 @@ impl<'a> Resolver<'a> {
 
     fn resolve_enums(&mut self, enums: &[EnumNode]) {
         for e in enums {
+            if e.variants.is_empty() {
+                self.diag
+                    .report_err(SemanticError::InvalidSize { actual: 0 });
+            }
+
             let result = PrimitiveRepr::try_from(e.repr.as_str());
             let repr = match result {
                 Ok(repr) => repr,

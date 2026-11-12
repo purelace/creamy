@@ -44,6 +44,8 @@ pub enum SemanticError {
         feature = "std",
         diagnostic(help("actual size must be between 1 and 28 bytes"))
     )]
+    // TODO: support other types
+    // TODO: spans
     InvalidSize {
         //#[label("Here")]
         //span: SourceSpan,
