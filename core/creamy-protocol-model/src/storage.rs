@@ -217,14 +217,13 @@ impl SymbolStorage {
         (start, len)
     }
 
-    pub fn add_symbol<S: Symbol>(&mut self, symbol: S) -> usize {
+    pub fn add_symbol<S: Symbol>(&mut self, symbol: S) {
         let storage = &mut self.inner[S::KEY as usize];
         let Some(storage) = storage.as_any_mut().downcast_mut::<TypedStorage<S>>() else {
             unreachable!();
         };
 
         storage.inner.push(symbol);
-        storage.inner.len()
     }
 
     #[must_use]
