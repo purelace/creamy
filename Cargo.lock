@@ -972,7 +972,6 @@ dependencies = [
  "creamy-protocol-model",
  "creamy-protocol-model-macros",
  "creamy-utils",
- "idmint",
  "miette",
  "owo-colors",
  "pretty_assertions",

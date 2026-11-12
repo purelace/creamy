@@ -174,7 +174,7 @@ struct Resolver<'a> {
     storage: &'a mut SymbolStorage,
     pool: &'a mut StringPool,
     group: NonZeroU8,
-    kind: idmint::StackMint,
+    kind: Option<u8>,
     too_many_message_reported: bool,
 }
 
@@ -192,7 +192,7 @@ impl<'a> Resolver<'a> {
             storage,
             pool,
             group,
-            kind: idmint::StackMint::new(0),
+            kind: Some(0),
             too_many_message_reported: false,
         }
     }
@@ -439,15 +439,17 @@ impl<'a> Resolver<'a> {
     }
 
     fn issue_kind(&mut self) -> u8 {
-        self.kind.issue().unwrap_or_else(|| {
+        if let Some(current) = self.kind {
+            self.kind = current.checked_add(1);
+            current
+        } else {
             if !self.too_many_message_reported {
                 self.diag.report_err(SemanticError::TooManyMessages);
                 self.too_many_message_reported = true;
             }
             0
-        })
+        }
     }
-
     fn resolve_single_message(
         &mut self,
         m: &MessageNode,
