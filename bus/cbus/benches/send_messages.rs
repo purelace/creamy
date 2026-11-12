@@ -13,14 +13,14 @@ mod single {
 
     define_bus! {
         max_messages: 1024,
-        max_groups: 64,
+        max_protocols: 64,
         max_subscribers: 32,
     }
 
     fn send_single(_indices: &[u8], out: &mut OutBuf) {
         assert!(out.send_many_iter_exact(std::iter::once(UntypedMessage {
             dst: 2,
-            group: 1,
+            protocol: 1,
             src: 0,
             kind: 0,
             payload: [0; 28],
@@ -31,7 +31,7 @@ mod single {
         c.bench_function("send_single_message", |b| {
             b.iter_batched_ref(
                 || {
-                    init_bus_custom::<_, MAX_MESSAGES, MAX_GROUPS, MAX_SUBSCRIBERS>(
+                    init_bus_custom::<_, MAX_MESSAGES, MAX_PROTOCOLS, MAX_SUBSCRIBERS>(
                         vec![2],
                         send_single,
                         1,
@@ -57,7 +57,7 @@ mod multiple {
 
     define_bus! {
         max_messages: 1024,
-        max_groups: 64,
+        max_protocols: 64,
         max_subscribers: 32,
     }
 
@@ -67,7 +67,7 @@ mod multiple {
             let msg = UntypedMessage {
                 dst,
                 src: 0,
-                group: 1,
+                protocol: 1,
                 kind: 0,
                 payload: [0; 28],
             };
@@ -84,7 +84,7 @@ mod multiple {
         c.bench_function("send_multiple_ordered", |b| {
             b.iter_batched_ref(
                 || {
-                    init_bus_custom::<_, MAX_MESSAGES, MAX_GROUPS, MAX_SUBSCRIBERS>(
+                    init_bus_custom::<_, MAX_MESSAGES, MAX_PROTOCOLS, MAX_SUBSCRIBERS>(
                         vec![2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
                         send_multiple,
                         16,
@@ -110,7 +110,7 @@ mod _4k {
 
     define_bus! {
         max_messages: 16000,
-        max_groups: 128,
+        max_protocols: 128,
         max_subscribers: 32,
     }
 
@@ -119,7 +119,7 @@ mod _4k {
             UntypedMessage {
                 dst: 2,
                 src: 0,
-                group: 1,
+                protocol: 1,
                 kind: 0,
                 payload: [0; 28],
             },
@@ -133,7 +133,7 @@ mod _4k {
         c.bench_function("send_single_4k", |b| {
             b.iter_batched_ref(
                 || {
-                    init_bus_custom::<_, MAX_MESSAGES, MAX_GROUPS, MAX_SUBSCRIBERS>(
+                    init_bus_custom::<_, MAX_MESSAGES, MAX_PROTOCOLS, MAX_SUBSCRIBERS>(
                         vec![2],
                         send_single_4k_sender,
                         1,
@@ -159,7 +159,7 @@ mod _65k {
 
     define_bus! {
         max_messages: 65535,
-        max_groups: 128,
+        max_protocols: 128,
         max_subscribers: 32,
     }
 
@@ -169,7 +169,7 @@ mod _65k {
             let msg = UntypedMessage {
                 dst,
                 src: 0,
-                group: 1,
+                protocol: 1,
                 kind: 0,
                 payload: [0; 28],
             };
@@ -183,7 +183,7 @@ mod _65k {
         c.bench_function("send_multiple_65k", |b| {
             b.iter_batched_ref(
                 || {
-                    init_bus_custom::<_, MAX_MESSAGES, MAX_GROUPS, MAX_SUBSCRIBERS>(
+                    init_bus_custom::<_, MAX_MESSAGES, MAX_PROTOCOLS, MAX_SUBSCRIBERS>(
                         vec![2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
                         send_mutlitple_65k_sender,
                         16,

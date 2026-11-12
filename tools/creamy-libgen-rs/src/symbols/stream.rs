@@ -54,11 +54,11 @@ where
 
 fn message_header(args: &Args) -> Tokens {
     let sub_id = &args.subscriber_id_path();
-    let grp_id = args.group_id_path();
+    let protocol_id = args.protocol_id_path();
     quote! {
         /* -------- HEADER -------- */
         pub dst: $sub_id,
-        pub group: $grp_id,
+        pub protocol: $protocol_id,
         pub src: $sub_id,
         pub kind: u8,
     }
@@ -76,12 +76,17 @@ where
     let derive = generate_derive(args, &[]);
     //TODO: iterate over fields
     let header = message_header(args);
-    let const_block =
-        generate_message_const_block(args, name, symbol.group, symbol.kind, symbol.dispatch_value);
+    let const_block = generate_message_const_block(
+        args,
+        name,
+        symbol.protocol,
+        symbol.kind,
+        symbol.dispatch_value,
+    );
     let kind_path = &args.stream_type_path();
     let id_path = &args.stream_id_path();
     let typed_message_impl = generate_typed_message_trait_impl(args, name);
-    let message_impl = generate_message_trait_impl(args, name, symbol.group, symbol.kind);
+    let message_impl = generate_message_trait_impl(args, name, symbol.protocol, symbol.kind);
     let module = generate_stream_module(args, symbol);
     quote! {
         $derive

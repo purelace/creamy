@@ -92,7 +92,7 @@ impl<W: IoWrite> RustGen<W> {
 }
 
 impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
-    fn start_group(&mut self, group: &'s str, id: Option<u8>) {
+    fn start_protocol(&mut self, protocol: &'s str, id: Option<u8>) {
         let access = if self.modules.is_empty() {
             Access::Crate
         } else {
@@ -109,7 +109,7 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
 
         self.modules.push(Module {
             access,
-            name: group.to_string(),
+            name: protocol.to_string(),
             tokens: vec![id],
         });
     }
@@ -159,25 +159,25 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
         self.push_tokens(symbols::generate_struct(&self.args, symbol));
     }
 
-    fn end_group(&mut self) {
+    fn end_protocol(&mut self) {
         if self.modules.len() <= 1 {
             return;
         }
 
-        let group = self.modules.pop().unwrap().into_tokens();
-        self.modules.last_mut().unwrap().tokens.push(group);
+        let protocol = self.modules.pop().unwrap().into_tokens();
+        self.modules.last_mut().unwrap().tokens.push(protocol);
     }
 
-    fn generate_dispatcher<G, M>(&mut self, groups: G, messages: M)
+    fn generate_dispatcher<P, M>(&mut self, protocols: P, messages: M)
     where
-        G: Iterator<Item = ::creamy_libgen::Path>,
+        P: Iterator<Item = ::creamy_libgen::Path>,
         M: Iterator<Item = ::creamy_libgen::Path>,
     {
-        let tokens = dispatcher::generate_dispatcher(&self.args, groups, messages);
+        let tokens = dispatcher::generate_dispatcher(&self.args, protocols, messages);
         self.push_tokens(tokens);
     }
 
-    fn generate_plugin_group_table(&mut self, pht: PerfectHashTable) {
+    fn generate_plugin_protocol_table(&mut self, pht: PerfectHashTable) {
         let mut t = String::with_capacity(2048);
         t.push('[');
         for id in &pht.table {
@@ -215,7 +215,7 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
         });
     }
 
-    fn generate_host_group_table(&mut self, pht: PerfectHashTable) {
+    fn generate_host_protocol_table(&mut self, pht: PerfectHashTable) {
         let mut t = String::with_capacity(2048);
         t.push('[');
         for id in &pht.table {
@@ -264,7 +264,7 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
             self.writer.flush()?;
             Ok(())
         } else {
-            panic!("Missing global group");
+            panic!("Missing protocol");
         }
     }
 }

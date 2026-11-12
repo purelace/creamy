@@ -12,8 +12,8 @@ use smol_str::SmolStr;
 
 use crate::generated::{
     dispatcher::{Dispatcher, MessageHandler},
-    system::builtin::{
-        ConsumerAppeared, ConsumerDisappeared, GroupDeclared, GroupUndeclared, Log, LogType,
+    system::{
+        ConsumerAppeared, ConsumerDisappeared, Log, LogType, ProtocolDeclared, ProtocolUndeclared,
         StreamCancel, StreamKeepAlive,
     },
 };
@@ -63,33 +63,33 @@ impl<const MS: usize> System<MS> {
         self.plugins -= 1;
     }
 
-    pub fn send_group_declared(
+    pub fn send_protocol_declared(
         &mut self,
         provider: SubscriberId,
-        group_id: NonZeroU8,
+        protocol_id: NonZeroU8,
         consumer: SubscriberId,
     ) {
         assert!(
             self.out.send(
-                &GroupDeclared::PREPARED
+                &ProtocolDeclared::PREPARED
                     .with_dst(consumer)
                     .with_provider(provider.as_u8())
-                    .with_group_id(group_id.get())
+                    .with_protocol_id(protocol_id.get())
             )
         );
     }
 
-    pub fn send_group_undeclared(
+    pub fn send_protocol_undeclared(
         &mut self,
         provider: SubscriberId,
-        group_id: NonZeroU8,
+        protocol_id: NonZeroU8,
         consumer: SubscriberId,
     ) {
         assert!(
             self.out.send(
-                &GroupUndeclared::PREPARED
+                &ProtocolUndeclared::PREPARED
                     .with_dst(consumer)
-                    .with_group_id(group_id.get())
+                    .with_protocol_id(protocol_id.get())
                     .with_provider(provider.as_u8())
             )
         );
@@ -98,14 +98,14 @@ impl<const MS: usize> System<MS> {
     pub fn send_consumer_appeared(
         &mut self,
         provider: SubscriberId,
-        group_id: NonZeroU8,
+        protocol_id: NonZeroU8,
         consumer: SubscriberId,
     ) {
         assert!(
             self.out.send(
                 &ConsumerAppeared::PREPARED
                     .with_dst(provider)
-                    .with_group_id(group_id.get())
+                    .with_protocol_id(protocol_id.get())
                     .with_consumer_id(consumer.as_u8())
             )
         );
@@ -114,14 +114,14 @@ impl<const MS: usize> System<MS> {
     pub fn send_consumer_disappeared(
         &mut self,
         provider: SubscriberId,
-        group_id: NonZeroU8,
+        protocol_id: NonZeroU8,
         consumer: SubscriberId,
     ) {
         assert!(
             self.out.send(
                 &ConsumerDisappeared::PREPARED
                     .with_dst(provider)
-                    .with_group_id(group_id.get())
+                    .with_protocol_id(protocol_id.get())
                     .with_consumer_id(consumer.as_u8())
             )
         );

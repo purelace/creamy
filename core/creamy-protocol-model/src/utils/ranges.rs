@@ -42,13 +42,6 @@ pub trait Range {
 }
 
 define_readonly_range! {
-    struct GroupsRange {
-        start: u8,
-        len: u8,
-    }
-}
-
-define_readonly_range! {
     struct EnumsRange {
         start: u16,
         len: u16,

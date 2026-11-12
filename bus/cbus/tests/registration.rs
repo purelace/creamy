@@ -12,7 +12,7 @@ use crate::general::{EmptyDriver, EmptySubscriber};
 
 define_bus! {
     max_messages: 1024,
-    max_groups: 32,
+    max_protocols: 32,
     max_subscribers: 32,
 }
 
@@ -32,14 +32,14 @@ struct Dns {
 impl Dns {
     pub fn new(incoming: IncBuf, outgoing: OutBuf) -> Self {
         let mut table = HashMap::new();
-        table.insert(2, "group_0");
-        table.insert(3, "group_1");
-        table.insert(4, "group_2");
-        table.insert(5, "group_3");
-        table.insert(6, "group_4");
-        table.insert(7, "group_5");
-        table.insert(8, "group_6");
-        table.insert(9, "group_7");
+        table.insert(2, "protocol_0");
+        table.insert(3, "protocol_1");
+        table.insert(4, "protocol_2");
+        table.insert(5, "protocol_3");
+        table.insert(6, "protocol_4");
+        table.insert(7, "protocol_5");
+        table.insert(8, "protocol_6");
+        table.insert(9, "protocol_7");
 
         Self {
             table,
@@ -53,15 +53,15 @@ impl BusDriver for Dns {
     fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
         if id.as_u8() == 1 {
             return std::iter::once(SubscriberLookupData {
-                consumer_group_id: 1,
-                provider_group_id: 1,
+                consumer_protocol_id: 1,
+                provider_protocol_id: 1,
                 provider_id: SubscriberId::new_u8(1).unwrap(),
             });
         }
 
         let mut message = UntypedMessage {
             dst: id.as_u8(),
-            group: 1,
+            protocol: 1,
             src: 0,
             kind: 0,
             payload: [0; 28],
@@ -76,12 +76,15 @@ impl BusDriver for Dns {
         message.payload[4] = bytes[4];
         message.payload[5] = bytes[5];
         message.payload[6] = bytes[6];
+        message.payload[7] = bytes[7];
+        message.payload[8] = bytes[8];
+        message.payload[9] = bytes[9];
 
         assert!(self.outgoing.send_many_iter_exact(std::iter::once(message)));
 
         std::iter::once(SubscriberLookupData {
-            consumer_group_id: 1,
-            provider_group_id: 1,
+            consumer_protocol_id: 1,
+            provider_protocol_id: 1,
             provider_id: SubscriberId::new_u8(1).unwrap(),
         })
     }
@@ -114,7 +117,7 @@ impl Subscriber for Resolver {
             return;
         };
 
-        let ident = str::from_utf8(&message.payload[..7]).unwrap();
+        let ident = str::from_utf8(&message.payload[..10]).unwrap();
         assert_eq!(ident, self.ident);
 
         self.get_ident = true;
@@ -160,14 +163,14 @@ fn register_and_unregister() -> Result<(), Box<dyn std::error::Error>> {
         ($ident: expr) => {{ bus.add_subscriber(|inc, out| Subscribers::Resolver(Resolver::new(inc, out, $ident)))? }};
     }
 
-    let id0 = add!("group_0");
-    let id1 = add!("group_1");
-    let id2 = add!("group_2");
-    let id3 = add!("group_3");
-    let id4 = add!("group_4");
-    let id5 = add!("group_5");
-    let id6 = add!("group_6");
-    let id7 = add!("group_7");
+    let id0 = add!("protocol_0");
+    let id1 = add!("protocol_1");
+    let id2 = add!("protocol_2");
+    let id3 = add!("protocol_3");
+    let id4 = add!("protocol_4");
+    let id5 = add!("protocol_5");
+    let id6 = add!("protocol_6");
+    let id7 = add!("protocol_7");
 
     bus.full_tick();
 

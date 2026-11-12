@@ -9,7 +9,7 @@ use cbus::{
 
 define_bus! {
     max_messages: 11000,
-    max_groups: 128,
+    max_protocols: 128,
     max_subscribers: 255,
 }
 
@@ -19,13 +19,13 @@ impl BusDriver for Driver {
     fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
         match id.as_u8() {
             1 => std::iter::once(SubscriberLookupData {
-                consumer_group_id: 0,
-                provider_group_id: 0,
+                consumer_protocol_id: 0,
+                provider_protocol_id: 0,
                 provider_id: id,
             }),
             2 => std::iter::once(SubscriberLookupData {
-                consumer_group_id: 10,
-                provider_group_id: 1,
+                consumer_protocol_id: 10,
+                provider_protocol_id: 1,
                 provider_id:
                 //: SAFETY 1 != 0
                 unsafe {
@@ -63,7 +63,7 @@ impl<const A: usize> Subscriber for TestListener<A> {
         while let Some(message) = self.incoming.pop() {
             assert_eq!(message.dst, 2);
             assert_eq!(message.src, 1);
-            assert_eq!(message.group, 10);
+            assert_eq!(message.protocol, 10);
             assert_eq!(message.kind, 1);
 
             let [a, b, c, d] = message.payload[0..4].try_into().unwrap();
@@ -106,7 +106,7 @@ impl<const A: usize> Subscriber for TestSender<A> {
     fn notify(&mut self) {
         let iter = (0..A).map(|i| UntypedMessage {
             dst: 2,
-            group: 1,
+            protocol: 1,
             src: 0,
             kind: 1,
             payload: {

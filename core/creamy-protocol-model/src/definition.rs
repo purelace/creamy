@@ -4,27 +4,24 @@ pub use creamy_binary::{BinaryReader, BinaryWriter};
 use creamy_utils::strpool::{StringId, StringPool};
 use semver::Version;
 
-use super::{
-    storage::SymbolStorage,
-    symbols::{GlobalTypesSymbol, MessageSymbolType},
-};
+use super::{storage::SymbolStorage, symbols::MessageSymbolType};
 use crate::{
+    Access,
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     error::SemanticError,
     layout::compute_layout,
     symbols::{
-        BitsetValueSymbol, FieldSymbol, GroupSymbol, OptionSymbol, StreamFieldSymbol, Type,
-        VariantSymbol,
+        BitsetValueSymbol, FieldSymbol, OptionSymbol, StreamFieldSymbol, Type, VariantSymbol,
     },
     table::{FinishedTypeTable, TypeMeta},
-    utils::{BitsetValuesRange, FieldsRange, MessagesRange, OptionsRange, VariantsRange},
+    utils::{BitsetValuesRange, FieldsRange, OptionsRange, VariantsRange},
 };
 
 #[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
 pub struct ProtocolModel {
     name: StringId,
     version: Version,
-    global: GlobalTypesSymbol,
+    access: Access,
     storage: SymbolStorage,
     table: FinishedTypeTable,
 }
@@ -35,14 +32,14 @@ impl ProtocolModel {
     pub const fn new(
         name: StringId,
         version: Version,
-        global: GlobalTypesSymbol,
+        access: Access,
         storage: SymbolStorage,
         table: FinishedTypeTable,
     ) -> Self {
         Self {
             name,
             version,
-            global,
+            access,
             storage,
             table,
         }
@@ -59,13 +56,8 @@ impl ProtocolModel {
     }
 
     #[must_use]
-    pub const fn global_types(&self) -> GlobalTypesSymbol {
-        self.global
-    }
-
-    #[must_use]
-    pub fn groups(&self) -> &[GroupSymbol] {
-        self.storage.get_symbol_slice::<GroupSymbol>()
+    pub const fn access(&self) -> Access {
+        self.access
     }
 
     #[must_use]
@@ -74,23 +66,13 @@ impl ProtocolModel {
     }
 
     #[must_use]
+    pub fn types(&self) -> &[Type] {
+        self.table.types()
+    }
+
+    #[must_use]
     pub const fn table(&self) -> &FinishedTypeTable {
         &self.table
-    }
-
-    #[must_use]
-    pub fn types_for_group(&self, group: GroupSymbol) -> &[Type] {
-        &self.table[group.types()]
-    }
-
-    #[must_use]
-    pub fn global_types_range(&self) -> &[Type] {
-        &self.table[self.global.types()]
-    }
-
-    #[must_use]
-    pub fn message_range(&self, range: MessagesRange) -> &[MessageSymbolType] {
-        self.storage.get_symbol_range(range)
     }
 
     #[must_use]
@@ -184,10 +166,6 @@ impl ProtocolModel {
         }
 
         replace!(self.name);
-
-        for symbol in self.storage.get_symbol_slice_mut::<GroupSymbol>() {
-            replace_symbol!(symbol);
-        }
 
         for symbol in self.storage.get_symbol_slice_mut::<MessageSymbolType>() {
             replace_symbol!(symbol);

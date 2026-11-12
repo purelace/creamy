@@ -5,8 +5,6 @@ mod message;
 pub mod nodes;
 mod structs;
 
-use std::{iter::Peekable, vec::Drain};
-
 use creamy_protocol_model::{Access, Version, error::Fallback};
 pub use message::{StreamFieldNode, StreamFieldTypeNode};
 
@@ -14,8 +12,8 @@ use self::{
     flags::FlagsParser,
     message::{MessageParser, StreamParser},
     nodes::{
-        ArrayNode, BitsetNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, GlobalTypesNode,
-        GroupNode, MessageNodeType, StructNode,
+        ArrayNode, BitsetNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, MessageNodeType,
+        StructNode,
     },
 };
 use crate::{
@@ -25,152 +23,106 @@ use crate::{
     tree::{bitset::BitsetParser, enums::EnumParser, structs::StructParser},
 };
 
-#[derive(Default)]
-struct GroupBuilder<'src> {
-    messages: Vec<MessageNodeType<'src>>,
-    structs: Vec<StructNode<'src>>,
-    enums: Vec<EnumNode<'src>>,
-    flags: Vec<FlagsNode<'src>>,
-    bitsets: Vec<BitsetNode<'src>>,
-}
-
-impl<'src> GroupBuilder<'src> {
-    fn build_global(&mut self) -> GlobalTypesNode<'src> {
-        GlobalTypesNode {
-            structs: core::mem::take(&mut self.structs),
-            enums: core::mem::take(&mut self.enums),
-            flags: core::mem::take(&mut self.flags),
-            bitsets: core::mem::take(&mut self.bitsets),
-        }
-    }
-
-    fn build_local(&mut self, name: Identifier<'src>, access: Access) -> GroupNode<'src> {
-        GroupNode {
-            name,
-            access,
-            structs: core::mem::take(&mut self.structs),
-            enums: core::mem::take(&mut self.enums),
-            flags: core::mem::take(&mut self.flags),
-            bitsets: core::mem::take(&mut self.bitsets),
-            messages: core::mem::take(&mut self.messages),
-        }
-    }
-
-    /// Пытается распарсить общий тип (struct, enum, flags, bitset).
-    /// Возвращает `true`, если токен был распознан и обработан.
-    fn try_parse_type(&mut self, iter: &mut Peekable<Drain<'_, Token<'src>>>) -> bool {
-        match iter.peek() {
-            Some(&Token::Struct { name, .. }) => {
-                iter.next();
-                self.structs.push(StructParser::parse_struct(name, iter));
-            }
-            Some(&Token::Enum { name, repr, .. }) => {
-                iter.next();
-                self.enums.push(EnumParser::parse_enum(name, repr, iter));
-            }
-            Some(&Token::Flags { name, .. }) => {
-                iter.next();
-                self.flags.push(FlagsParser::parse_flags(name, iter));
-            }
-            Some(&Token::Bitset { name, .. }) => {
-                iter.next();
-                self.bitsets.push(BitsetParser::parse_bitset(name, iter));
-            }
-            _ => return false,
-        }
-        true
-    }
-
-    fn try_parse_message(&mut self, iter: &mut Peekable<Drain<'_, Token<'src>>>) -> bool {
-        match iter.peek() {
-            Some(&Token::Message {
-                name, direction, ..
-            }) => {
-                iter.next();
-                self.messages
-                    .push(MessageNodeType::Single(MessageParser::parse_single(
-                        name, direction, iter,
-                    )));
-            }
-            Some(&Token::Stream {
-                name,
-                timeout,
-                direction,
-                ..
-            }) => {
-                iter.next();
-                self.messages
-                    .push(MessageNodeType::Stream(StreamParser::parse_stream(
-                        name, timeout, direction, iter,
-                    )));
-            }
-            _ => return false,
-        }
-
-        true
-    }
-}
-
 pub struct ProtocolTree<'src> {
     pub name: Identifier<'src>,
     pub version: Version,
-    pub global: GlobalTypesNode<'src>,
-    pub groups: Vec<GroupNode<'src>>,
+    pub access: Access,
+    pub structs: Vec<StructNode<'src>>,
+    pub enums: Vec<EnumNode<'src>>,
+    pub flags: Vec<FlagsNode<'src>>,
+    pub bitsets: Vec<BitsetNode<'src>>,
+    pub messages: Vec<MessageNodeType<'src>>,
 }
 
 impl<'src> ProtocolTree<'src> {
     pub fn new(mut tokens: Vec<Token<'src>>, diagnostics: &mut Diagnostics) -> Self {
         let mut iter = tokens.drain(..).peekable();
 
-        let (name, version) = if let Some(Token::Protocol { name, version, .. }) = iter.next() {
-            (name, version)
+        let (name, version, access) = if let Some(Token::Protocol {
+            name,
+            version,
+            access,
+            ..
+        }) = iter.next()
+        {
+            (name, version, access)
         } else {
             diagnostics.report_err(AstError::MissingProtocolToken);
-            (Identifier::fallback(), Version::fallback())
+            (
+                Identifier::fallback(),
+                Version::fallback(),
+                Access::fallback(),
+            )
         };
 
-        let mut global = GlobalTypesNode::default();
-        let mut builder = GroupBuilder::default();
-        let mut groups = Vec::<GroupNode>::new();
+        let mut tree = ProtocolTree {
+            name,
+            version,
+            access,
+            structs: vec![],
+            enums: vec![],
+            flags: vec![],
+            bitsets: vec![],
+            messages: vec![],
+        };
 
-        while let Some(token) = iter.next() {
+        while let Some(token) = iter.peek() {
             match token {
-                Token::Global { .. } => {
-                    while builder.try_parse_type(&mut iter) {}
-                    global = builder.build_global();
+                &Token::Struct { name, .. } => {
+                    iter.next();
+                    tree.structs
+                        .push(StructParser::parse_struct(name, &mut iter));
                 }
-                Token::Group { name, access, .. } => {
-                    loop {
-                        if builder.try_parse_type(&mut iter) {
-                            continue;
-                        }
-
-                        if builder.try_parse_message(&mut iter) {
-                            continue;
-                        }
-
-                        break;
-                    }
-                    groups.push(builder.build_local(name, access));
+                &Token::Enum { name, repr, .. } => {
+                    iter.next();
+                    tree.enums
+                        .push(EnumParser::parse_enum(name, repr, &mut iter));
+                }
+                &Token::Flags { name, .. } => {
+                    iter.next();
+                    tree.flags.push(FlagsParser::parse_flags(name, &mut iter));
+                }
+                &Token::Bitset { name, .. } => {
+                    iter.next();
+                    tree.bitsets
+                        .push(BitsetParser::parse_bitset(name, &mut iter));
+                }
+                &Token::Message {
+                    name, direction, ..
+                } => {
+                    iter.next();
+                    tree.messages
+                        .push(MessageNodeType::Single(MessageParser::parse_single(
+                            name, direction, &mut iter,
+                        )));
+                }
+                &Token::Stream {
+                    name,
+                    timeout,
+                    direction,
+                    ..
+                } => {
+                    iter.next();
+                    tree.messages
+                        .push(MessageNodeType::Stream(StreamParser::parse_stream(
+                            name, timeout, direction, &mut iter,
+                        )));
                 }
                 other => {
-                    diagnostics.report_err(AstError::UnexpectedToken { span: other.span() });
+                    let span = other.span();
+                    let _ = iter.next().unwrap();
+                    diagnostics.report_err(AstError::UnexpectedToken { span });
                 }
             }
         }
 
-        ProtocolTree {
-            name,
-            version,
-            global,
-            groups,
-        }
+        tree
     }
 
     /// Значение не может превышать [``crate::constraints::MAX_TYPE_COUNT``]
     #[allow(clippy::cast_possible_truncation)]
     pub fn type_count(&self) -> u16 {
-        self.global.type_count() + self.groups.iter().map(GroupNode::type_count).sum::<u16>()
+        (self.structs.len() + self.enums.len() + self.flags.len() + self.bitsets.len()) as u16
     }
 }
 

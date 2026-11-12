@@ -75,7 +75,7 @@ impl Sse41InstructionSet {
             let bits = MG.trailing_zeros() as usize;
             let shifted_id = (src as usize) << bits;
 
-            // Берем первые 4 байта [dst][group][src][kind]
+            // Берем первые 4 байта [dst][protocol][src][kind]
             let h0 = _mm_extract_epi32(xmm_msg0, 0);
             let h1 = _mm_extract_epi32(xmm_msg1, 0);
             let h2 = _mm_extract_epi32(xmm_msg2, 0);
@@ -88,14 +88,14 @@ impl Sse41InstructionSet {
             let xmm_dst = _mm_and_si128(xmm_raw_headers, _mm_set1_epi32(0xFF));
             let xmm_dst = Self::validate_dst(range, src, xmm_dst);
 
-            // Достаем 'group' (второй байт)
-            let xmm_group = _mm_and_si128(_mm_srli_epi32(xmm_raw_headers, 8), _mm_set1_epi32(0xFF));
+            // Достаем 'protocol' (второй байт)
+            let xmm_protocol =
+                _mm_and_si128(_mm_srli_epi32(xmm_raw_headers, 8), _mm_set1_epi32(0xFF));
 
             macro_rules! translate {
                 ($idx:expr) => {{
-                    let group: usize = _mm_extract_epi32(xmm_group, $idx).safe_as();
-
-                    (*lut.as_slice().get_unchecked(shifted_id + group)).safe_as()
+                    let protocol: usize = _mm_extract_epi32(xmm_protocol, $idx).safe_as();
+                    (*lut.as_slice().get_unchecked(shifted_id + protocol)).safe_as()
                 }};
             }
 
@@ -105,13 +105,13 @@ impl Sse41InstructionSet {
             let l2 = translate!(2);
             let l3 = translate!(3);
 
-            let xmm_group = _mm_set_epi32(l3, l2, l1, l0);
+            let xmm_protocol = _mm_set_epi32(l3, l2, l1, l0);
 
-            // Создаем маску: 0xFFFFFFFF если group != 0, иначе 0
-            let xmm_mask = _mm_cmpeq_epi32(xmm_group, _mm_setzero_si128());
+            // Создаем маску: 0xFFFFFFFF если protocol != 0, иначе 0
+            let xmm_mask = _mm_cmpeq_epi32(xmm_protocol, _mm_setzero_si128());
             let xmm_mask = _mm_andnot_si128(xmm_mask, _mm_set1_epi32(-1)); // Инвертируем маску
 
-            // Собираем новый заголовок: [dst][group][src][kind]
+            // Собираем новый заголовок: [dst][protocol][src][kind]
             let xmm_kind = _mm_and_si128(
                 xmm_raw_headers,
                 _mm_set1_epi32(0xFF00_0000u32.cast_signed()),
@@ -122,12 +122,12 @@ impl Sse41InstructionSet {
             let xmm_new_header = _mm_or_si128(
                 xmm_dst,
                 _mm_or_si128(
-                    _mm_slli_epi32(xmm_group, 8),
+                    _mm_slli_epi32(xmm_protocol, 8),
                     _mm_or_si128(_mm_slli_epi32(xmm_src, 16), xmm_kind),
                 ),
             );
 
-            // Применяем маску валидности (если group был 0, весь заголовок станет 0)
+            // Применяем маску валидности (если protocol был 0, весь заголовок станет 0)
             _mm_and_si128(xmm_new_header, xmm_mask)
         }
     }

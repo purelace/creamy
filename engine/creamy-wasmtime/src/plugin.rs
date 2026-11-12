@@ -1,6 +1,6 @@
 use core::ptr::NonNull;
 
-use creamy_engine_core::{GroupTable, Module, bus::core::Subscriber};
+use creamy_engine_core::{Module, ProtocolTable, bus::core::Subscriber};
 use wasmtime::{Instance, Store, TypedFunc};
 
 pub struct WasmPlugin {
@@ -21,7 +21,7 @@ impl<const M: usize> Module<M> for WasmPlugin {
     }
 
     #[allow(clippy::cast_sign_loss)]
-    fn get_group_table(&mut self) -> GroupTable<'_> {
+    fn get_protocol_table(&mut self) -> ProtocolTable<'_> {
         let (table_size, table_range) = {
             let size_ptr = self
                 .instance
@@ -72,7 +72,7 @@ impl<const M: usize> Module<M> for WasmPlugin {
         let table = &memory_data[table_range];
         let special_table = unsafe { memory_data[special_range].align_to::<u64>().1 };
 
-        GroupTable::new(table, table_size, special_table, special_size)
+        ProtocolTable::new(table, table_size, special_table, special_size)
     }
 }
 

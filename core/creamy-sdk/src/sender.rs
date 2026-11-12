@@ -32,11 +32,11 @@ impl Sender {
                 let table = unsafe { self.table.as_ref_unchecked() };
             }
         }
-        let slice = table.get(T::GROUP);
+        let slice = table.get(T::PROTOCOL);
         let mut success = !slice.is_empty();
         for dst in slice {
             message.with_dst(*dst);
-            message.with_group(T::GROUP);
+            message.with_protocol(T::PROTOCOL);
             message.with_kind(T::KIND);
 
             success &= self.buffer.send(&message);
@@ -68,7 +68,7 @@ impl Sender {
                 let table = unsafe { self.table.as_ref_unchecked() };
             }
         }
-        let slice = table.get(<C::Message>::GROUP);
+        let slice = table.get(<C::Message>::PROTOCOL);
         if slice.is_empty() {
             return false;
         }

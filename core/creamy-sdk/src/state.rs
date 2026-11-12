@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 use core::ops::{Deref, DerefMut};
 
 use cbus_core::{
-    GroupId, Subscriber,
+    ProtocolId, Subscriber,
     buffer::{DynIncBuf, DynOutBuf},
 };
 
@@ -11,12 +11,10 @@ use crate::{
     api::{DispatchDelegate, Plugin},
     generated::{
         dispatcher::{Dispatcher, MessageHandler},
-        system::builtin::{
-            ConsumerAppeared, ConsumerDisappeared, GroupDeclared, GroupUndeclared, StreamCancel,
-            StreamKeepAlive,
-        },
+        system::{ConsumerAppeared, ConsumerDisappeared, StreamCancel, StreamKeepAlive},
     },
     message::UntypedMessage,
+    system::{ProtocolDeclared, ProtocolUndeclared},
 };
 
 #[derive(Clone, Copy)]
@@ -63,18 +61,18 @@ impl Table {
         total: 0,
     };
 
-    //TODO: represent dst and group as SubscriberId
-    fn add(&mut self, group: u8, dst: u8) {
+    //TODO: represent dst and protocol as SubscriberId
+    fn add(&mut self, protocol: u8, dst: u8) {
         assert!(self.total != u8::MAX, "Table is full");
 
-        let group = group as usize;
+        let protocol = protocol as usize;
 
-        if self.slices[group].length == 0 {
-            self.slices[group].offset = self.total;
+        if self.slices[protocol].length == 0 {
+            self.slices[protocol].offset = self.total;
         }
 
-        let start = self.slices[group].offset;
-        let len = self.slices[group].length;
+        let start = self.slices[protocol].offset;
+        let len = self.slices[protocol].length;
         let insertion_point = start + len;
 
         if insertion_point < self.total {
@@ -91,13 +89,13 @@ impl Table {
             }
         }
 
-        self.slices[group].length += 1;
+        self.slices[protocol].length += 1;
         self.total += 1;
     }
 
-    fn remove(&mut self, group: u8, dst: u8) {
-        let group = group as usize;
-        let mut s = self.slices[group];
+    fn remove(&mut self, protocol: u8, dst: u8) {
+        let protocol = protocol as usize;
+        let mut s = self.slices[protocol];
         if s.length == 0 {
             return;
         }
@@ -141,11 +139,11 @@ impl Table {
             s.offset = 0;
         }
 
-        self.slices[group] = s;
+        self.slices[protocol] = s;
     }
 
-    pub fn get(&self, group: GroupId) -> &[SubscriberId] {
-        let Slice { offset, length } = self.slices[group.as_usize()];
+    pub fn get(&self, protocol: ProtocolId) -> &[SubscriberId] {
+        let Slice { offset, length } = self.slices[protocol.as_usize()];
         let offset = offset as usize;
         let length = length as usize;
         let slice = &self.inner[offset..offset + length];
@@ -196,7 +194,7 @@ impl<P: Plugin> PluginState<P> {
         while let Some(message) = self.inc.pop() {
             let dispatch_value = {
                 let message: &UntypedMessage = &message;
-                (u32::from(message.group) << 16 | u32::from(message.kind)) & HEADER_MASK
+                (u32::from(message.protocol) << 16 | u32::from(message.kind)) & HEADER_MASK
             };
             Dispatcher::dispatch_message(dispatch_value, message, self);
         }
@@ -205,22 +203,22 @@ impl<P: Plugin> PluginState<P> {
 }
 
 impl<P: Plugin> MessageHandler for PluginState<P> {
-    fn handle_group_declared(&mut self, message: GroupDeclared) {
-        self.table.add(message.group_id, message.provider);
-        P::Delegate::handle_on_group_enabled_event(message.group_id, &mut self.plugin);
+    fn handle_protocol_declared(&mut self, message: ProtocolDeclared) {
+        self.table.add(message.protocol_id, message.provider);
+        P::Delegate::handle_on_protocol_enabled_event(message.protocol_id, &mut self.plugin);
     }
 
-    fn handle_group_undeclared(&mut self, message: GroupUndeclared) {
-        self.table.remove(message.group_id, message.provider);
-        P::Delegate::handle_on_group_disable_event(message.group_id, &mut self.plugin);
+    fn handle_protocol_undeclared(&mut self, message: ProtocolUndeclared) {
+        self.table.remove(message.protocol_id, message.provider);
+        P::Delegate::handle_on_protocol_disabled_event(message.protocol_id, &mut self.plugin);
     }
 
     fn handle_consumer_appeared(&mut self, message: ConsumerAppeared) {
-        self.table.add(message.group_id, message.consumer_id);
+        self.table.add(message.protocol_id, message.consumer_id);
     }
 
     fn handle_consumer_disappeared(&mut self, message: ConsumerDisappeared) {
-        self.table.remove(message.group_id, message.consumer_id);
+        self.table.remove(message.protocol_id, message.consumer_id);
     }
 
     fn handle_stream_keep_alive(&mut self, message: StreamKeepAlive) {}
@@ -237,7 +235,7 @@ mod tests {
     use alloc::{vec, vec::Vec};
     use core::num::NonZeroU8;
 
-    use cbus_core::{GroupId, SubscriberId};
+    use cbus_core::{ProtocolId, SubscriberId};
 
     use super::Table;
 
@@ -265,7 +263,7 @@ mod tests {
         assert_eq!(table.inner[g10_start].unwrap().as_u8(), 43);
 
         assert_eq!(
-            table.get(GroupId::new_u8(5).unwrap()),
+            table.get(ProtocolId::new_u8(5).unwrap()),
             [SubscriberId::new(NonZeroU8::new(100).unwrap())]
         );
     }
@@ -294,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_last_element_in_group() {
+    fn test_remove_last_element_in_protocol() {
         let mut table = Table::EMPTY;
 
         table.add(5, 55);

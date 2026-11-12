@@ -8,7 +8,7 @@ use creamy_binary::{
 use strum::{EnumIter, IntoEnumIterator};
 
 use super::symbols::{
-    BitsetValueSymbol, FieldSymbol, GroupSymbol, MessageSymbolType, OptionSymbol, VariantSymbol,
+    BitsetValueSymbol, FieldSymbol, MessageSymbolType, OptionSymbol, VariantSymbol,
 };
 use crate::{
     symbols::StreamFieldSymbol,
@@ -18,20 +18,18 @@ use crate::{
 #[repr(u8)]
 #[derive(BinRead, BinWrite, EnumIter, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SymbolKey {
-    Group = 0,
-    Message = 1,
-    BitsetValue = 2,
-    Option = 3,
-    Variant = 4,
-    Field = 5,
-    StreamField = 6,
+    Message = 0,
+    BitsetValue = 1,
+    Option = 2,
+    Variant = 3,
+    Field = 4,
+    StreamField = 5,
 }
 
 fn create_storage() -> Vec<Box<dyn UntypedStorage>> {
     let mut vec = alloc::vec![];
     for key in SymbolKey::iter() {
         let storage = match key {
-            SymbolKey::Group => TypedStorage::<GroupSymbol>::boxed(),
             SymbolKey::Message => TypedStorage::<MessageSymbolType>::boxed(),
             SymbolKey::BitsetValue => TypedStorage::<BitsetValueSymbol>::boxed(),
             SymbolKey::Option => TypedStorage::<OptionSymbol>::boxed(),
@@ -50,7 +48,6 @@ fn read_storage<R: creamy_binary::Read>(
     reader: &mut R,
 ) -> Result<Box<dyn UntypedStorage>, ReadError<R::Error>> {
     let storage = match key {
-        SymbolKey::Group => TypedStorage::<GroupSymbol>::read_boxed(reader)?,
         SymbolKey::Message => TypedStorage::<MessageSymbolType>::read_boxed(reader)?,
         SymbolKey::BitsetValue => TypedStorage::<BitsetValueSymbol>::read_boxed(reader)?,
         SymbolKey::Option => TypedStorage::<OptionSymbol>::read_boxed(reader)?,

@@ -8,8 +8,8 @@ struct Driver;
 impl BusDriver for Driver {
     fn on_subscribe(&mut self, _: SubscriberId) -> impl DataIterator {
         core::iter::once(SubscriberLookupData {
-            consumer_group_id: 10,
-            provider_group_id: 1,
+            consumer_protocol_id: 10,
+            provider_protocol_id: 1,
             provider_id: SubscriberId::new(NonZeroU8::new(1).unwrap()),
         })
     }
@@ -19,7 +19,7 @@ impl BusDriver for Driver {
 
 define_bus! {
     max_messages: 2048,
-    max_groups: 128,
+    max_protocols: 128,
     max_subscribers: 128,
 }
 
@@ -74,14 +74,14 @@ fn dst_is_more_than_max_possible() {
     assert!(out.send_many_iter_exact([
         UntypedMessage {
             dst: 238,
-            group: 1,
+            protocol: 1,
             src: 17,
             kind: 0,
             payload: [0; 28],
         },
         UntypedMessage {
             dst: 128,
-            group: 1,
+            protocol: 1,
             src: 0,
             kind: 0,
             payload: [0; 28],
@@ -98,7 +98,7 @@ fn inactive_buffer_overflow() {
         let messages = core::iter::repeat_n(
             UntypedMessage {
                 dst: 100, // несуществующий подписчких будет хранить данные без очистки.
-                group: 1,
+                protocol: 1,
                 src: 1,
                 kind: 0,
                 payload: [0; 28],
@@ -142,7 +142,7 @@ fn self_send() {
     out.send_many_iter_exact(core::iter::repeat_n(
         UntypedMessage {
             dst: 1,
-            group: 10,
+            protocol: 10,
             src: 1,
             kind: 111,
             payload: [0; 28],

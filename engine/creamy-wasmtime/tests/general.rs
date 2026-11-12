@@ -12,7 +12,7 @@ use creamy_wasmtime::{
 
 define_engine! {
     max_messages: 1024,
-    max_groups: 32,
+    max_protocols: 32,
     max_subscribers: 32,
 }
 

@@ -131,12 +131,12 @@ pub mod driver {
     #[derive(Default, Clone)]
     struct SubscriberMetadata {
         to_sync: Vec<String>,
-        groups: Vec<u8>,
+        protocols: Vec<u8>,
     }
 
     pub struct CreamyDriver {
         provider: StackMint,
-        groups: HashMap<String, (SubscriberId, u8)>,
+        protocols: HashMap<String, (SubscriberId, u8)>,
         subscribers: Vec<SubscriberMetadata>,
     }
 
@@ -147,7 +147,7 @@ pub mod driver {
                 core::iter::repeat_n(SubscriberMetadata::default(), MS).collect::<Vec<_>>();
 
             Self {
-                groups: HashMap::new(),
+                protocols: HashMap::new(),
                 provider: StackMint::new(1),
                 subscribers,
             }
@@ -155,7 +155,7 @@ pub mod driver {
 
         pub fn declare_protocols(&mut self, name: impl Into<String>, provider: SubscriberId) {
             let id = self.provider.issue().unwrap();
-            assert!(self.groups.insert(name.into(), (provider, id)).is_none());
+            assert!(self.protocols.insert(name.into(), (provider, id)).is_none());
         }
 
         pub fn sync_protocol_table(&mut self, id: u8, protocols: Vec<String>) {
@@ -172,15 +172,15 @@ pub mod driver {
                 .to_sync
                 .drain(..)
                 .enumerate()
-                .map(|(consumer_group_id, name)| {
-                    let consumer_group_id = consumer_group_id as u8 + 1;
-                    let (provider_id, provider_group_id) = *self.groups.get(&name).unwrap();
+                .map(|(consumer_protocol_id, name)| {
+                    let consumer_protocol_id = consumer_protocol_id as u8 + 1;
+                    let (provider_id, provider_protocol_id) = *self.protocols.get(&name).unwrap();
 
-                    metadata.groups.push(provider_group_id);
+                    metadata.protocols.push(provider_protocol_id);
 
                     SubscriberLookupData {
-                        consumer_group_id,
-                        provider_group_id,
+                        consumer_protocol_id,
+                        provider_protocol_id,
                         provider_id,
                     }
                 })

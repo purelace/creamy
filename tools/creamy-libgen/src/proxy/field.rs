@@ -11,7 +11,7 @@ use crate::{Path, SymbolIterator, utils::AbsolutePath};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SpecialFieldType {
     SubscriberId,
-    GroupId,
+    ProtocolId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

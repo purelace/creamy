@@ -5,16 +5,16 @@ use creamy_protocol_model::{
 use creamy_utils::strpool::{StringPool, StringPoolResolver};
 use creamy_xmlc::compile;
 
-const SUCCESS_TEST: &str = include_str!("success.xml");
+const SAMPLE: &str = include_str!("success/sample.xml");
 
 #[test]
-fn success() {
+fn success_path() {
     let mut pool = StringPool::default();
-    let result = compile(&mut pool, SUCCESS_TEST);
+    let result = compile(&mut pool, SAMPLE);
     let protocol = match result {
         Ok(protocol) => protocol,
         Err(d) => {
-            d.print(SUCCESS_TEST);
+            d.print(SAMPLE);
             panic!();
         }
     };
@@ -32,7 +32,7 @@ fn success() {
 fn serialize_and_deserialize() {
     let mut pool = StringPool::default();
 
-    match compile(&mut pool, SUCCESS_TEST) {
+    match compile(&mut pool, SAMPLE) {
         Ok(original) => {
             let mut buffer = Vec::new();
             original.write_ne(&mut buffer).expect("Failed to serialize");
@@ -46,7 +46,7 @@ fn serialize_and_deserialize() {
             );
         }
         Err(diag) => {
-            diag.print(SUCCESS_TEST);
+            diag.print(SAMPLE);
             panic!();
         }
     }

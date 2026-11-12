@@ -2,7 +2,7 @@ use cbus_core::{UntypedMessage, buffer::IncBuf};
 
 const SAMPLE: UntypedMessage = UntypedMessage {
     dst: 123,
-    group: 3,
+    protocol: 3,
     src: 107,
     kind: 9,
     payload: [1; 28],

@@ -7,12 +7,10 @@ use semver::Version;
 
 const PROTOCOL: &str = r#"
 <?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="testcase" version="1.0.0">
-    <group name="opachki" access="Private">
-        <message name="Execute" direction="Duplex">
-            <field name="value" type="u64"/>
-        </message>
-    </group>
+<protocol name="opachki" version="1.0.0" access="Private">
+    <message name="Execute" direction="Duplex">
+        <field name="value" type="u64"/>
+    </message>
 </protocol>
 "#;
 

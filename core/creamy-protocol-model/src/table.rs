@@ -1,15 +1,13 @@
-use core::{fmt::Debug, mem::MaybeUninit, num::NonZeroU8, ops::Index};
+use core::{fmt::Debug, mem::MaybeUninit, ops::Index};
 
-use creamy_binary::{BinRead, BinWrite, BinaryReader};
+use creamy_binary::{BinRead, BinWrite};
 use creamy_utils::strpool::{StringId, StringPool};
 use hashbrown::HashMap;
 use strum::EnumCount;
 
 use crate::{
     error::{Fallback, SemanticError},
-    symbols::{
-        BUILTIN_GROUP, NumericSymbol, Type, U8_META, U16_META, U32_META, U64_META, U128_META,
-    },
+    symbols::{NumericSymbol, Type, U8_META, U16_META, U32_META, U64_META, U128_META},
     utils::{Align, Array, Range, Size, TypesRange},
 };
 
@@ -127,15 +125,13 @@ impl TypeMeta {
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TypeId {
     index: u16,
-    group: NonZeroU8,
     meta: TypeMeta,
 }
 
 impl TypeId {
     #[cfg_attr(coverage_nightly, coverage(off))]
-    pub(crate) const fn new(group: NonZeroU8, id: StringId, meta: TypeMeta) -> Self {
+    pub(crate) const fn new(id: StringId, meta: TypeMeta) -> Self {
         TypeId {
-            group,
             index: id.value(),
             meta,
         }
@@ -143,10 +139,6 @@ impl TypeId {
 
     pub(crate) const fn index(self) -> u16 {
         self.index
-    }
-
-    pub(crate) const fn group(self) -> NonZeroU8 {
-        self.group
     }
 
     #[must_use]
@@ -160,99 +152,38 @@ impl TypeId {
     }
 }
 
-#[derive(BinWrite, Debug, PartialEq, Eq)]
-struct GroupsMeta {
-    count: u8,
-    inner: Array<u16>,
-}
-
-impl GroupsMeta {
-    fn next_free_index(&self, ty: TypeId) -> usize {
-        let group = ty.group.get() as usize;
-        let index = self.inner[group] as usize;
-
-        let start_of_group: usize = self.inner[..group]
-            .iter()
-            .copied()
-            .map(|v| v as usize)
-            .sum();
-        start_of_group + index
-    }
-
-    #[cfg_attr(coverage_nightly, coverage(off))]
-    fn position_of(&self, ty: TypeId) -> usize {
-        let group = ty.group.get() as usize;
-        let start_of_group: usize = self.inner[..group]
-            .iter()
-            .copied()
-            .map(|v| v as usize)
-            .sum();
-        start_of_group + ty.index as usize
-    }
-
-    fn total_used(&self) -> usize {
-        self.inner[..=self.count as usize]
-            .iter()
-            .copied()
-            .map(|v| v as usize)
-            .sum()
-    }
-}
-
-impl BinaryReader for GroupsMeta {
-    fn read<R: creamy_binary::Read, E: creamy_binary::Endianness>(
-        reader: &mut R,
-    ) -> Result<Self, creamy_binary::ReadError<R::Error>> {
-        let count_u8 = u8::read::<R, E>(reader)?;
-        let inner = Array::<u16>::read::<R, E>(reader)?;
-
-        Ok(Self {
-            inner,
-            count: count_u8,
-        })
-    }
-}
-
-//TODO: replace u8 and NonZeroU8 with InternalU8 and ExternalU8
-
 pub struct TypeTable {
-    meta: GroupsMeta,
+    index: u16,
     types: Array<MaybeUninit<Type>>,
-
     //Fix 'same Id's but different types'
     inner: HashMap<StringId, TypeId>,
 }
 
 impl TypeTable {
     #[must_use]
-    pub fn new(groups: u8, types: u16) -> Self {
-        //TODO: fix use internal and external u8
-        let groups = groups.saturating_add(1);
+    pub fn new(types: u16) -> Self {
         let types = types as usize + NumericSymbol::COUNT;
 
         let mut instance = Self {
-            meta: GroupsMeta {
-                count: groups,
-                inner: Array::new_with_default(256, 0),
-            },
+            index: 0,
             types: Array::zeroed(types),
             inner: HashMap::new(),
         };
 
-        instance.register_type(BUILTIN_GROUP, U8_META, Type::Numeric(NumericSymbol::U8));
-        instance.register_type(BUILTIN_GROUP, U16_META, Type::Numeric(NumericSymbol::U16));
-        instance.register_type(BUILTIN_GROUP, U32_META, Type::Numeric(NumericSymbol::U32));
-        instance.register_type(BUILTIN_GROUP, U64_META, Type::Numeric(NumericSymbol::U64));
-        instance.register_type(BUILTIN_GROUP, U128_META, Type::Numeric(NumericSymbol::U128));
+        instance.register_type(U8_META, Type::Numeric(NumericSymbol::U8));
+        instance.register_type(U16_META, Type::Numeric(NumericSymbol::U16));
+        instance.register_type(U32_META, Type::Numeric(NumericSymbol::U32));
+        instance.register_type(U64_META, Type::Numeric(NumericSymbol::U64));
+        instance.register_type(U128_META, Type::Numeric(NumericSymbol::U128));
 
-        instance.register_type(BUILTIN_GROUP, U8_META, Type::Numeric(NumericSymbol::I8));
-        instance.register_type(BUILTIN_GROUP, U16_META, Type::Numeric(NumericSymbol::I16));
-        instance.register_type(BUILTIN_GROUP, U32_META, Type::Numeric(NumericSymbol::I32));
-        instance.register_type(BUILTIN_GROUP, U64_META, Type::Numeric(NumericSymbol::I64));
-        instance.register_type(BUILTIN_GROUP, U128_META, Type::Numeric(NumericSymbol::I128));
+        instance.register_type(U8_META, Type::Numeric(NumericSymbol::I8));
+        instance.register_type(U16_META, Type::Numeric(NumericSymbol::I16));
+        instance.register_type(U32_META, Type::Numeric(NumericSymbol::I32));
+        instance.register_type(U64_META, Type::Numeric(NumericSymbol::I64));
+        instance.register_type(U128_META, Type::Numeric(NumericSymbol::I128));
 
-        instance.register_type(BUILTIN_GROUP, U32_META, Type::Numeric(NumericSymbol::F32));
-        instance.register_type(BUILTIN_GROUP, U64_META, Type::Numeric(NumericSymbol::F64));
+        instance.register_type(U32_META, Type::Numeric(NumericSymbol::F32));
+        instance.register_type(U64_META, Type::Numeric(NumericSymbol::F64));
 
         instance
     }
@@ -262,20 +193,12 @@ impl TypeTable {
         self.inner.get(&name).copied()
     }
 
-    pub fn register_type(&mut self, group: NonZeroU8, meta: TypeMeta, symbol: Type) {
-        let group_usize = group.get() as usize;
+    pub fn register_type(&mut self, meta: TypeMeta, symbol: Type) {
+        let index = self.index;
+        self.types[index as usize] = MaybeUninit::new(symbol);
+        self.inner.insert(symbol.ident(), TypeId { index, meta });
 
-        let index = self.meta.inner[group_usize];
-
-        let id = TypeId { index, group, meta };
-        let flat_index = self.meta.next_free_index(id);
-
-        let name = symbol.ident();
-        self.types[flat_index] = MaybeUninit::new(symbol);
-        assert!(self.inner.insert(name, id).is_none());
-
-        // Increase offset
-        self.meta.inner[group_usize] += 1;
+        self.index += 1;
     }
 
     #[must_use]
@@ -284,21 +207,16 @@ impl TypeTable {
     }
 
     #[must_use]
-    pub fn finish(mut self) -> FinishedTypeTable {
-        assert_eq!(self.meta.total_used(), self.types.len());
-        let types = unsafe { self.types.assume_init() };
-        self.meta.inner.trim(self.meta.count as usize + 1);
-
+    pub fn finish(self) -> FinishedTypeTable {
+        debug_assert_eq!(self.index as usize, self.types.len());
         FinishedTypeTable {
-            meta: self.meta,
-            types,
+            types: unsafe { self.types.assume_init() },
         }
     }
 }
 
 #[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
 pub struct FinishedTypeTable {
-    meta: GroupsMeta,
     types: Array<Type>,
 }
 
@@ -310,18 +228,13 @@ impl FinishedTypeTable {
     }
 
     #[must_use]
-    pub const fn group_count(&self) -> usize {
-        self.meta.count as usize
-    }
-
-    #[must_use]
     pub const fn types(&self) -> &[Type] {
         self.types.as_slice()
     }
 
     #[must_use]
     pub fn get_type(&self, id: TypeId) -> &Type {
-        &self.types[self.meta.position_of(id)]
+        &self.types[id.index as usize]
     }
 
     #[must_use]

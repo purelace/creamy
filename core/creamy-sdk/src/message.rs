@@ -1,11 +1,11 @@
-use cbus_core::GroupId;
+use cbus_core::ProtocolId;
 pub use cbus_core::{
     UntypedMessage,
     message::{TypedMessage, cast_message},
 };
 
 pub trait Message: TypedMessage {
-    const GROUP: GroupId;
+    const PROTOCOL: ProtocolId;
     const KIND: u8;
 }
 

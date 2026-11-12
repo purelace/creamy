@@ -33,12 +33,12 @@ pub use lookup::SubscriberLookupData;
 macro_rules! define_bus {
     (
         max_messages: $mm: expr,
-        max_groups: $mg: expr,
+        max_protocols: $mg: expr,
         max_subscribers: $ms: expr,
     ) => {
         extern crate alloc;
         pub const MAX_MESSAGES: usize = $mm;
-        pub const MAX_GROUPS: usize = $mg;
+        pub const MAX_PROTOCOLS: usize = $mg;
         pub const MAX_SUBSCRIBERS: usize = $ms;
         pub type IncBuf = $crate::core::buffer::IncBuf<$mm>;
         pub type OutBuf = $crate::core::buffer::OutBuf<$mm>;

@@ -155,7 +155,7 @@ impl Args {
         format!("{}::SubscriberId", self.creamy_sdk_path)
     }
 
-    pub(crate) fn group_id_path(&self) -> String {
-        format!("{}::GroupId", self.creamy_sdk_path)
+    pub(crate) fn protocol_id_path(&self) -> String {
+        format!("{}::ProtocolId", self.creamy_sdk_path)
     }
 }

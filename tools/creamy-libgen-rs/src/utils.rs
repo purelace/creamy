@@ -5,11 +5,11 @@ use crate::Args;
 pub fn generate_message_const_block(
     args: &Args,
     target: &str,
-    group: u8,
+    protocol: u8,
     kind: u8,
     dispatch_value: u32,
 ) -> Tokens {
-    let group_id = &args.group_id_path();
+    let protocol_id = &args.protocol_id_path();
     let size = args.message_size_path();
     quote! {
         const _ASSERT_SIZE: () = {
@@ -25,7 +25,7 @@ pub fn generate_message_const_block(
             bytes[2] = 1;
             bytes[3] = 1;
             let mut value = unsafe { core::mem::transmute::<[u8; core::mem::size_of::<Self>()], Self>(bytes) };
-            value.group = $group_id::new_u8($group).unwrap();
+            value.protocol = $protocol_id::new_u8($protocol).unwrap();
             value.kind = $kind;
             value
         };

@@ -4,8 +4,8 @@ use cbus_core::SubscriberId;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SubscriberLookupData {
-    pub consumer_group_id: u8,
-    pub provider_group_id: u8,
+    pub consumer_protocol_id: u8,
+    pub provider_protocol_id: u8,
     pub provider_id: SubscriberId,
 }
 
@@ -32,8 +32,8 @@ impl<const MG: usize, const MS: usize> LookupTable<MG, MS> {
             self.set_values(
                 lookup_data.provider_id.as_usize(),
                 SubscriberLookupData {
-                    consumer_group_id: lookup_data.provider_group_id,
-                    provider_group_id: lookup_data.consumer_group_id,
+                    consumer_protocol_id: lookup_data.provider_protocol_id,
+                    provider_protocol_id: lookup_data.consumer_protocol_id,
                     provider_id: lookup_data.provider_id,
                 },
             );
@@ -42,8 +42,8 @@ impl<const MG: usize, const MS: usize> LookupTable<MG, MS> {
 
     fn set_values(&mut self, id: usize, data: SubscriberLookupData) {
         let slice = id * MG;
-        let src_index = slice + data.consumer_group_id as usize;
-        self.input[src_index] = data.provider_group_id;
+        let src_index = slice + data.consumer_protocol_id as usize;
+        self.input[src_index] = data.provider_protocol_id;
     }
 
     pub fn zeroize(&mut self, id: SubscriberId) {

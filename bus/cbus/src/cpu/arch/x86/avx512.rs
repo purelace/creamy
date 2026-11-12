@@ -77,39 +77,40 @@ impl Avx512FInstructionSet {
 
             let zmm_dst = _mm512_and_si512(final_headers, _mm512_set1_epi32(0xFF));
             let zmm_dst = Self::validate_dst(range, src, zmm_dst);
-            let zmm_group =
+            let zmm_protocol =
                 _mm512_and_si512(_mm512_srli_epi32(final_headers, 8), _mm512_set1_epi32(0xFF));
 
             let zmm_src = _mm512_set1_epi32(src.safe_as());
 
-            let zmm_relative_to_dst_group_indices =
-                _mm512_add_epi32(_mm512_sllv_epi32(zmm_src, zmm_bits), zmm_group);
+            let zmm_relative_to_dst_protocol_indices =
+                _mm512_add_epi32(_mm512_sllv_epi32(zmm_src, zmm_bits), zmm_protocol);
 
-            let zmm_relative_to_dst_group_values = _mm512_i32gather_epi32::<1>(
-                zmm_relative_to_dst_group_indices,
+            let zmm_relative_to_dst_protocol_values = _mm512_i32gather_epi32::<1>(
+                zmm_relative_to_dst_protocol_indices,
                 lut.as_slice().as_ptr().cast::<i32>(),
             );
 
-            let zmm_groups =
-                _mm512_and_si512(zmm_relative_to_dst_group_values, _mm512_set1_epi32(0xFF));
+            let zmm_protocols =
+                _mm512_and_si512(zmm_relative_to_dst_protocol_values, _mm512_set1_epi32(0xFF));
 
-            let k_groups_not_zero = _mm512_cmpneq_epi32_mask(zmm_groups, _mm512_setzero_si512());
+            let k_protocols_not_zero =
+                _mm512_cmpneq_epi32_mask(zmm_protocols, _mm512_setzero_si512());
 
-            let v_final_dst = _mm512_maskz_mov_epi32(k_groups_not_zero, zmm_dst);
-            let v_final_group = zmm_groups;
+            let v_final_dst = _mm512_maskz_mov_epi32(k_protocols_not_zero, zmm_dst);
+            let v_final_protocol = zmm_protocols;
 
-            let v_combined = _mm512_or_si512(v_final_dst, _mm512_slli_epi32(v_final_group, 8));
+            let v_combined = _mm512_or_si512(v_final_dst, _mm512_slli_epi32(v_final_protocol, 8));
             let zmm_header = _mm512_or_si512(v_combined, _mm512_slli_epi32(zmm_src, 16));
 
             // Вырезаем 4-й байт (маска 0xFF000000)
-            // Оставляем только тип сообщения, обнуляя старые dst, group, src
+            // Оставляем только тип сообщения, обнуляя старые dst, protocol, src
             let zmm_old_type = _mm512_and_si512(
                 final_headers,
                 _mm512_set1_epi32(0xFF00_0000_u32.cast_signed()),
             );
 
-            // Твой текущий v_header содержит [id][group][dst] и 0 в 4-м байте
-            // Склеиваем их: [dst][group][src][kind]
+            // Твой текущий v_header содержит [id][protocol][dst] и 0 в 4-м байте
+            // Склеиваем их: [dst][protocol][src][kind]
             _mm512_or_si512(zmm_header, zmm_old_type)
         }
     }

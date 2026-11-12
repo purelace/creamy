@@ -18,7 +18,7 @@ repository = "https://github.com/purelace/creamy"
 authors = [ "selrisu <myirisuchan@gmail.com>" ]
 
 [protocols]
-system = { version = "1.0.0", groups=["builtin"], provide = true  }
+system = { version = "1.0.0", provide = true  }
 "#;
 
 fn setup_root() -> std::io::Result<TempDir> {
@@ -44,7 +44,7 @@ fn header_field<'s>(
 
 struct Mock;
 impl<'s> CodeGenerator<'s> for Mock {
-    fn start_group(&mut self, _: &'s str, _: Option<u8>) {}
+    fn start_protocol(&mut self, _: &'s str, _: Option<u8>) {}
 
     #[allow(clippy::too_many_lines)]
     fn generate_single_message<I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
@@ -53,7 +53,7 @@ impl<'s> CodeGenerator<'s> for Mock {
     {
         let fields = symbol.fields.collect::<Vec<_>>();
         assert_eq!(symbol.name, "SetPermissions");
-        assert_eq!(symbol.group, 2);
+        assert_eq!(symbol.protocol, 2);
         assert_eq!(symbol.kind, 0);
         assert_eq!(symbol.dispatch_value, 2u32 << 16);
         assert_eq!(
@@ -64,8 +64,8 @@ impl<'s> CodeGenerator<'s> for Mock {
                     EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
                 ),
                 header_field(
-                    "group",
-                    EnrichedFieldType::Special(SpecialFieldType::GroupId)
+                    "protocol",
+                    EnrichedFieldType::Special(SpecialFieldType::ProtocolId)
                 ),
                 header_field(
                     "src",
@@ -82,7 +82,6 @@ impl<'s> CodeGenerator<'s> for Mock {
                     kind: EnrichedFieldType::Type {
                         name: Path::from_absolute(AbsolutePath::from_iter([
                             "system",
-                            "builtin",
                             "Permissions"
                         ]))
                     },
@@ -122,7 +121,7 @@ impl<'s> CodeGenerator<'s> for Mock {
         C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
     {
         assert_eq!(symbol.name, "Log");
-        assert_eq!(symbol.group, 2);
+        assert_eq!(symbol.protocol, 2);
         assert_eq!(symbol.kind, 1);
         assert_eq!(symbol.timeout, 60);
         assert_eq!(symbol.dispatch_value, 2u32 << 16 | 1u32);
@@ -135,8 +134,8 @@ impl<'s> CodeGenerator<'s> for Mock {
                     EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
                 ),
                 header_field(
-                    "group",
-                    EnrichedFieldType::Special(SpecialFieldType::GroupId)
+                    "protocol",
+                    EnrichedFieldType::Special(SpecialFieldType::ProtocolId)
                 ),
                 header_field(
                     "src",
@@ -176,9 +175,7 @@ impl<'s> CodeGenerator<'s> for Mock {
                 EnrichedStreamFieldSymbol {
                     name: "level".into(),
                     kind: EnrichedStreamFieldType::Type {
-                        name: Path::from_absolute(AbsolutePath::from_iter([
-                            "system", "builtin", "Level"
-                        ])),
+                        name: Path::from_absolute(AbsolutePath::from_iter(["system", "Level"])),
                     },
                     type_id: t0,
                     is_padding: false,
@@ -379,7 +376,7 @@ impl<'s> CodeGenerator<'s> for Mock {
         );
     }
 
-    fn end_group(&mut self) {}
+    fn end_protocol(&mut self) {}
 
     fn generate_dispatcher<G, M>(&mut self, _: G, _: M)
     where
@@ -388,9 +385,9 @@ impl<'s> CodeGenerator<'s> for Mock {
     {
     }
 
-    fn generate_plugin_group_table(&mut self, _: PerfectHashTable) {}
+    fn generate_plugin_protocol_table(&mut self, _: PerfectHashTable) {}
 
-    fn generate_host_group_table(&mut self, _: PerfectHashTable) {}
+    fn generate_host_protocol_table(&mut self, _: PerfectHashTable) {}
 
     fn generate_host_package(&mut self, _: Vec<u8>) {}
 

@@ -21,7 +21,7 @@ pub mod binary {
     pub use creamy_binary::*;
 }
 
-pub use cbus_core::{GroupId, SubscriberId};
+pub use cbus_core::{ProtocolId, SubscriberId};
 pub mod defines {
     pub use cbus_core::defines::*;
 }

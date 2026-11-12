@@ -25,12 +25,12 @@ pub mod sdk {
 macro_rules! define_engine {
     (
         max_messages: $mm: expr,
-        max_groups: $mg: expr,
+        max_protocols: $mg: expr,
         max_subscribers: $ms: expr,
     ) => {
         extern crate alloc;
         pub const MAX_MESSAGES: usize = $mm;
-        pub const MAX_GROUPS: usize = $mg;
+        pub const MAX_PROTOCOLS: usize = $mg;
         pub const MAX_SUBSCRIBERS: usize = $ms;
         pub type IncBuf = $crate::core::bus::core::buffer::IncBuf<$mm>;
         pub type OutBuf = $crate::core::bus::core::buffer::OutBuf<$mm>;

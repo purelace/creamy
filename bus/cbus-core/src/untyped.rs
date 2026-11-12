@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use static_assertions::assert_eq_size;
 
-use crate::{GroupId, SubscriberId, defines::MESSAGE_SIZE, message::TypedMessage};
+use crate::{ProtocolId, SubscriberId, defines::MESSAGE_SIZE, message::TypedMessage};
 
 assert_eq_size!(UntypedMessage, [u8; MESSAGE_SIZE]);
 
@@ -11,7 +11,7 @@ assert_eq_size!(UntypedMessage, [u8; MESSAGE_SIZE]);
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 pub struct UntypedMessage {
     pub dst: u8,
-    pub group: u8,
+    pub protocol: u8,
     pub src: u8,
     pub kind: u8,
     pub payload: [u8; 28],
@@ -32,12 +32,12 @@ impl TypedMessage for UntypedMessage {
         self.src
     }
 
-    fn group(&self) -> u8 {
-        self.group
+    fn protocol(&self) -> u8 {
+        self.protocol
     }
 
-    fn with_group(&mut self, group: GroupId) -> &mut Self {
-        self.group = group.as_u8();
+    fn with_protocol(&mut self, protocol: ProtocolId) -> &mut Self {
+        self.protocol = protocol.as_u8();
         self
     }
 

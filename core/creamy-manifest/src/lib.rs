@@ -67,7 +67,6 @@ impl Default for Package {
 #[derive(BinRead, BinWrite, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequestedProtocol {
     version: Version,
-    groups: Vec<String>,
     #[serde(default)]
     provide: bool,
 }
@@ -77,11 +76,6 @@ impl RequestedProtocol {
     #[must_use]
     pub const fn version(&self) -> &Version {
         &self.version
-    }
-
-    #[must_use]
-    pub const fn groups(&self) -> &[String] {
-        self.groups.as_slice()
     }
 
     #[must_use]
@@ -143,7 +137,7 @@ impl Manifest {
     }
 
     #[must_use]
-    pub const fn requested_groups(&self) -> &HashMap<String, RequestedProtocol> {
+    pub const fn requested_protocols(&self) -> &HashMap<String, RequestedProtocol> {
         &self.protocols
     }
 }
@@ -168,7 +162,7 @@ mod test {
      authors = ["selrisu <myirisuchan@gmail.com>"]
 
      [protocols]
-     testcase = { version = "1.0.0", groups=["valid"]}
+     testcase = { version = "1.0.0" }
      "#;
 
     #[test]
@@ -192,7 +186,6 @@ mod test {
                         "testcase".into(),
                         RequestedProtocol {
                             version: Version::new(1, 0, 0),
-                            groups: vec!["valid".into()],
                             provide: false,
                         },
                     );

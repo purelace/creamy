@@ -25,27 +25,27 @@ pub const I128_ID: StringId = StringId::new(9);
 pub const F32_ID: StringId = StringId::new(10);
 pub const F64_ID: StringId = StringId::new(11);
 
-pub const BUILTIN_GROUP: NonZeroU8 = NonZeroU8::new(1).unwrap();
+pub const BUILTIN_PROTOCOL: NonZeroU8 = NonZeroU8::new(1).unwrap();
 pub const U8_META: TypeMeta = TypeMeta::new(Size::B1, Align::B1);
 pub const U16_META: TypeMeta = TypeMeta::new(Size::B2, Align::B2);
 pub const U32_META: TypeMeta = TypeMeta::new(Size::B4, Align::B4);
 pub const U64_META: TypeMeta = TypeMeta::new(Size::B8, Align::B8);
 pub const U128_META: TypeMeta = TypeMeta::new(Size::B16, Align::B16);
 
-pub const T_U8_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(0), U8_META);
-pub const T_U16_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(1), U16_META);
-pub const T_U32_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(2), U32_META);
-pub const T_U64_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(3), U64_META);
-pub const T_U128_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(4), U128_META);
+pub const T_U8_ID: TypeId = TypeId::new(StringId::new(0), U8_META);
+pub const T_U16_ID: TypeId = TypeId::new(StringId::new(1), U16_META);
+pub const T_U32_ID: TypeId = TypeId::new(StringId::new(2), U32_META);
+pub const T_U64_ID: TypeId = TypeId::new(StringId::new(3), U64_META);
+pub const T_U128_ID: TypeId = TypeId::new(StringId::new(4), U128_META);
 
-pub const T_I8_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(5), U8_META);
-pub const T_I16_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(6), U16_META);
-pub const T_I32_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(7), U32_META);
-pub const T_I64_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(8), U64_META);
-pub const T_I128_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(9), U128_META);
+pub const T_I8_ID: TypeId = TypeId::new(StringId::new(5), U8_META);
+pub const T_I16_ID: TypeId = TypeId::new(StringId::new(6), U16_META);
+pub const T_I32_ID: TypeId = TypeId::new(StringId::new(7), U32_META);
+pub const T_I64_ID: TypeId = TypeId::new(StringId::new(8), U64_META);
+pub const T_I128_ID: TypeId = TypeId::new(StringId::new(9), U128_META);
 
-pub const T_F32_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(10), U32_META);
-pub const T_F64_ID: TypeId = TypeId::new(BUILTIN_GROUP, StringId::new(11), U64_META);
+pub const T_F32_ID: TypeId = TypeId::new(StringId::new(10), U32_META);
+pub const T_F64_ID: TypeId = TypeId::new(StringId::new(11), U64_META);
 
 #[must_use]
 pub const fn is_builtin_type(ty: TypeId) -> bool {

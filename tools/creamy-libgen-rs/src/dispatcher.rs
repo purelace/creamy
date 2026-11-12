@@ -4,9 +4,9 @@ use heck::ToSnakeCase;
 
 use crate::{Args, path_to_string};
 
-pub fn generate_dispatcher<G, M>(args: &Args, groups: G, messages: M) -> Tokens
+pub fn generate_dispatcher<P, M>(args: &Args, protocols: P, messages: M) -> Tokens
 where
-    G: Iterator<Item = Path>,
+    P: Iterator<Item = Path>,
     M: Iterator<Item = Path>,
 {
     let mut trait_functions = vec![];
@@ -15,26 +15,26 @@ where
     let mut enable_match_branches = vec![];
     let mut disable_match_branches = vec![];
 
-    for path in groups {
+    for path in protocols {
         let postfix = &match &path {
             Path::Global { name } => name.to_snake_case(),
             Path::Absolute { components } => components[components.len() - 2].to_snake_case(),
         };
 
         trait_functions.push(quote! {
-            fn on_$(postfix)_group_enabled(&mut self) {}
-            fn on_$(postfix)_group_disabled(&mut self) {}
+            fn on_$(postfix)_protocol_enabled(&mut self) {}
+            fn on_$(postfix)_protocol_disabled(&mut self) {}
         });
 
         let path = &path_to_string(&path);
         enable_match_branches.push(quote! {
             $path => {
-                handler.on_$(postfix)_group_enabled();
+                handler.on_$(postfix)_protocol_enabled();
             }
         });
         disable_match_branches.push(quote! {
             $path => {
-                handler.on_$(postfix)_group_disabled();
+                handler.on_$(postfix)_protocol_disabled();
             }
         });
     }
@@ -78,16 +78,16 @@ where
             }
 
             #[inline(always)]
-            fn handle_on_group_enabled_event(group_id: u8, handler: &mut Self::Handler) {
-                match group_id {
+            fn handle_on_protocol_enabled_event(protocol_id: u8, handler: &mut Self::Handler) {
+                match protocol_id {
                     $enable_match_branches
                     _ => {}
                 }
             }
 
             #[inline(always)]
-            fn handle_on_group_disable_event(group_id: u8, handler: &mut Self::Handler) {
-                match group_id {
+            fn handle_on_protocol_disabled_event(protocol_id: u8, handler: &mut Self::Handler) {
+                match protocol_id {
                     $disable_match_branches
                     _ => {}
                 }

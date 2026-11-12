@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="ping" version="1.0.0">
-    <group name="messages" access="Public">
-        <message name="Ping" direction="Duplex">
-            <field name="serial" type="u32" />
-        </message>
-        <message name="Pong" direction="Duplex">
-            <field name="serial" type="u32" />
-        </message>
-    </group>
+<protocol name="ping" version="1.0.0" access="Public">
+
+    <message name="Ping" direction="Duplex">
+        <field name="serial" type="u32" />
+    </message>
+
+    <message name="Pong" direction="Duplex">
+        <field name="serial" type="u32" />
+    </message>
+
 </protocol>

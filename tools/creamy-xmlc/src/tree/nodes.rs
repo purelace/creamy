@@ -1,4 +1,4 @@
-use creamy_protocol_model::{Access, Direction, symbols::VariantValue};
+use creamy_protocol_model::{Direction, symbols::VariantValue};
 
 use super::StreamFieldNode;
 use crate::tokenizer::Identifier;
@@ -12,36 +12,6 @@ pub struct EnumNode<'src> {
 pub struct VariantNode<'src> {
     pub name: Identifier<'src>,
     pub value: VariantValue,
-}
-
-#[derive(Default)]
-pub struct GlobalTypesNode<'src> {
-    pub structs: Vec<StructNode<'src>>,
-    pub enums: Vec<EnumNode<'src>>,
-    pub flags: Vec<FlagsNode<'src>>,
-    pub bitsets: Vec<BitsetNode<'src>>,
-}
-
-impl GlobalTypesNode<'_> {
-    pub const fn type_count(&self) -> u16 {
-        (self.structs.len() + self.enums.len() + self.flags.len() + self.bitsets.len()) as u16
-    }
-}
-
-pub struct GroupNode<'src> {
-    pub name: Identifier<'src>,
-    pub access: Access,
-    pub structs: Vec<StructNode<'src>>,
-    pub enums: Vec<EnumNode<'src>>,
-    pub flags: Vec<FlagsNode<'src>>,
-    pub bitsets: Vec<BitsetNode<'src>>,
-    pub messages: Vec<MessageNodeType<'src>>,
-}
-
-impl GroupNode<'_> {
-    pub const fn type_count(&self) -> u16 {
-        (self.structs.len() + self.enums.len() + self.flags.len() + self.bitsets.len()) as u16
-    }
 }
 
 pub enum MessageNodeType<'src> {

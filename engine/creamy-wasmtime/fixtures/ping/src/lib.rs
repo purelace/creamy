@@ -7,7 +7,7 @@ use creamy_sdk_wasm::{declare_plugin, error, info, warn};
 
 use self::generated::{
     dispatcher::{Dispatcher, MessageHandler},
-    ping::messages::{Ping, Pong},
+    ping::{Ping, Pong},
 };
 
 declare_plugin!(PingPlugin);

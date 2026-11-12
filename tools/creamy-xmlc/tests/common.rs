@@ -6,11 +6,11 @@ use creamy_xmlc::error::{AstError, ProtocolError, SyntaxError};
 use miette::SourceSpan;
 
 #[must_use]
-pub fn get_xml(version: &str, content: &str) -> String {
+pub fn get_xml(version: &str, access: &str, content: &str) -> String {
     format!(
         r#"
 <?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="test" version="{version}">
+<protocol name="test" version="{version}" access="{access}">
     {content}
 </protocol>"#
     )

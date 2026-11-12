@@ -14,8 +14,8 @@
 extern crate alloc;
 
 pub mod buffer;
-mod group;
 pub mod message;
+mod protocol;
 mod subscriber;
 mod untyped;
 
@@ -37,6 +37,6 @@ pub mod defines {
     pub const TARGET_ALIGN: usize = 64;
 }
 
-pub use group::GroupId;
+pub use protocol::ProtocolId;
 pub use subscriber::{Subscriber, SubscriberId};
 pub use untyped::UntypedMessage;

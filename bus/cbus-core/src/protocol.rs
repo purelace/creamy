@@ -3,9 +3,9 @@ use core::num::NonZeroU8;
 
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GroupId(NonZeroU8);
+pub struct ProtocolId(NonZeroU8);
 
-impl GroupId {
+impl ProtocolId {
     #[must_use]
     pub const fn new(id: NonZeroU8) -> Self {
         Self(id)
@@ -41,7 +41,7 @@ impl GroupId {
     }
 }
 
-impl core::fmt::Display for GroupId {
+impl core::fmt::Display for ProtocolId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0)
     }

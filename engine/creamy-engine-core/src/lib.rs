@@ -12,7 +12,7 @@ use creamy_plugin_package::{
     model::{Version, definition::ProtocolModel},
     pool::StringPool,
 };
-pub use table::GroupTable;
+pub use table::ProtocolTable;
 
 pub mod bus {
     pub use cbus::*;
@@ -34,7 +34,7 @@ pub struct Metadata {
 pub trait Module<const M: usize>: Subscriber {
     fn incoming_ptr(&self) -> NonNull<u8>;
     fn outgoing_ptr(&self) -> NonNull<u8>;
-    fn get_group_table(&mut self) -> GroupTable<'_>;
+    fn get_protocol_table(&mut self) -> ProtocolTable<'_>;
 }
 
 #[allow(clippy::missing_errors_doc)]

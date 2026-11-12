@@ -19,14 +19,13 @@ pub enum PluginError {
         version_a: Version,
         version_b: Version,
     },
-    #[error("Group '{group}' from protocol '{protocol}' is already provided by '{provider}'")]
-    GroupAlreadyProvided {
-        group: Box<str>,
+    #[error("Protocol '{protocol}' is already provided by '{provider}'")]
+    ProtocolAlreadyProvided {
         protocol: Box<str>,
         provider: Box<str>,
     },
-    #[error("Group '{group}' from protocol '{protocol}' is busy")]
-    GroupIsBusy { group: Box<str>, protocol: Box<str> },
+    #[error("Protocol '{protocol}' is busy")]
+    ProtocolIsBusy { protocol: Box<str> },
 
     #[error("{0}")]
     Binary(#[from] creamy_binary::ReadError<core::convert::Infallible>),

@@ -1,9 +1,8 @@
-use std::{cell::RefCell, num::NonZeroU8};
+use std::cell::RefCell;
 
-use as_guard::AsGuard;
 use creamy_protocol_model::{
-    BitsetValuesRange, Direction, FieldsRange, MessagesRange, OptionsRange, Size, TypeMeta,
-    TypeTable, TypesRange, VariantsRange,
+    BitsetValuesRange, Direction, FieldsRange, OptionsRange, Size, TypeMeta, TypeTable,
+    VariantsRange,
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     definition::ProtocolModel,
     error::SemanticError,
@@ -11,15 +10,13 @@ use creamy_protocol_model::{
     storage::SymbolStorage,
     symbols::{
         ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID, FieldSymbol,
-        FieldType, FlagsSymbol, GlobalTypesSymbol, GroupSymbol, HeapArraySymbol, I8_ID, I16_ID,
-        I32_ID, I64_ID, I128_ID, MessageSymbol, MessageSymbolType,
-        NumericSymbol::{self},
-        OptionSymbol, PrimitiveRepr, StreamFieldSymbol, StreamFieldType, StreamSymbol,
-        StructSymbol, T_U8_ID, Type, U8_ID, U16_ID, U32_ID, U64_ID, U128_ID, VariantSymbol,
+        FieldType, FlagsSymbol, HeapArraySymbol, I8_ID, I16_ID, I32_ID, I64_ID, I128_ID,
+        MessageSymbol, MessageSymbolType, OptionSymbol, PrimitiveRepr, StreamFieldSymbol,
+        StreamFieldType, StreamSymbol, StructSymbol, T_U8_ID, Type, U8_ID, U16_ID, U32_ID, U64_ID,
+        U128_ID, VariantSymbol,
     },
 };
 use creamy_utils::strpool::{StringPool, StringPoolIntern};
-use strum::EnumCount;
 
 use crate::{
     diagnostics::Diagnostics,
@@ -28,8 +25,8 @@ use crate::{
     tree::{
         ProtocolTree, StreamFieldNode, StreamFieldTypeNode,
         nodes::{
-            BitsetNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, GlobalTypesNode, GroupNode,
-            MessageNode, MessageNodeType, StreamNode, StructNode,
+            BitsetNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, MessageNode,
+            MessageNodeType, StreamNode, StructNode,
         },
     },
 };
@@ -67,105 +64,27 @@ pub fn compile(pool: &mut StringPool, content: &str) -> Result<ProtocolModel, Di
         return Err(diag);
     }
 
-    let def = run(&mut diag, pool, tree);
+    let model = run(&mut diag, pool, tree);
     if diag.has_errors() {
         Err(diag)
     } else {
-        Ok(def)
-    }
-}
-
-pub struct DefinitionBuilder<'a> {
-    storage: SymbolStorage,
-    diag: &'a mut Diagnostics,
-    pool: &'a mut StringPool,
-}
-
-impl<'a> DefinitionBuilder<'a> {
-    fn new(diag: &'a mut Diagnostics, pool: &'a mut StringPool) -> Self {
-        Self {
-            storage: SymbolStorage::default(),
-            diag,
-            pool,
-        }
-    }
-
-    fn resolve_global_types(
-        &mut self,
-        global: &GlobalTypesNode,
-        tt: &mut TypeTable,
-    ) -> GlobalTypesSymbol {
-        let mut resolver = Resolver::new(
-            self.diag,
-            tt,
-            &mut self.storage,
-            self.pool,
-            //FIX: we don't need a group for the global types
-            NonZeroU8::new(1).unwrap(),
-        );
-
-        resolver.resolve_flags(&global.flags);
-        resolver.resolve_bitsets(&global.bitsets);
-        resolver.resolve_enums(&global.enums);
-        resolver.resolve_structs(&global.structs);
-
-        let offset = NumericSymbol::COUNT as u16;
-        let total_len =
-            global.flags.len() + global.bitsets.len() + global.enums.len() + global.structs.len();
-        GlobalTypesSymbol::new(TypesRange::new(offset, total_len as u16))
-    }
-
-    fn resolve_group(
-        &mut self,
-        tt: &mut TypeTable,
-        group: &GroupNode,
-        group_id: NonZeroU8,
-        offset: u16,
-    ) -> GroupSymbol {
-        let mut resolver = Resolver::new(self.diag, tt, &mut self.storage, self.pool, group_id);
-
-        resolver.resolve_flags(&group.flags);
-        resolver.resolve_bitsets(&group.bitsets);
-        resolver.resolve_enums(&group.enums);
-        resolver.resolve_structs(&group.structs);
-
-        let before = resolver.storage.count_of::<MessageSymbolType>();
-        resolver.resolve_messages(&group.messages);
-        let after = resolver.storage.count_of::<MessageSymbolType>();
-
-        let types_count =
-            group.flags.len() + group.bitsets.len() + group.enums.len() + group.structs.len();
-
-        GroupSymbol::new(
-            group.name.intern(resolver.pool),
-            group.access,
-            MessagesRange::new(before as u16, after as u16 - before as u16),
-            TypesRange::new(offset, types_count as u16),
-        )
+        Ok(model)
     }
 }
 
 fn run(diag: &mut Diagnostics, pool: &mut StringPool, tree: ProtocolTree) -> ProtocolModel {
     let name = tree.name.intern(pool);
-    let mut tt = TypeTable::new(tree.groups.len() as u8, tree.type_count());
-    let mut builder = DefinitionBuilder::new(diag, pool);
+    let mut tt = TypeTable::new(tree.type_count());
+    let mut storage = SymbolStorage::default();
+    let mut resolver = Resolver::new(diag, &mut tt, &mut storage, pool);
 
-    let global = builder.resolve_global_types(&tree.global, &mut tt);
-    let mut offset = global.types().start() + global.types().len();
+    resolver.resolve_flags(&tree.flags);
+    resolver.resolve_bitsets(&tree.bitsets);
+    resolver.resolve_enums(&tree.enums);
+    resolver.resolve_structs(&tree.structs);
+    resolver.resolve_messages(&tree.messages);
 
-    for (index, group) in tree.groups.iter().enumerate() {
-        if index >= 255 {
-            builder.diag.report_err(SemanticError::TooManyGroups);
-            break;
-        }
-
-        let group_id = NonZeroU8::new(index.safe_as::<u8>() + 1).expect("Group limit exceeded");
-        let symbol = builder.resolve_group(&mut tt, group, group_id, offset);
-        offset = symbol.types().start() + global.types().len();
-        builder.storage.add_symbol(symbol);
-    }
-
-    ProtocolModel::new(name, tree.version, global, builder.storage, tt.finish())
+    ProtocolModel::new(name, tree.version, tree.access, storage, tt.finish())
 }
 
 struct Resolver<'a> {
@@ -173,7 +92,6 @@ struct Resolver<'a> {
     tt: &'a mut TypeTable,
     storage: &'a mut SymbolStorage,
     pool: &'a mut StringPool,
-    group: NonZeroU8,
     kind: Option<u8>,
     too_many_message_reported: bool,
 }
@@ -184,14 +102,12 @@ impl<'a> Resolver<'a> {
         tt: &'a mut TypeTable,
         storage: &'a mut SymbolStorage,
         pool: &'a mut StringPool,
-        group: NonZeroU8,
     ) -> Self {
         Self {
             diag,
             tt,
             storage,
             pool,
-            group,
             kind: Some(0),
             too_many_message_reported: false,
         }
@@ -226,7 +142,7 @@ impl<'a> Resolver<'a> {
                 f.name.intern(self.pool),
                 OptionsRange::new(start as u16, len as u16),
             );
-            self.tt.register_type(self.group, meta, Type::Flags(symbol));
+            self.tt.register_type(meta, Type::Flags(symbol));
         }
     }
 
@@ -272,8 +188,7 @@ impl<'a> Resolver<'a> {
 
             let symbol = BitsetSymbol::new(f.name.intern(self.pool), range);
 
-            self.tt
-                .register_type(self.group, meta, Type::Bitset(symbol));
+            self.tt.register_type(meta, Type::Bitset(symbol));
         }
     }
 
@@ -318,7 +233,7 @@ impl<'a> Resolver<'a> {
                 VariantsRange::new(start as u16, len as u16),
             );
             let meta = symbol.meta().or_recover(self.diag);
-            self.tt.register_type(self.group, meta, Type::Enum(symbol));
+            self.tt.register_type(meta, Type::Enum(symbol));
         }
     }
 
@@ -389,8 +304,9 @@ impl<'a> Resolver<'a> {
     fn resolve_structs(&mut self, structs: &[StructNode]) {
         let mut to_resolve = structs.len();
         // Устанавливаем true чтобы пройти первую итерацию цикла
-        let mut is_any_resolved = true;
+        let mut is_any_resolved;
         while to_resolve != 0 {
+            is_any_resolved = false;
             for s in structs {
                 if self.tt.contains_name(s.name.intern(self.pool)) {
                     continue;
@@ -404,7 +320,6 @@ impl<'a> Resolver<'a> {
                     .find(|f| !self.tt.contains_name(f.kind.type_name().intern(self.pool)))
                 {
                     if is_any_resolved {
-                        is_any_resolved = false;
                         continue;
                     }
 
@@ -425,7 +340,6 @@ impl<'a> Resolver<'a> {
 
                 if has_errors {
                     self.tt.register_type(
-                        self.group,
                         TypeMeta::S1B_A1B,
                         Type::Struct(StructSymbol::new(
                             s.name.intern(self.pool),
@@ -439,11 +353,11 @@ impl<'a> Resolver<'a> {
                             .or_recover(self.diag);
                     let s = StructSymbol::new(s.name.intern(self.pool), new_range);
 
-                    self.tt.register_type(self.group, meta, Type::Struct(s));
+                    self.tt.register_type(meta, Type::Struct(s));
                 }
 
                 to_resolve -= 1;
-                is_any_resolved = false;
+                is_any_resolved = true;
             }
         }
     }
@@ -460,6 +374,7 @@ impl<'a> Resolver<'a> {
             0
         }
     }
+
     fn resolve_single_message(
         &mut self,
         m: &MessageNode,

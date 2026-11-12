@@ -12,40 +12,9 @@ pub struct Array<T> {
 }
 
 impl<T> Array<T> {
-    /// # Panics
-    ///
-    /// Panics if `count` argument is more than array length.
-    pub fn trim(&mut self, count: usize) {
-        let len = self.inner.len();
-        if len == count {
-            return;
-        }
-
-        assert!(len > count, "Count cannot be more than array length");
-
-        let uninit = unsafe { Array::<MaybeUninit<T>>::zeroed(count).assume_init() };
-        let old = core::mem::replace(&mut self.inner, uninit.inner);
-
-        unsafe {
-            core::ptr::copy_nonoverlapping(
-                old.as_ptr(),            // Источник
-                self.inner.as_mut_ptr(), // Назначение (новый массив)
-                count,                   // Количество элементов для перемещения
-            );
-        }
-    }
-
     #[must_use]
     pub const fn as_slice(&self) -> &[T] {
         &self.inner
-    }
-}
-
-impl<T: Copy> Array<T> {
-    pub fn new_with_default(size: usize, default: T) -> Self {
-        Self {
-            inner: core::iter::repeat_with(|| default).take(size).collect(),
-        }
     }
 }
 

@@ -21,13 +21,13 @@ pub mod constraints {
     pub const MAX_UNIQUE_STRINGS: usize = 65536;
 
     /// * dst: u8,
-    /// * group: u8,
+    /// * protocol: u8,
     /// * src: u8,
     /// * kind: u8,
     pub const HEADER_BYTES: u8 = 4;
 
-    pub const MAX_GROUPS: usize = 255;
-    pub const MAX_MESSAGES_PER_GROUP: usize = 255;
+    pub const MAX_PROTOCOLS: usize = 255;
+    pub const MAX_MESSAGES_PER_PROTOCOL: usize = 256;
 
     pub const MAX_STRUCTS: usize = 2048;
 
@@ -45,6 +45,6 @@ pub mod constraints {
     pub const MAX_FIELD_PER_STRUCT: usize = 28;
 
     pub const MAX_PAYLOAD: usize = 28;
-    pub const MAX_MESSAGES: usize = MAX_GROUPS * MAX_MESSAGES_PER_GROUP;
+    pub const MAX_MESSAGES: usize = MAX_PROTOCOLS * MAX_MESSAGES_PER_PROTOCOL;
     pub const MAX_TYPE_COUNT: usize = MAX_STRUCTS + MAX_ENUMS + MAX_BITSETS + MAX_FLAGS;
 }

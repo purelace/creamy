@@ -1,50 +1,47 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="system" version="1.0.0">
+<protocol name="system" version="1.0.0" access="Public">
 
-    <!-- Builtin group -->
-    <group name="builtin" access="Public">
-        <message name="GroupDeclared" direction="Incoming">
-            <field name="version" type="u32" />
-            <field name="provider" type="u8" />
-            <field name="group_id" type="u8"/>
-        </message>
+    <message name="ProtocolDeclared" direction="Incoming">
+        <field name="version" type="u32" />
+        <field name="provider" type="u8" />
+        <field name="protocol_id" type="u8"/>
+    </message>
 
-        <message name="GroupUndeclared" direction="Incoming">
-            <field name="provider" type="u8" />
-            <field name="group_id" type="u8"/>
-        </message>
+    <message name="ProtocolUndeclared" direction="Incoming">
+        <field name="provider" type="u8" />
+        <field name="protocol_id" type="u8"/>
+    </message>
 
-        <message name="ConsumerAppeared" direction="Incoming">
-            <field name="group_id" type="u8"/>
-            <field name="consumer_id" type="u8"/>
-        </message>
+    <message name="ConsumerAppeared" direction="Incoming">
+        <field name="protocol_id" type="u8"/>
+        <field name="consumer_id" type="u8"/>
+    </message>
 
-        <message name="ConsumerDisappeared" direction="Incoming">
-            <field name="group_id" type="u8"/>
-            <field name="consumer_id" type="u8"/>
-        </message>
+    <message name="ConsumerDisappeared" direction="Incoming">
+        <field name="protocol_id" type="u8"/>
+        <field name="consumer_id" type="u8"/>
+    </message>
 
-        <message name="StreamKeepAlive" direction="Duplex">
-            <field name="stream_kind" type="u8" />
-            <field name="stream_id" type="u8" />
-        </message>
+    <message name="StreamKeepAlive" direction="Duplex">
+        <field name="stream_kind" type="u8" />
+        <field name="stream_id" type="u8" />
+    </message>
 
-        <message name="StreamCancel" direction="Duplex">
-            <field name="stream_kind" type="u8" />
-            <field name="stream_id" type="u8" />
-        </message>
+    <message name="StreamCancel" direction="Duplex">
+        <field name="stream_kind" type="u8" />
+        <field name="stream_id" type="u8" />
+    </message>
 
-        <enum name="LogType" repr="u8">
-            <variant name="Debug" value="0" />
-            <variant name="Info" value="1" />
-            <variant name="Warning" value="2" />
-            <variant name="Error" value="3" />
-        </enum>
+    <enum name="LogType" repr="u8">
+        <variant name="Debug" value="0" />
+        <variant name="Info" value="1" />
+        <variant name="Warning" value="2" />
+        <variant name="Error" value="3" />
+    </enum>
 
-        <stream name="Log" timeout="4" direction="Outgoing">
-            <field name="log_type" type="LogType" />
-            <field name="content" type="Array[u8]" />
-        </stream>
+    <stream name="Log" timeout="4" direction="Outgoing">
+        <field name="log_type" type="LogType" />
+        <field name="content" type="Array[u8]" />
+    </stream>
 
-    </group>
 </protocol>

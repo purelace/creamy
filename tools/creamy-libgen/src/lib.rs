@@ -68,8 +68,7 @@ where
 
 pub trait CodeGenerator<'s> {
     //TODO: start/end namespace
-
-    fn start_group(&mut self, group: &'s str, id: Option<u8>);
+    fn start_protocol(&mut self, protocol: &'s str, id: Option<u8>);
 
     fn generate_single_message<I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
     where
@@ -96,16 +95,16 @@ pub trait CodeGenerator<'s> {
     where
         I: SymbolIterator<EnrichedFieldSymbol<'s>>;
 
-    fn end_group(&mut self);
+    fn end_protocol(&mut self);
 
-    fn generate_dispatcher<G, M>(&mut self, groups: G, messages: M)
+    fn generate_dispatcher<P, M>(&mut self, protocols: P, messages: M)
     where
-        G: Iterator<Item = Path>,
+        P: Iterator<Item = Path>,
         M: Iterator<Item = Path>;
 
-    fn generate_plugin_group_table(&mut self, pht: PerfectHashTable);
+    fn generate_plugin_protocol_table(&mut self, pht: PerfectHashTable);
 
-    fn generate_host_group_table(&mut self, pht: PerfectHashTable);
+    fn generate_host_protocol_table(&mut self, pht: PerfectHashTable);
 
     fn generate_host_package(&mut self, binary: Vec<u8>);
 
@@ -204,7 +203,7 @@ impl Codegen {
 
     pub fn run<'s, G: CodeGenerator<'s>>(&'s mut self, generator: &mut G) -> anyhow::Result<()> {
         let mut message_paths = vec![];
-        let mut group_paths = vec![];
+        let mut protocol_paths = vec![];
 
         let ProtocolLibrary {
             pool,
@@ -213,126 +212,104 @@ impl Codegen {
             creamy_dir,
         } = &mut self.library;
 
-        generator.start_group("generated", None);
+        generator.start_protocol("generated", None);
 
-        Self::generate_groups(
+        Self::generate_protocols(
             pool,
             manifest,
             inner,
             self.target,
             &mut message_paths,
-            &mut group_paths,
+            &mut protocol_paths,
             generator,
         );
 
-        generator.start_group("dispatcher", None);
+        generator.start_protocol("dispatcher", None);
 
-        generator.generate_dispatcher(group_paths.into_iter(), message_paths.into_iter());
+        generator.generate_dispatcher(protocol_paths.into_iter(), message_paths.into_iter());
 
-        generator.end_group();
+        generator.end_protocol();
 
-        generator.start_group("metadata", None);
+        generator.start_protocol("metadata", None);
 
         match self.target {
             Target::Plugin => {
-                Self::generate_plugin_group_table(manifest, generator);
+                Self::generate_plugin_protocol_table(manifest, generator);
             }
             Target::Host => {
-                Self::generate_host_group_table(manifest, generator);
+                Self::generate_host_protocol_table(manifest, generator);
                 Self::generate_host_package(creamy_dir.clone(), generator);
             }
             Target::Engine | Target::Sdk => {}
         }
 
-        generator.end_group();
+        generator.end_protocol();
 
-        generator.end_group();
+        generator.end_protocol();
         generator.flush()?;
 
         Ok(())
     }
 
     #[allow(clippy::explicit_counter_loop)]
-    fn generate_groups<'s, G: CodeGenerator<'s>>(
+    fn generate_protocols<'s, G: CodeGenerator<'s>>(
         pool: &'s StringPool,
         manifest: &'s Manifest,
         library: &'s mut HashMap<String, ProtocolModel>,
         target: Target,
         message_paths: &mut Vec<Path>,
-        group_paths: &mut Vec<Path>,
+        protocol_paths: &mut Vec<Path>,
         generator: &mut G,
     ) {
-        let mut group_id = u8::from(!matches!(target, Target::Sdk | Target::Engine)) + 1;
+        let mut protocol_id = u8::from(!matches!(target, Target::Sdk | Target::Engine)) + 1;
 
-        for (protocol, groups) in manifest.requested_groups() {
-            let definition = library.get(protocol.as_str()).unwrap();
+        for (name, protocol) in manifest.requested_protocols() {
+            let model = library.get(name.as_str()).unwrap();
 
-            generator.start_group(definition.name().resolve(pool), None);
+            generator.start_protocol(model.name().resolve(pool), Some(protocol_id));
+            protocol_paths.push(Path::from_absolute(AbsolutePath::from_iter([
+                name.as_str(),
+                "ID",
+            ])));
 
-            Self::generate_types(
+            let mut dispatch_values: HashMap<StringId, (u8, u32)> = HashMap::new();
+            for message_symbol in model.messages() {
+                // Valid form of the dispatch value: [0x_00_FF_00_FF]
+                let dispatch_value =
+                    u32::from(protocol_id) << 16 | u32::from(message_symbol.kind());
+                dispatch_values.insert(message_symbol.ident(), (protocol_id, dispatch_value));
+
+                let dir = message_symbol.direction();
+
+                // Условие включения:
+                // 1. Это Duplex (нужен всегда)
+                // 2. Или группа поставляется И направление Outgoing
+                // 3. Или группа НЕ поставляется И направление Incoming
+                let should_add = dir == Direction::Duplex
+                    || (protocol.provide() && dir == Direction::Outgoing)
+                    || (!protocol.provide() && dir == Direction::Incoming);
+
+                if should_add {
+                    message_paths.push(Path::from_absolute(AbsolutePath::from_iter([
+                        name.as_str(),
+                        message_symbol.ident().resolve(pool),
+                    ])));
+                }
+            }
+
+            Self::generate_protocol(
                 pool,
-                definition,
-                &AbsolutePath::from_iter([protocol.as_str(), "global"]),
-                definition.global_types_range(),
+                model,
+                &dispatch_values,
+                &AbsolutePath::from_iter([name.as_str()]),
+                model.types(),
+                model.messages(),
                 generator,
             );
 
-            for group_name in groups.groups() {
-                generator.start_group(group_name, Some(group_id));
-                group_paths.push(Path::from_absolute(AbsolutePath::from_iter([
-                    protocol.as_str(),
-                    group_name.as_str(),
-                    "ID",
-                ])));
+            generator.end_protocol();
 
-                let group_symbol = definition
-                    .groups()
-                    .iter()
-                    .find(|g| g.ident() == pool.get_id(group_name))
-                    .copied()
-                    .unwrap();
-
-                let mut dispatch_values: HashMap<StringId, (u8, u32)> = HashMap::new();
-                for message_symbol in definition.message_range(group_symbol.messages()) {
-                    // Valid form of the dispatch value: [0x_00_FF_00_FF]
-                    let dispatch_value =
-                        u32::from(group_id) << 16 | u32::from(message_symbol.kind());
-                    dispatch_values.insert(message_symbol.ident(), (group_id, dispatch_value));
-
-                    let dir = message_symbol.direction();
-
-                    // Условие включения:
-                    // 1. Это Duplex (нужен всегда)
-                    // 2. Или группа поставляется И направление Outgoing
-                    // 3. Или группа НЕ поставляется И направление Incoming
-                    let should_add = dir == Direction::Duplex
-                        || (groups.provide() && dir == Direction::Outgoing)
-                        || (!groups.provide() && dir == Direction::Incoming);
-
-                    if should_add {
-                        message_paths.push(Path::from_absolute(AbsolutePath::from_iter([
-                            protocol.as_str(),
-                            group_name.as_str(),
-                            message_symbol.ident().resolve(pool),
-                        ])));
-                    }
-                }
-
-                Self::generate_group(
-                    pool,
-                    definition,
-                    &dispatch_values,
-                    &AbsolutePath::from_iter([protocol.as_str(), group_name.as_str()]),
-                    definition.types_for_group(group_symbol),
-                    definition.message_range(group_symbol.messages()),
-                    generator,
-                );
-                generator.end_group();
-            }
-
-            generator.end_group();
-
-            group_id += 1;
+            protocol_id += 1;
         }
     }
 
@@ -346,30 +323,25 @@ impl Codegen {
         generator.generate_host_package(vec);
     }
 
-    fn generate_host_group_table<'s, G: CodeGenerator<'s>>(manifest: &Manifest, generator: &mut G) {
-        generator.generate_host_group_table(Self::generate_hash_table(manifest));
-    }
-
-    fn generate_plugin_group_table<'s, G: CodeGenerator<'s>>(
+    fn generate_host_protocol_table<'s, G: CodeGenerator<'s>>(
         manifest: &Manifest,
         generator: &mut G,
     ) {
-        generator.generate_plugin_group_table(Self::generate_hash_table(manifest));
+        generator.generate_host_protocol_table(Self::generate_hash_table(manifest));
+    }
+
+    fn generate_plugin_protocol_table<'s, G: CodeGenerator<'s>>(
+        manifest: &Manifest,
+        generator: &mut G,
+    ) {
+        generator.generate_plugin_protocol_table(Self::generate_hash_table(manifest));
     }
 
     fn generate_hash_table(manifest: &Manifest) -> PerfectHashTable {
-        let samples: Vec<String> = manifest
-            .requested_groups()
-            .iter()
-            .flat_map(|(protocol, v)| {
-                v.groups()
-                    .iter()
-                    .map(|group| format!("{}.{}", protocol.as_str(), group.as_str()))
-            })
-            .collect();
-
-        let samples = samples
-            .into_iter()
+        let samples = manifest
+            .requested_protocols()
+            .keys()
+            .cloned()
             .enumerate()
             .map(|(index, path)| (path, index as u8 + 2))
             .collect::<Vec<_>>();
@@ -452,10 +424,10 @@ impl Codegen {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn generate_group<'s, G: CodeGenerator<'s>>(
+    fn generate_protocol<'s, G: CodeGenerator<'s>>(
         pool: &'s StringPool,
         model: &'s ProtocolModel,
-        dispatch_value_table: &HashMap<StringId, (u8, u32)>, //group, value
+        dispatch_value_table: &HashMap<StringId, (u8, u32)>, //protocol, value
         module_path: &AbsolutePath,
         types: &[Type],
         messages: &[MessageSymbolType],
@@ -464,7 +436,7 @@ impl Codegen {
         Self::generate_types(pool, model, module_path, types, generator);
 
         for message in messages {
-            let (group, dispatch_value) =
+            let (protocol, dispatch_value) =
                 dispatch_value_table.get(&message.ident()).copied().unwrap();
 
             match message {
@@ -472,7 +444,7 @@ impl Codegen {
                     let symbol = EnrichedSingleMessageSymbol {
                         name: symbol.ident().resolve(pool),
                         kind: symbol.kind(),
-                        group,
+                        protocol,
                         dispatch_value,
                         fields: std::iter::chain(
                             message_header(),
@@ -492,7 +464,7 @@ impl Codegen {
                         name: symbol.ident().resolve(pool),
                         timeout: symbol.timeout(),
 
-                        group,
+                        protocol,
                         kind: symbol.kind(),
                         dispatch_value,
 
@@ -517,7 +489,7 @@ where
 {
     pub name: &'s str,
     /* Constant Values */
-    pub group: u8,
+    pub protocol: u8,
     pub kind: u8,
     pub dispatch_value: u32,
 
@@ -533,7 +505,7 @@ where
 
     /* Constant values */
     pub kind: u8,
-    pub group: u8,
+    pub protocol: u8,
     pub dispatch_value: u32,
 
     pub timeout: u8,
@@ -550,8 +522,8 @@ fn message_header() -> [EnrichedFieldSymbol<'static>; 4] {
             is_padding: false,
         },
         EnrichedFieldSymbol {
-            name: Cow::Borrowed("group"),
-            kind: EnrichedFieldType::Special(SpecialFieldType::GroupId),
+            name: Cow::Borrowed("protocol"),
+            kind: EnrichedFieldType::Special(SpecialFieldType::ProtocolId),
             is_padding: false,
         },
         EnrichedFieldSymbol {

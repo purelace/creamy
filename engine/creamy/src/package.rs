@@ -31,7 +31,7 @@ impl PluginPackage {
         }: Metadata,
     ) -> Result<Self, PluginError> {
         let mut map = HashMap::default();
-        for (name, request) in manifest.requested_groups() {
+        for (name, request) in manifest.requested_protocols() {
             if let Some(index) = models.iter().enumerate().find_map(|(idx, def)| {
                 if def.name().resolve(&pool) == name.as_str() {
                     Some(idx)

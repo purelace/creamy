@@ -79,13 +79,6 @@ pub enum Token<'src> {
     Protocol {
         name: Identifier<'src>,
         version: Version,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<global>")]
-    Global { span: SourceSpan },
-    #[strum(to_string = "<group>")]
-    Group {
-        name: Identifier<'src>,
         access: Access,
         span: SourceSpan,
     },
@@ -184,7 +177,6 @@ impl<'src> Context<'_, 'src> {
     fn tag(&self) -> &'static str {
         match self.node.tag_name().name() {
             "protocol" => "protocol",
-            "group" => "group",
             "message" => "message",
             "struct" => "struct",
             "enum" => "enum",
@@ -479,19 +471,6 @@ impl<'a, 'src: 'a> Token<'src> {
         Token::Protocol {
             name: ctx.read_ident("name"),
             version: ctx.read_version(),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_global(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Global {
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_group(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Group {
-            name: ctx.read_ident("name"),
             access: ctx.read_access(),
             span: span_for(ctx.node),
         }
@@ -587,8 +566,6 @@ impl<'a, 'src: 'a> Token<'src> {
     pub const fn span(&self) -> SourceSpan {
         *match self {
             Token::Protocol { span, .. }
-            | Token::Global { span }
-            | Token::Group { span, .. }
             | Token::Flags { span, .. }
             | Token::Option { span, .. }
             | Token::Bitset { span, .. }
@@ -648,11 +625,6 @@ pub fn tokenize<'a, 'src: 'a>(
         let ctx = Context { diagnostics, node };
         match node.tag_name().name() {
             "protocol" => tokens.push(Token::new_protocol(&ctx)),
-            "global" => tokens.push(Token::new_global(&ctx)),
-            "group" => {
-                tokens.push(Token::new_group(&ctx));
-                is_stream = false;
-            }
             "message" => {
                 tokens.push(Token::new_message(&ctx));
                 is_stream = false;

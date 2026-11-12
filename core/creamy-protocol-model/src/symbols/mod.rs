@@ -17,13 +17,11 @@ pub use repr::PrimitiveRepr;
 
 use super::storage::SymbolKey;
 use crate::{
-    constraints::{
-        MAX_BITSET_VALUES, MAX_BITSETS, MAX_FLAGS, MAX_GROUPS, MAX_OPTIONS, MAX_STRUCTS,
-    },
+    constraints::{MAX_BITSET_VALUES, MAX_BITSETS, MAX_FLAGS, MAX_OPTIONS, MAX_STRUCTS},
     table::TypeId,
     utils::{
-        Access, BitsetValuesRange, BitsetsRange, FieldsRange, FlagsRange, GroupsRange,
-        MessagesRange, OptionsRange, Size, StructsRange, TypesRange,
+        BitsetValuesRange, BitsetsRange, FieldsRange, FlagsRange, OptionsRange, Size, StructsRange,
+        TypesRange,
     },
 };
 
@@ -118,17 +116,6 @@ impl GlobalTypesSymbol {
     pub const fn types(&self) -> TypesRange {
         self.types
     }
-}
-
-#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[element(MAX_GROUPS, GroupsRange)]
-#[key(SymbolKey::Group)]
-pub struct GroupSymbol {
-    #[token(ident)]
-    ident: StringId,
-    access: Access,
-    messages: MessagesRange,
-    types: TypesRange,
 }
 
 #[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]

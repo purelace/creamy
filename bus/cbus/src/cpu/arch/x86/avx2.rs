@@ -83,16 +83,16 @@ impl Avx2InstructionSet {
             let ymm_dst = _mm256_and_si256(ymm_raw_headers, _mm256_set1_epi32(0xFF));
             let ymm_dst = Self::validate_dst(range, src, ymm_dst);
 
-            // Достаем group [1]
-            let ymm_group = _mm256_and_si256(
+            // Достаем protocol [1]
+            let ymm_protocol = _mm256_and_si256(
                 _mm256_srli_epi32(ymm_raw_headers, 8),
                 _mm256_set1_epi32(0xFF),
             );
 
             macro_rules! translate {
                 ($idx:expr) => {{
-                    let group: usize = _mm256_extract_epi32(ymm_group, $idx).safe_as();
-                    (*lut.as_slice().get_unchecked(shifted_src + group)).safe_as()
+                    let protocol: usize = _mm256_extract_epi32(ymm_protocol, $idx).safe_as();
+                    (*lut.as_slice().get_unchecked(shifted_src + protocol)).safe_as()
                 }};
             }
 
@@ -105,13 +105,13 @@ impl Avx2InstructionSet {
             let l6 = translate!(6);
             let l7 = translate!(7);
 
-            let ymm_local_group = _mm256_set_epi32(l7, l6, l5, l4, l3, l2, l1, l0);
+            let ymm_local_protocol = _mm256_set_epi32(l7, l6, l5, l4, l3, l2, l1, l0);
 
             let ymm_zero = _mm256_setzero_si256();
-            let ymm_mask = _mm256_cmpeq_epi32(ymm_local_group, ymm_zero);
+            let ymm_mask = _mm256_cmpeq_epi32(ymm_local_protocol, ymm_zero);
             let ymm_mask = _mm256_andnot_si256(ymm_mask, _mm256_set1_epi32(-1));
 
-            // 5. Сборка нового заголовка [dst][group][src][kind]
+            // 5. Сборка нового заголовка [dst][protocol][src][kind]
             let ymm_kind = _mm256_and_si256(
                 ymm_raw_headers,
                 _mm256_set1_epi32(0xFF00_0000_u32.cast_signed()),
@@ -123,7 +123,7 @@ impl Avx2InstructionSet {
             let ymm_new_header = _mm256_or_si256(
                 ymm_dst,
                 _mm256_or_si256(
-                    _mm256_slli_epi32(ymm_local_group, 8),
+                    _mm256_slli_epi32(ymm_local_protocol, 8),
                     _mm256_or_si256(_mm256_slli_epi32(ymm_src, 16), ymm_kind),
                 ),
             );

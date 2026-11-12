@@ -29,7 +29,7 @@ where
                 EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]"),
                 EnrichedFieldType::Special(s) => match s {
                     SpecialFieldType::SubscriberId => args.subscriber_id_path(),
-                    SpecialFieldType::GroupId => args.group_id_path(),
+                    SpecialFieldType::ProtocolId => args.protocol_id_path(),
                 },
             };
 
@@ -49,7 +49,7 @@ where
 
     let n = symbol.name;
     let const_block =
-        generate_message_const_block(args, n, symbol.group, symbol.kind, symbol.dispatch_value);
+        generate_message_const_block(args, n, symbol.protocol, symbol.kind, symbol.dispatch_value);
     quote! {
         impl $n {
             $const_block
@@ -59,12 +59,12 @@ where
     }
 }
 
-pub fn generate_message_trait_impl(args: &Args, message: &str, group: u8, kind: u8) -> Tokens {
-    let group_id = &args.group_id_path();
+pub fn generate_message_trait_impl(args: &Args, message: &str, protocol: u8, kind: u8) -> Tokens {
+    let protocol_id = &args.protocol_id_path();
     let t = args.message_trait_path();
     quote! {
         impl $t for $message {
-            const GROUP: $group_id = $group_id::new_u8($group).unwrap();
+            const PROTOCOL: $protocol_id = $protocol_id::new_u8($protocol).unwrap();
             const KIND: u8 = $kind;
         }
     }
@@ -73,7 +73,7 @@ pub fn generate_message_trait_impl(args: &Args, message: &str, group: u8, kind: 
 pub fn generate_typed_message_trait_impl(args: &Args, message: &str) -> Tokens {
     let t = args.typed_message_trait_path();
     let sub_id = args.subscriber_id_path();
-    let grp_id = args.group_id_path();
+    let protocol_id = args.protocol_id_path();
     quote! {
         impl $t for $message {
             fn dst(&self) -> u8 {
@@ -89,12 +89,12 @@ pub fn generate_typed_message_trait_impl(args: &Args, message: &str) -> Tokens {
                 self.src.as_u8()
             }
 
-            fn group(&self) -> u8 {
-                self.group.as_u8()
+            fn protocol(&self) -> u8 {
+                self.protocol.as_u8()
             }
 
-            fn with_group(&mut self, value: $grp_id) -> &mut Self {
-                self.group = value;
+            fn with_protocol(&mut self, value: $protocol_id) -> &mut Self {
+                self.protocol = value;
                 self
             }
 
@@ -129,7 +129,7 @@ where
                 EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]"),
                 EnrichedFieldType::Special(s) => match s {
                     SpecialFieldType::SubscriberId => args.subscriber_id_path(),
-                    SpecialFieldType::GroupId => args.group_id_path(),
+                    SpecialFieldType::ProtocolId => args.protocol_id_path(),
                 },
             };
             quote! {
@@ -139,7 +139,7 @@ where
         .collect::<Vec<_>>();
 
     let typed_message_impl = generate_typed_message_trait_impl(args, name);
-    let message_impl = generate_message_trait_impl(args, name, symbol.group, symbol.kind);
+    let message_impl = generate_message_trait_impl(args, name, symbol.protocol, symbol.kind);
     let builder_impl = generate_builder_pattern(args, symbol);
 
     quote! {

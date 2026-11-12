@@ -50,10 +50,9 @@ pub struct StreamFieldSymbol {
 impl Field for StreamFieldSymbol {
     fn type_id(&self) -> TypeId {
         let type_id = self.type_id();
-        let group = type_id.group();
         let index = type_id.index();
         let size = type_id.size();
-        TypeId::new(group, StringId::new(index), TypeMeta::new(size, Align::B4))
+        TypeId::new(StringId::new(index), TypeMeta::new(size, Align::B4))
     }
 
     fn size(&self) -> u8 {

@@ -4,7 +4,7 @@ use core::fmt::Arguments;
 use cbus_core::SubscriberId;
 use creamy_sdk::{
     stream::{StreamId, StreamWriter},
-    system::builtin::{Log, LogType, log::LogContent},
+    system::{Log, LogType, log::LogContent},
 };
 
 use crate::get_outgoing;
@@ -29,7 +29,7 @@ macro_rules! debug {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::sdk::system::builtin::LogType::Debug
+            $crate::sdk::system::LogType::Debug
         )
     };
 }
@@ -39,7 +39,7 @@ macro_rules! info {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::sdk::system::builtin::LogType::Info
+            $crate::sdk::system::LogType::Info
         )
     };
 }
@@ -49,7 +49,7 @@ macro_rules! warn {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::sdk::system::builtin::LogType::Warning
+            $crate::sdk::system::LogType::Warning
         )
     };
 }
@@ -59,7 +59,7 @@ macro_rules! error {
     ($($arg:tt)*) => {
         $crate::logging::send_log(
             format_args!($($arg)*),
-            $crate::sdk::system::builtin::LogType::Error
+            $crate::sdk::system::LogType::Error
         )
     };
 }

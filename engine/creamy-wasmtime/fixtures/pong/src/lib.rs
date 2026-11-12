@@ -5,7 +5,7 @@ use creamy_sdk_wasm::declare_plugin;
 
 use self::generated::{
     dispatcher::{Dispatcher, MessageHandler},
-    ping::messages::{Ping, Pong},
+    ping::{Ping, Pong},
 };
 
 include!(concat!(env!("OUT_DIR"), "/pong.rs"));

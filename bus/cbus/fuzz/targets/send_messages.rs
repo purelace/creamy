@@ -11,8 +11,8 @@ struct Driver;
 impl BusDriver for Driver {
     fn on_subscribe(&mut self, id: SubscriberId) -> impl DataIterator {
         core::iter::once(SubscriberLookupData {
-            consumer_group_id: 0,
-            provider_group_id: 0,
+            consumer_protocol_id: 0,
+            provider_protocol_id: 0,
             provider_id: id,
         })
     }
@@ -22,7 +22,7 @@ impl BusDriver for Driver {
 
 define_bus! {
     max_messages: 2048,
-    max_groups: 128,
+    max_protocols: 128,
     max_subscribers: 128,
 }
 

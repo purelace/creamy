@@ -118,7 +118,7 @@ enum AccessPolicy {
     },
     Private {
         consumer: Option<SubscriberId>,
-        group_id: NonZeroU8,
+        protocol_id: NonZeroU8,
     },
 }
 
@@ -132,11 +132,11 @@ impl Debug for AccessPolicy {
                 .finish(),
             Self::Private {
                 consumer,
-                group_id: id,
+                protocol_id: id,
             } => f
                 .debug_struct("Private")
                 .field("consumer", consumer)
-                .field("group_id", id)
+                .field("protocol_id", id)
                 .finish(),
         }
     }
@@ -146,7 +146,7 @@ impl Default for AccessPolicy {
     fn default() -> Self {
         Self::Private {
             consumer: None,
-            group_id: NonZeroU8::new(1).unwrap(),
+            protocol_id: NonZeroU8::new(1).unwrap(),
         }
     }
 }
@@ -158,13 +158,14 @@ impl AccessPolicy {
                 iter: consumers.iter(),
                 ids,
             }),
-            AccessPolicy::Private { consumer, group_id } => {
-                ConsumerList(ConsumerListRepr::Private {
-                    is_shown: false,
-                    consumer: *consumer,
-                    group_id: *group_id,
-                })
-            }
+            AccessPolicy::Private {
+                consumer,
+                protocol_id,
+            } => ConsumerList(ConsumerListRepr::Private {
+                is_shown: false,
+                consumer: *consumer,
+                protocol_id: *protocol_id,
+            }),
         }
     }
 }
@@ -177,7 +178,7 @@ enum ConsumerListRepr<'a> {
     Private {
         is_shown: bool,
         consumer: Option<SubscriberId>,
-        group_id: NonZeroU8,
+        protocol_id: NonZeroU8,
     },
 }
 
@@ -195,20 +196,20 @@ impl Iterator for ConsumerListRepr<'_> {
             ConsumerListRepr::Private {
                 is_shown,
                 consumer,
-                group_id,
+                protocol_id,
             } => {
                 if *is_shown {
                     return None;
                 }
 
                 *is_shown = true;
-                Some(((*consumer)?, *group_id))
+                Some(((*consumer)?, *protocol_id))
             }
         }
     }
 }
 
-pub(crate) struct ConsumerList<'a>(ConsumerListRepr<'a>);
+pub struct ConsumerList<'a>(ConsumerListRepr<'a>);
 impl Iterator for ConsumerList<'_> {
     type Item = (SubscriberId, NonZeroU8);
 
@@ -220,151 +221,114 @@ impl Iterator for ConsumerList<'_> {
 #[derive(Clone, Copy)]
 pub(crate) struct Owner {
     id: SubscriberId,
-    group: NonZeroU8,
+    protocol_id: NonZeroU8,
 }
 
 impl Owner {
-    pub const fn new(plugin: SubscriberId, group: NonZeroU8) -> Self {
-        Self { id: plugin, group }
+    pub const fn new(plugin: SubscriberId, protocol_id: NonZeroU8) -> Self {
+        Self {
+            id: plugin,
+            protocol_id,
+        }
     }
 
     pub const fn provider_id(self) -> SubscriberId {
         self.id
     }
 
-    pub const fn group_id(self) -> NonZeroU8 {
-        self.group
-    }
-}
-
-pub struct GroupContext {
-    access: AccessPolicy,
-    owner: Option<Owner>,
-}
-
-impl GroupContext {
-    pub fn consumer_list(&self) -> ConsumerList<'_> {
-        self.access.iter()
+    pub const fn protocol_id(self) -> NonZeroU8 {
+        self.protocol_id
     }
 }
 
 pub struct ProtocolContext {
     model: ProtocolModel,
-    groups: HashMap<StringId, GroupContext, FxBuildHasher>,
+    access: AccessPolicy,
+    owner: Option<Owner>,
 }
 
 impl ProtocolContext {
+    pub fn consumer_list(&self) -> ConsumerList<'_> {
+        self.access.iter()
+    }
+
     fn new(model: ProtocolModel) -> Self {
-        let mut groups = HashMap::default();
-        for group in model.groups() {
-            let policy = match group.access() {
-                Access::Public => AccessPolicy::Public {
-                    consumers: Bitset256::default(),
-                    ids: Box::from([NonZeroU8::new(1).unwrap(); 256]),
-                },
-                Access::Private => AccessPolicy::Private {
-                    consumer: None,
-                    group_id: NonZeroU8::new(1).unwrap(),
-                },
-            };
-            groups.insert(
-                group.ident(),
-                GroupContext {
-                    access: policy,
-                    owner: None,
-                },
-            );
-        }
-
-        Self { model, groups }
-    }
-
-    pub(crate) fn get_owner_of_group(&self, group: StringId) -> Owner {
-        self.try_get_owner_of_group(group).expect("Unreachable!")
-    }
-
-    pub(crate) fn try_get_owner_of_group(&self, group: StringId) -> Option<Owner> {
-        self.groups.get(&group).and_then(|c| c.owner)
-    }
-
-    pub fn can_add_consumer(&self, group: StringId) -> bool {
-        match self.groups.get(&group) {
-            Some(context) => match &context.access {
-                AccessPolicy::Public { .. } => true,
-                AccessPolicy::Private { consumer, .. } => consumer.is_none(),
+        let policy = match model.access() {
+            Access::Public => AccessPolicy::Public {
+                consumers: Bitset256::default(),
+                ids: Box::from([NonZeroU8::new(1).unwrap(); 256]),
             },
-            None => todo!("invalid group name"),
+            Access::Private => AccessPolicy::Private {
+                consumer: None,
+                protocol_id: NonZeroU8::new(1).unwrap(),
+            },
+        };
+
+        Self {
+            model,
+            access: policy,
+            owner: None,
         }
     }
 
-    pub fn try_add_consumer(
-        &mut self,
-        group: StringId,
-        consumer_id: SubscriberId,
-        group_id: NonZeroU8,
-    ) -> bool {
-        match self.groups.get_mut(&group) {
-            Some(context) => match &mut context.access {
-                AccessPolicy::Public { consumers, ids } => {
-                    consumers.set(consumer_id.as_u8());
-                    ids[consumer_id.as_usize()] = group_id;
+    pub(crate) fn get_owner(&self) -> Owner {
+        self.try_get_owner().expect("Unreachable!")
+    }
+
+    pub(crate) fn try_get_owner(&self) -> Option<Owner> {
+        self.owner
+    }
+
+    pub fn can_add_consumer(&self) -> bool {
+        match &self.access {
+            AccessPolicy::Public { .. } => true,
+            AccessPolicy::Private { consumer, .. } => consumer.is_none(),
+        }
+    }
+
+    pub fn try_add_consumer(&mut self, consumer_id: SubscriberId, protocol_id: NonZeroU8) -> bool {
+        match &mut self.access {
+            AccessPolicy::Public { consumers, ids } => {
+                consumers.set(consumer_id.as_u8());
+                ids[consumer_id.as_usize()] = protocol_id;
+                true
+            }
+            AccessPolicy::Private {
+                consumer,
+                protocol_id: gid,
+            } => {
+                if consumer.is_some() {
+                    false
+                } else {
+                    *consumer = Some(consumer_id);
+                    *gid = protocol_id;
                     true
                 }
-                AccessPolicy::Private {
-                    consumer,
-                    group_id: gid,
-                } => {
-                    if consumer.is_some() {
-                        false
-                    } else {
-                        *consumer = Some(consumer_id);
-                        *gid = group_id;
-                        true
-                    }
-                }
-            },
-            None => todo!("invalid group name"),
+            }
         }
     }
 
-    pub fn remove_consumer(&mut self, group: StringId, consumer_id: SubscriberId) {
-        match self.groups.get_mut(&group) {
-            Some(context) => match &mut context.access {
-                AccessPolicy::Public { consumers, ids } => {
-                    debug_assert!(consumers.get(consumer_id.as_u8()));
-                    consumers.unset(consumer_id.as_u8());
-                    ids[consumer_id.as_usize()] = NonZeroU8::new(1).unwrap();
-                }
-                AccessPolicy::Private {
-                    consumer,
-                    group_id: gid,
-                } => {
-                    debug_assert_eq!(*consumer, Some(consumer_id));
-                    *consumer = None;
-                    *gid = NonZeroU8::new(1).unwrap();
-                }
-            },
-            None => todo!("invalid group name"),
+    pub fn remove_consumer(&mut self, consumer_id: SubscriberId) {
+        match &mut self.access {
+            AccessPolicy::Public { consumers, ids } => {
+                debug_assert!(consumers.get(consumer_id.as_u8()));
+                consumers.unset(consumer_id.as_u8());
+                ids[consumer_id.as_usize()] = NonZeroU8::new(1).unwrap();
+            }
+            AccessPolicy::Private {
+                consumer,
+                protocol_id: gid,
+            } => {
+                debug_assert_eq!(*consumer, Some(consumer_id));
+                *consumer = None;
+                *gid = NonZeroU8::new(1).unwrap();
+            }
         }
     }
 
-    pub(crate) fn set_group_owner(&mut self, group: StringId, owner: Owner) {
-        debug_assert!(self.groups.contains_key(&group));
-
-        if let Some(o) = self.groups.get_mut(&group).map(|c| &mut c.owner) {
-            debug_assert!(o.is_none());
-
-            *o = Some(owner);
-        }
-    }
-
-    pub(crate) fn get_consumers_of(&self, group: StringId) -> ConsumerList<'_> {
-        self.groups.get(&group).map(|c| c.access.iter()).unwrap()
-    }
-
-    pub(crate) fn undeclare_group(&mut self, group: StringId) -> GroupContext {
-        debug_assert!(self.groups.contains_key(&group));
-        self.groups.remove(&group).expect("Unreachable!")
+    pub(crate) fn set_protocol_owner(&mut self, owner: Owner) {
+        debug_assert!(self.owner.is_none());
+        self.owner = Some(owner);
     }
 
     pub const fn model(&self) -> &ProtocolModel {
@@ -423,8 +387,9 @@ impl ProtocolRegistry {
         &self.pool
     }
 
-    pub(crate) const fn pool_mut(&mut self) -> &mut StringPool {
-        &mut self.pool
+    pub(crate) fn undeclare_protocol(&mut self, protocol: StringId) -> ProtocolContext {
+        debug_assert!(self.map.contains_key(&protocol));
+        self.map.remove(&protocol).expect("Unreachable!")
     }
 }
 

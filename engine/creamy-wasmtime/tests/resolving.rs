@@ -25,12 +25,12 @@ fn load_and_wait(engine: &mut PluginEngine<WTRuntime, ()>, plugin: &str) -> anyh
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[should_panic(expected = "Group 'none' from protocol 'empty' is already provided by 'empty'")]
-async fn try_provide_already_provided_group() {
-    group_provided_runner().await.unwrap();
+#[should_panic(expected = "Protocol 'empty' is already provided by 'empty'")]
+async fn try_provide_already_provided_protocol() {
+    protocol_provided_runner().await.unwrap();
 }
 
-async fn group_provided_runner() -> anyhow::Result<()> {
+async fn protocol_provided_runner() -> anyhow::Result<()> {
     let _c = TestContext::new()?;
     let mut engine = init_engine().await?;
     load_and_wait(&mut engine, "empty.cmy")?;
@@ -44,12 +44,12 @@ async fn group_provided_runner() -> anyhow::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[should_panic(expected = "Group 'none' from protocol 'empty' is busy")]
-async fn try_consume_busy_group() {
-    group_busy_runner().await.unwrap();
+#[should_panic(expected = "Protocol 'empty' is busy")]
+async fn try_consume_busy_protocol() {
+    protocol_busy_runner().await.unwrap();
 }
 
-async fn group_busy_runner() -> anyhow::Result<()> {
+async fn protocol_busy_runner() -> anyhow::Result<()> {
     let _c = TestContext::new()?;
     let mut engine = init_engine().await?;
     load_and_wait(&mut engine, "empty.cmy")?;

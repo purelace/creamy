@@ -12,16 +12,16 @@ pub trait Plugin: Sized + 'static {
 pub trait DispatchDelegate {
     type Handler;
     fn dispatch_message(dispatch_value: u32, message: UntypedMessage, handler: &mut Self::Handler);
-    fn handle_on_group_enabled_event(group_id: u8, handler: &mut Self::Handler);
-    fn handle_on_group_disable_event(group_id: u8, handler: &mut Self::Handler);
+    fn handle_on_protocol_enabled_event(protocol_id: u8, handler: &mut Self::Handler);
+    fn handle_on_protocol_disabled_event(protocol_id: u8, handler: &mut Self::Handler);
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
 impl DispatchDelegate for () {
     type Handler = ();
     fn dispatch_message(_: u32, _: UntypedMessage, (): &mut Self::Handler) {}
-    fn handle_on_group_enabled_event(_: u8, (): &mut Self::Handler) {}
-    fn handle_on_group_disable_event(_: u8, (): &mut Self::Handler) {}
+    fn handle_on_protocol_enabled_event(_: u8, (): &mut Self::Handler) {}
+    fn handle_on_protocol_disabled_event(_: u8, (): &mut Self::Handler) {}
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]

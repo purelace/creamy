@@ -22,16 +22,16 @@ impl ScalarInstructionSet {
         let dst_in_valid_range = range.contains(message.dst);
         let dst_not_equal_src = message.dst != src;
 
-        let src_index = src as usize * MG + message.group as usize;
-        let consumer_group = unsafe { *lut.as_slice().get_unchecked(src_index) };
+        let src_index = src as usize * MG + message.protocol as usize;
+        let consumer_protocol = unsafe { *lut.as_slice().get_unchecked(src_index) };
 
-        let is_valid = u8::from(consumer_group != 0 && dst_in_valid_range && dst_not_equal_src);
+        let is_valid = u8::from(consumer_protocol != 0 && dst_in_valid_range && dst_not_equal_src);
         let final_dst = is_valid * message.dst;
 
         // Устанавливаем актуальное значение
         message.src = src;
         message.dst = final_dst;
-        message.group = consumer_group;
+        message.protocol = consumer_protocol;
     }
 
     #[inline(always)]

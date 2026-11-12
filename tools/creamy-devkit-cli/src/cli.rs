@@ -25,17 +25,6 @@ pub struct Args {
 pub enum Command {
     Init,
 
-    //Generate {
-    //    /// Target XML file
-    //    xml_file: String,
-
-    //    /// Output directory
-    //    #[arg(short, long)]
-    //    output: Option<String>,
-
-    //    #[arg(short, long)]
-    //    rewrite: bool,
-    //},
     #[command(subcommand)]
     Show(ShowCommand),
 
@@ -99,22 +88,8 @@ pub enum ShowCommand {
         /// Unfold and display nested structures
         #[arg(short, long)]
         flat: bool,
-        /// Group name or ID [1-255]
-        group: StringOrNonZeroNumber,
         /// Message name or ID [0-255]
         message: StringOrNumber,
-        /// Target XML file
-        xml_file: String,
-    },
-    /// Show all messages within a specific group
-    Group {
-        /// Group name or ID [1-255]
-        group: StringOrNonZeroNumber,
-        /// Target XML file
-        xml_file: String,
-    },
-    /// List all available groups
-    Groups {
         /// Target XML file
         xml_file: String,
     },
