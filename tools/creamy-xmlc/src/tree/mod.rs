@@ -110,8 +110,8 @@ impl<'src> ProtocolTree<'src> {
                 }
                 other => {
                     let span = other.span();
-                    let _ = iter.next().unwrap();
                     diagnostics.report_err(AstError::UnexpectedToken { span });
+                    iter.next();
                 }
             }
         }

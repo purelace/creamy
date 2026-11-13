@@ -3,8 +3,8 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 //#![deny(clippy::unwrap_used)]
-//#![deny(clippy::panic)]
 #![deny(clippy::todo)]
+//#![deny(clippy::panic)]
 //#![deny(clippy::as_conversions)]
 
 mod compiler;

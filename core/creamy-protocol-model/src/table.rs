@@ -7,7 +7,7 @@ use strum::EnumCount;
 
 use crate::{
     error::{Fallback, SemanticError},
-    symbols::{NumericSymbol, Type, U8_META, U16_META, U32_META, U64_META, U128_META},
+    symbols::{NumericSymbol, T_U8_ID, Type, U8_META, U16_META, U32_META, U64_META, U128_META},
     utils::{Align, Array, Range, Size, TypesRange},
 };
 
@@ -149,6 +149,12 @@ impl TypeId {
     #[must_use]
     pub const fn align(self) -> Align {
         self.meta.align()
+    }
+}
+
+impl Fallback for TypeId {
+    fn fallback() -> Self {
+        T_U8_ID
     }
 }
 

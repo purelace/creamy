@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<protocol name="bitset" version="1.3.3+7" access="Private">
+
+    <struct name="Pointer">
+        <field name ="address" type="u64"/>
+    </struct>
+
+    <bitset name="Sample">
+        <value name="len" bits="5" repr="u8" />
+        <!-- Error: only numeric type are allowed -->
+        <value name="ptr" bits="8" repr="Pointer"/>
+        <value name="capacity" bits="21" repr="f32"/>
+
+        <value name="value" bits="24" repr="i8"/>
+        <!-- Error: invalid size -->
+        <value name="offset" bits="1024" repr="i128"/>
+    </bitset>
+
+
+    <!-- TODO: bits > repr size -->
+
+</protocol>

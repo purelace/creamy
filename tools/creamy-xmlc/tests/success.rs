@@ -5,7 +5,7 @@ use creamy_protocol_model::{
 use creamy_utils::strpool::{StringPool, StringPoolResolver};
 use creamy_xmlc::compile;
 
-const SAMPLE: &str = include_str!("success/sample.xml");
+const SAMPLE: &str = include_str!("samples/success.xml");
 
 #[test]
 fn success_path() {

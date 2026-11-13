@@ -1,19 +1,20 @@
 use std::cell::RefCell;
 
 use creamy_protocol_model::{
-    BitsetValuesRange, Direction, FieldsRange, OptionsRange, Size, TypeMeta, TypeTable,
+    BitsetValuesRange, Direction, FieldsRange, OptionsRange, Size, TypeId, TypeMeta, TypeTable,
     VariantsRange,
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     definition::ProtocolModel,
-    error::SemanticError,
+    error::{Fallback, SemanticError},
     layout::{LayoutCalculator, LayoutItem},
     storage::SymbolStorage,
     symbols::{
         ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID, FieldSymbol,
         FieldType, FlagsSymbol, HeapArraySymbol, I8_ID, I16_ID, I32_ID, I64_ID, I128_ID,
         MessageSymbol, MessageSymbolType, OptionSymbol, PrimitiveRepr, StreamFieldSymbol,
-        StreamFieldType, StreamSymbol, StructSymbol, T_U8_ID, Type, U8_ID, U16_ID, U32_ID, U64_ID,
-        U128_ID, VariantSymbol,
+        StreamFieldType, StreamSymbol, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID,
+        T_I128_ID, T_U8_ID, T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID, U32_ID,
+        U64_ID, U128_ID, VariantSymbol,
     },
 };
 use creamy_utils::strpool::{StringPool, StringPoolIntern};
@@ -146,13 +147,42 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn resolve_bitsets(&mut self, from: &[BitsetNode]) {
+    const fn is_numeric_type(type_id: TypeId) -> bool {
+        matches!(
+            type_id,
+            T_U8_ID
+                | T_U16_ID
+                | T_U32_ID
+                | T_U64_ID
+                | T_U128_ID
+                | T_I8_ID
+                | T_I16_ID
+                | T_I32_ID
+                | T_I64_ID
+                | T_I128_ID
+        )
+    }
+
+    fn validate_repr_type(&mut self, t: TypeId) -> TypeId {
+        if Self::is_numeric_type(t) {
+            t
+        } else {
+            self.report_err(SemanticError::ForbiddenType)
+        }
+    }
+
+    fn report_err<F: Fallback>(&mut self, e: impl Into<SemanticError>) -> F {
+        self.diag.report_err(e.into());
+        F::fallback()
+    }
+
+    fn resolve_bitsets(&mut self, nodes: &[BitsetNode]) {
         const MAX_BITS: usize = MAX_PAYLOAD * 8;
-        for f in from {
+        for node in nodes {
             let mut has_errors = false;
             let mut total_bits = 0;
             let mut bv_symbols = Vec::new();
-            for value in &f.values {
+            for value in &node.values {
                 total_bits += value.bits;
                 if value.bits > MAX_BITS {
                     has_errors = true;
@@ -166,7 +196,8 @@ impl<'a> Resolver<'a> {
                 let repr = self
                     .tt
                     .get_type_by_name(value.repr.intern(self.pool))
-                    .unwrap();
+                    .map(|t| self.validate_repr_type(t))
+                    .unwrap_or_else(|| self.report_err(SemanticError::ForbiddenType));
 
                 bv_symbols.push(BitsetValueSymbol::new(
                     value.name.intern(self.pool),
@@ -186,7 +217,7 @@ impl<'a> Resolver<'a> {
                 BitsetValuesRange::new(start as u16, len as u16)
             };
 
-            let symbol = BitsetSymbol::new(f.name.intern(self.pool), range);
+            let symbol = BitsetSymbol::new(node.name.intern(self.pool), range);
 
             self.tt.register_type(meta, Type::Bitset(symbol));
         }

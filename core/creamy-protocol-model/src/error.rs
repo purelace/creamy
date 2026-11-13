@@ -116,4 +116,14 @@ pub enum SemanticError {
     #[cfg_attr(feature = "std", diagnostic(code(ast::too_many_messages)))]
     #[cfg_attr(feature = "std", diagnostic(help("max 256")))]
     TooManyMessages,
+
+    #[error(
+        "[P212] Forbidden type in bitset value representation: only primitive numeric types are allowed."
+    )]
+    #[cfg_attr(feature = "std", diagnostic(code(semantic::forbidden_type)))]
+    #[cfg_attr(
+        feature = "std",
+        diagnostic(help("u8, u16, u32, u64, u128, i8, i16, i32, i64, i128"))
+    )]
+    ForbiddenType,
 }
