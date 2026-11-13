@@ -126,4 +126,8 @@ pub enum SemanticError {
         diagnostic(help("u8, u16, u32, u64, u128, i8, i16, i32, i64, i128"))
     )]
     ForbiddenType,
+
+    #[error("[P213] Zero width of bitset values is not allowed")]
+    #[cfg_attr(feature = "std", diagnostic(code(semantic::zero_value_width)))]
+    ZeroBitsetValueWidth,
 }

@@ -11,6 +11,9 @@
         <value name="ptr" bits="8" repr="Pointer"/>
         <value name="capacity" bits="21" repr="f32"/>
 
+        <!-- Error: zero width is not allowed-->
+        <value name="empty" bits="0" repr="u32"/>
+
         <value name="value" bits="24" repr="i8"/>
         <!-- Error: invalid size -->
         <value name="offset" bits="1024" repr="i128"/>

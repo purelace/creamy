@@ -184,10 +184,18 @@ impl<'a> Resolver<'a> {
             let mut bv_symbols = Vec::new();
             for value in &node.values {
                 total_bits += value.bits;
+
+                if value.bits == 0 {
+                    has_errors = true;
+                    self.diag.report_err(SemanticError::ZeroBitsetValueWidth);
+                    continue;
+                }
+
                 if value.bits > MAX_BITS {
                     has_errors = true;
                     break;
                 }
+
                 if total_bits > MAX_BITS {
                     has_errors = true;
                     break;

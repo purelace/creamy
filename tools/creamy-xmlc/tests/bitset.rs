@@ -14,6 +14,7 @@ fn errors() {
         vec![
             SemanticError::ForbiddenType.into(),
             SemanticError::ForbiddenType.into(),
+            SemanticError::ZeroBitsetValueWidth.into(),
             SemanticError::InvalidSize { actual: 136 }.into(),
         ],
         ERROR_SAMPLE

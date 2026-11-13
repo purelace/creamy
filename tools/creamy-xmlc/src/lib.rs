@@ -57,3 +57,5 @@ pub mod model {
 //TODO: name duplicate
 //TODO: self reference
 //TODO: missing type reference
+//TODO: если токенайзер заменит токен на его fallback версию,
+// то есть вероятность что поиск дубликатов имен и self reference выдаст ложно-положительный результат
