@@ -142,7 +142,6 @@ macro_rules! define_misc_parser {
                         $(let $c_arg = $f_name;)*
                         $closure
                     };
-
                     vector.push(node);
                 }
                 vector
@@ -168,9 +167,7 @@ macro_rules! define_toplevel_parser {
                 $($arg : $arg_type,)*
                 iter: &mut core::iter::Peekable<std::vec::Drain<$crate::tokenizer::Token<'src>>>,
             ) -> $type {
-                let nodes = $misc::$m_parse(iter);
-
-                let $nodes = nodes;
+                let $nodes = $misc::$m_parse(iter);
                 $(let $c_arg = $arg;)*
                 $closure
             }
