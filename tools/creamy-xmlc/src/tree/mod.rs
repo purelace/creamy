@@ -66,43 +66,37 @@ impl<'src> ProtocolTree<'src> {
             messages: vec![],
         };
 
-        while let Some(token) = iter.peek() {
+        while let Some(token) = iter.next() {
             match token {
-                &Token::Struct { name, .. } => {
-                    iter.next();
+                Token::Struct { name, .. } => {
                     tree.structs
                         .push(StructParser::parse_struct(name, &mut iter));
                 }
-                &Token::Enum { name, repr, .. } => {
-                    iter.next();
+                Token::Enum { name, repr, .. } => {
                     tree.enums
                         .push(EnumParser::parse_enum(name, repr, &mut iter));
                 }
-                &Token::Flags { name, .. } => {
-                    iter.next();
+                Token::Flags { name, .. } => {
                     tree.flags.push(FlagsParser::parse_flags(name, &mut iter));
                 }
-                &Token::Bitset { name, .. } => {
-                    iter.next();
+                Token::Bitset { name, .. } => {
                     tree.bitsets
                         .push(BitsetParser::parse_bitset(name, &mut iter));
                 }
-                &Token::Message {
+                Token::Message {
                     name, direction, ..
                 } => {
-                    iter.next();
                     tree.messages
                         .push(MessageNodeType::Single(MessageParser::parse_single(
                             name, direction, &mut iter,
                         )));
                 }
-                &Token::Stream {
+                Token::Stream {
                     name,
                     timeout,
                     direction,
                     ..
                 } => {
-                    iter.next();
                     tree.messages
                         .push(MessageNodeType::Stream(StreamParser::parse_stream(
                             name, timeout, direction, &mut iter,
@@ -111,7 +105,6 @@ impl<'src> ProtocolTree<'src> {
                 other => {
                     let span = other.span();
                     diagnostics.report_err(AstError::UnexpectedToken { span });
-                    iter.next();
                 }
             }
         }
