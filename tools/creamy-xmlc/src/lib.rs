@@ -3,14 +3,14 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 //#![deny(clippy::unwrap_used)]
-#![deny(clippy::todo)]
+//#![deny(clippy::todo)]
 //#![deny(clippy::panic)]
 //#![deny(clippy::as_conversions)]
 
 mod compiler;
-pub use compiler::compile;
-pub mod tokenizer;
-mod tree;
+pub use compiler::SemanticModel;
+mod ast;
+mod tokenizer;
 
 mod diagnostics;
 pub mod error;

@@ -115,7 +115,7 @@ fn make_flat_report(
                 Type::Flags(_) => todo!(),
                 Type::Bitset(_) => todo!(),
             },
-            FieldType::Array(array) => {
+            FieldType::StaticArray(array) => {
                 report.add_array_field(ArrayField {
                     name: field.ident().resolve(pool).to_string(),
                     kind: tt.name_of_type(array.kind()).resolve(pool).to_string(),

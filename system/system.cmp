@@ -1,0 +1,71 @@
+#name    "system"
+#version "1.0.0"
+#access  "Public"
+#schema  1
+//#include <builtin>
+//#types
+
+// Reference: cbus-core
+[Builtin]
+struct SubscriberId {
+    value: u8,
+}
+
+// Reference: cbus-core
+[Builtin]
+struct ProtocolId {
+    value: u8,
+}
+
+message[O] ProtocolDeclared {
+    version: u32,
+    provider: u8,
+    protocol_id: u8,
+}
+
+message[O] ProtocolUndeclared {
+    provider: u8,
+    protocol_id: u8,
+}
+
+message[O] ConsumerAppeared {
+    protocol_id: u8,
+    consumer_id: u8,
+}
+
+message[O] ConsumerDisappeared {
+    protocol_id: u8,
+    consumer_id: u8,
+}
+
+[Extension(from="1.2", until="2.0")]
+message[D] StreamKeepAlive {
+    stream_kind: u8,
+    stream_id: u8,
+}
+
+[Experimental]
+enum[u8] LogType {
+    Debug   = 0,
+    Info    = 1,
+    Warning = 2,
+    Error   = 3,
+}
+
+// Reference: Rust strings
+[Builtin]
+object String {
+    inner: Array<u8>,
+}
+
+[Timeout(4), Experimental]
+stream[I] Log {
+    kind: LogType,
+    content: String,
+}
+
+//u8, u16, u32, u64, u128,
+//i8, i16, i32, i64, i128,
+//f32, f64,
+//char, achar, bool,
+//Array<T>, [T; N],

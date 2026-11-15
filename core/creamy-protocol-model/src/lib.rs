@@ -12,7 +12,7 @@ mod utils;
 mod version;
 
 pub use semver::Version;
-pub use table::{FinishedTypeTable, TypeId, TypeMeta, TypeTable};
+pub use table::{FinishedSymbolTable, SymbolTable, TypeId, TypeMeta};
 pub use utils::*;
 
 pub mod constraints {

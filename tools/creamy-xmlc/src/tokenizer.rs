@@ -1,666 +1,266 @@
-use core::{cell::RefCell, ops::Deref, str::FromStr};
+use std::str::Chars;
 
-use creamy_protocol_model::{Access, Direction, Version, error::Fallback, symbols::VariantValue};
-use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern};
 use miette::SourceSpan;
-use roxmltree::{Document, Node, NodeType, TextPos};
 
-use crate::{
-    diagnostics::Diagnostics,
-    error::{ProtocolError, ProtocolErrorExt, SyntaxError},
-    version::parse_version,
-};
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Span {
+    offset: usize,
+    length: usize,
+}
 
-#[derive(Default, Debug, Clone, Copy)]
-pub struct Identifier<'a>(&'a str);
-impl Identifier<'_> {
-    #[must_use]
-    pub const fn as_str(&self) -> &str {
-        self.0
+impl From<Span> for SourceSpan {
+    fn from(val: Span) -> Self {
+        SourceSpan::new(val.offset.into(), val.length)
     }
 }
 
-impl Deref for Identifier<'_> {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl StringPoolIntern for Identifier<'_> {
-    fn intern(&self, pool: &mut StringPool) -> StringId {
-        self.0.intern(pool)
-    }
-}
-
-impl Fallback for Identifier<'_> {
-    fn fallback() -> Self {
-        Identifier(ERROR_IDENT)
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum IdentifierOrArray<'src> {
-    Identifier(Identifier<'src>),
-    Array(Identifier<'src>, u8),
-}
-
-impl Fallback for IdentifierOrArray<'_> {
-    fn fallback() -> Self {
-        IdentifierOrArray::Identifier(Identifier::fallback())
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum IdentifierOrArrayOrDynArray<'src> {
-    Identifier(Identifier<'src>),
-    Array(Identifier<'src>, u8),
-    DynArray(Identifier<'src>),
-}
-
-impl Fallback for IdentifierOrArrayOrDynArray<'_> {
-    fn fallback() -> Self {
-        Self::Identifier(Identifier::fallback())
+impl Span {
+    pub const fn as_range(&self) -> core::ops::Range<usize> {
+        self.offset..self.offset + self.length
     }
 }
 
 #[derive(Debug)]
-pub struct Number<'a>(&'a str);
-impl Fallback for Number<'_> {
-    fn fallback() -> Self {
-        Self(ERROR_NUMBER)
-    }
+pub enum Token {
+    Ident(Span),
+    /// "..."
+    String(Span),
+    Number(Span),
+    /// ///
+    Documentation(Span),
+    /// #
+    Hash,
+    /// {
+    LBrace,
+    /// }
+    RBrace,
+    /// [
+    LBracket,
+    /// ]
+    RBracket,
+    /// (
+    LParen,
+    /// )
+    RParen,
+    /// <
+    LAngle,
+    /// \>
+    RAngle,
+    /// :
+    Colon,
+    /// ;
+    Semicolon,
+    /// ,
+    Comma,
+    /// =
+    Equals,
+    Unknown(char),
 }
 
-#[derive(Debug, strum::Display)]
-pub enum Token<'src> {
-    #[strum(to_string = "<protocol>")]
-    Protocol {
-        name: Identifier<'src>,
-        version: Version,
-        access: Access,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<flags>")]
-    Flags {
-        name: Identifier<'src>,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<option>")]
-    Option {
-        name: Identifier<'src>,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<bitset>")]
-    Bitset {
-        name: Identifier<'src>,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<value>")]
-    BValue {
-        name: Identifier<'src>,
-        bits: usize,
-        repr: Identifier<'src>,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<message>")]
-    Message {
-        name: Identifier<'src>,
-        direction: Direction,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<struct>")]
-    Struct {
-        name: Identifier<'src>,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<enum>")]
-    Enum {
-        name: Identifier<'src>,
-        repr: Identifier<'src>,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<variant>")]
-    Variant {
-        name: Identifier<'src>,
-        value: VariantValue,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<field>")]
-    Field {
-        name: Identifier<'src>,
-        kind: IdentifierOrArray<'src>,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<stream>")]
-    Stream {
-        name: Identifier<'src>,
-        timeout: u8,
-        direction: Direction,
-        span: SourceSpan,
-    },
-    #[strum(to_string = "<field>")]
-    StreamField {
-        name: Identifier<'src>,
-        kind: IdentifierOrArrayOrDynArray<'src>,
-        span: SourceSpan,
-    },
-}
-
-const ERROR_IDENT: &str = "Error";
-const ERROR_VERSION: &str = "0.0.0";
-const ERROR_ACCESS: &str = "Private";
-const ERROR_NUMBER: &str = "1";
-const ERROR_DIRECTION: &str = "Incoming";
-
-fn span_for(node: Node) -> SourceSpan {
-    let node_slice = &node.document().input_text()[node.range()];
-    let trimmed_slice = node_slice[1..].trim();
-    let mut len = 0;
-    for c in trimmed_slice.chars() {
-        if c.is_whitespace() || c == '/' || c == '>' {
-            break;
-        }
-        len += 1;
-    }
-    SourceSpan::new((node.range().start + 1).into(), len)
-}
-
-pub struct Context<'a, 'src: 'a> {
-    //TODO fix
-    diagnostics: &'a RefCell<Diagnostics>,
-    node: Node<'a, 'src>,
-}
-
-impl<'src> Context<'_, 'src> {
-    fn tag(&self) -> &'static str {
-        match self.node.tag_name().name() {
-            "protocol" => "protocol",
-            "message" => "message",
-            "struct" => "struct",
-            "enum" => "enum",
-            "field" => "field",
-            "variant" => "variant",
-            "flags" => "flags",
-            "option" => "option",
-            "bitset" => "bitset",
-            "value" => "value",
-            "stream" => "stream",
-            _ => unreachable!(),
-        }
-    }
-
-    fn read_attr(&self, attr: &'static str, fallback: &'static str) -> &'src str {
-        if let Some(attr) = self.node.attribute_node(attr) {
-            &self.node.document().input_text()[attr.range_value()]
-        } else {
-            self.diagnostics
-                .borrow_mut()
-                .report_err(SyntaxError::MissingAttribute {
-                    tag: self.tag(),
-                    attr,
-                    span: span_for(self.node),
-                });
-            fallback
-        }
-    }
-
-    fn read_ident(&self, attr: &'static str) -> Identifier<'src> {
-        self.parse_ident(self.read_attr(attr, ERROR_IDENT), attr, ERROR_IDENT)
-    }
-
-    fn read_version(&self) -> Version {
-        parse_version(self.read_attr("version", ERROR_VERSION), || {
-            self.attribute_value_span("version")
-        })
-        .or_recover(&mut self.diagnostics.borrow_mut())
-    }
-
-    fn attribute_full_span(&self, name: &'static str) -> SourceSpan {
-        let attribute = self.node.attribute_node(name).expect("Unreachable!");
-        let range = attribute.range();
-        SourceSpan::new((range.start).into(), range.len())
-    }
-
-    //fn attribute_ident_span(&self, name: &'static str) -> SourceSpan {
-    //    let attribute = self.node.attribute_node(name).expect("Unreachable!");
-    //    let range = attribute.range_qname();
-    //    SourceSpan::new((range.start).into(), range.len())
-    //}
-
-    fn attribute_value_span(&self, name: &'static str) -> SourceSpan {
-        let attribute = self.node.attribute_node(name).expect("Unreachable!");
-        let range = attribute.range_value();
-        SourceSpan::new((range.start).into(), range.len())
-    }
-
-    fn read_access(&self) -> Access {
-        self.parse_access(
-            self.parse_ident(
-                self.read_attr("access", ERROR_ACCESS),
-                "access",
-                ERROR_ACCESS,
-            ),
-            "access",
+impl Token {
+    pub const fn matches(&self, rhs: &Self) -> bool {
+        matches!(
+            (self, rhs),
+            (Self::Ident(_), Self::Ident(_))
+                | (Self::String(_), Self::String(_))
+                | (Self::Number(_), Self::Number(_))
+                | (Self::Documentation(_), Self::Documentation(_))
+                | (Self::Hash, Self::Hash)
+                | (Self::LBrace, Self::LBrace)
+                | (Self::RBrace, Self::RBrace)
+                | (Self::LBracket, Self::LBracket)
+                | (Self::RBracket, Self::RBracket)
+                | (Self::LParen, Self::LParen)
+                | (Self::RParen, Self::RParen)
+                | (Self::LAngle, Self::LAngle)
+                | (Self::RAngle, Self::RAngle)
+                | (Self::Colon, Self::Colon)
+                | (Self::Semicolon, Self::Semicolon)
+                | (Self::Comma, Self::Comma)
+                | (Self::Equals, Self::Equals)
+                | (Self::Unknown(_), Self::Unknown(_))
         )
     }
+}
 
-    fn read_direction(&self) -> Direction {
-        self.parse_direction(
-            self.parse_ident(
-                self.read_attr("direction", ERROR_DIRECTION),
-                "direction",
-                ERROR_DIRECTION,
-            ),
-            "direction",
-        )
-    }
+pub struct Tokenizer<'src> {
+    chars: Chars<'src>,
+    offset: usize,
+    current_char: Option<char>,
+}
 
-    fn report_err(&self, error: impl Into<ProtocolError>) {
-        self.diagnostics.borrow_mut().report_err(error);
-    }
-
-    fn parse_ident(
-        &self,
-        s: &'src str,
-        attr: &'static str,
-        fallback: &'static str,
-    ) -> Identifier<'src> {
-        if s.is_empty() {
-            self.report_err(SyntaxError::EmptyIdentifier {
-                span: self.attribute_full_span(attr),
-            });
-            return Identifier(fallback);
-        }
-
-        let mut chars = s.chars();
-
-        if let Some(first) = chars.next()
-            && !first.is_alphabetic()
-            && first != '_'
-        {
-            self.report_err(SyntaxError::InvalidIdentifier {
-                span: self.attribute_value_span(attr),
-            });
-            return Identifier(fallback);
-        }
-
-        if chars.all(|c| c.is_alphanumeric() || c == '_') {
-            Identifier(s)
-        } else {
-            self.report_err(SyntaxError::InvalidIdentifier {
-                span: self.attribute_value_span(attr),
-            });
-            Identifier(fallback)
+impl<'src> Tokenizer<'src> {
+    pub fn new(source: &'src str) -> Self {
+        Self {
+            chars: source.chars(),
+            offset: 0,
+            current_char: None,
         }
     }
 
-    fn parse_access(&self, value: Identifier, attr: &'static str) -> Access {
-        if let Ok(access) = Access::from_str(value.0) {
-            access
-        } else {
-            self.diagnostics
-                .borrow_mut()
-                .report_err(SyntaxError::InvalidAccess {
-                    span: self.attribute_value_span(attr),
-                });
-            Access::Private
-        }
+    const fn create_span_with_length(&mut self, length: usize) -> Span {
+        let span = Span {
+            offset: self.offset,
+            length,
+        };
+        self.offset += length + 1;
+        span
     }
 
-    fn parse_direction(&self, value: Identifier, attr: &'static str) -> Direction {
-        if let Ok(value) = Direction::from_str(&value) {
-            value
-        } else {
-            self.diagnostics
-                .borrow_mut()
-                .report_err(SyntaxError::InvalidDirection {
-                    span: self.attribute_value_span(attr),
-                });
-            Direction::Incoming
-        }
-    }
+    fn parse_ident(&mut self) -> Token {
+        self.offset -= 1;
 
-    fn parse_number(&self, attr: &'static str) -> Number<'src> {
-        let s = self.read_attr(attr, ERROR_NUMBER);
-        if s.starts_with('-') && s.chars().skip(1).all(char::is_numeric)
-            || s.chars().all(char::is_numeric)
-        {
-            Number(s)
-        } else {
-            self.report_err(SyntaxError::NotANumber {
-                span: self.attribute_value_span(attr),
-            });
-            Number::fallback()
-        }
-    }
-
-    //fn read_num(&self, attr: &'static str, fallback: &'static str) -> Number {
-    //    Number::new(self.read_attr(attr, fallback), || {
-    //        self.attribute_value_span(attr)
-    //    })
-    //    .or_recover(&mut self.diagnostics.borrow_mut())
-    //}
-
-    fn read_usize(&self, attr: &'static str) -> usize {
-        let number = self.parse_number(attr);
-        usize::from_str(number.0).expect("Unreachable!")
-    }
-
-    fn read_u8(&self, attr: &'static str) -> u8 {
-        let number = self.parse_number(attr);
-        match u8::from_str(number.0) {
-            Ok(value) => value,
-            Err(error) => {
-                //TODO: custom error
-                self.report_err(SyntaxError::IntParse {
-                    span: self.attribute_value_span(attr),
-                    error,
-                });
-                0
-            }
-        }
-    }
-
-    fn read_variant_value(&self, attr: &'static str) -> VariantValue {
-        let number = self.parse_number(attr);
-
-        if let Ok(value) = number.0.parse::<u64>() {
-            VariantValue::Unsigned(value)
-        } else if let Ok(value) = number.0.parse::<i64>() {
-            VariantValue::Singed(value)
-        } else {
-            self.report_err(SyntaxError::NotANumber {
-                span: self.attribute_value_span(attr),
-            });
-            VariantValue::Unsigned(1)
-        }
-    }
-
-    fn try_parse_array(&self, s: &'src str, attr: &'static str) -> Option<IdentifierOrArray<'src>> {
-        let s = s.trim();
-
-        let l_bracket = s.starts_with('[');
-        let r_bracket = s.ends_with(']');
-
-        if (!l_bracket && r_bracket) || (!r_bracket && l_bracket) {
-            self.report_err(SyntaxError::InvalidArraySyntax {
-                span: self.attribute_value_span(attr),
-            });
-            return Some(IdentifierOrArray::Array(Identifier(ERROR_IDENT), 1));
-        } else if !l_bracket && !r_bracket {
-            return None;
-        }
-
-        let content = &s[1..s.len() - 1];
-        let mut parts = content.split(';');
-        let (type_ident, count) =
-            if let (Some(l), Some(r), None) = (parts.next(), parts.next(), parts.next()) {
-                (l.trim(), r.trim())
+        let mut length = 1;
+        for c in self.chars.by_ref() {
+            if c.is_alphanumeric() || c == '_' {
+                length += 1;
             } else {
-                self.report_err(SyntaxError::InvalidArraySyntax {
-                    span: self.attribute_value_span(attr),
-                });
-                return Some(IdentifierOrArray::Array(Identifier(ERROR_IDENT), 1));
-            };
-
-        Some(match count.parse::<u8>() {
-            Ok(count) => IdentifierOrArray::Array(Identifier(type_ident), count),
-            Err(error) => {
-                self.report_err(SyntaxError::IntParse {
-                    span: self.attribute_value_span(attr),
-                    error,
-                });
-                IdentifierOrArray::Array(Identifier(ERROR_IDENT), 1)
+                self.current_char = Some(c);
+                break;
             }
-        })
+        }
+
+        Token::Ident(self.create_span_with_length(length))
     }
 
-    fn read_identifier_or_array(&self, attr: &'static str) -> IdentifierOrArray<'src> {
-        let s = self.read_attr(attr, ERROR_IDENT);
-        if let Some(result) = self.try_parse_array(s, attr) {
-            result
-        } else {
-            IdentifierOrArray::Identifier(self.parse_ident(s, attr, ERROR_IDENT))
+    fn parse_string(&mut self) -> Token {
+        let mut length = 0;
+        for c in self.chars.by_ref() {
+            if c == '"' {
+                break;
+            }
+            length += 1;
+        }
+
+        Token::String(self.create_span_with_length(length))
+    }
+
+    fn parse_number(&mut self) -> Token {
+        self.offset -= 1;
+        let mut length = 1;
+
+        for c in self.chars.by_ref() {
+            if c.is_numeric() {
+                length += 1;
+            } else {
+                self.current_char = Some(c);
+                break;
+            }
+        }
+
+        Token::Number(self.create_span_with_length(length))
+    }
+
+    fn parse_comment_or_documentation(&mut self) -> Option<Token> {
+        self.offset += 1;
+        let char = self.chars.next();
+
+        match char {
+            Some('/') => match self.chars.next() {
+                Some('/') => {
+                    self.offset += 1;
+                    let mut length = 0;
+                    for c in self.chars.by_ref() {
+                        if c == '\n' {
+                            break;
+                        }
+
+                        length += 1;
+                    }
+
+                    Some(Token::Documentation(self.create_span_with_length(length)))
+                }
+                Some(_) => {
+                    self.offset += 1;
+                    for c in self.chars.by_ref() {
+                        self.offset += 1;
+                        if c == '\n' {
+                            break;
+                        }
+                    }
+
+                    None
+                }
+                None => None,
+            },
+            Some(o) => Some(Token::Unknown(o)),
+            None => None,
         }
     }
+}
 
-    fn try_parse_dyn_array(
-        &self,
-        s: &'src str,
-        attr: &'static str,
-    ) -> Option<IdentifierOrArrayOrDynArray<'src>> {
-        let s = s.trim();
+impl Iterator for Tokenizer<'_> {
+    type Item = Token;
 
-        //TODO errors
-
-        if let Some(without_prefix) = s.strip_prefix("Array[") {
-            if let Some(inner_type) = without_prefix.strip_suffix("]") {
-                let inner_type = inner_type.trim();
-                return Some(IdentifierOrArrayOrDynArray::DynArray(Identifier(
-                    inner_type,
-                )));
-            }
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(char) = self.current_char.take().or_else(|| {
+            self.offset += 1;
+            self.chars.next()
+        }) {
+            return Some(match char {
+                c if c.is_whitespace() => continue,
+                '#' => Token::Hash,
+                '{' => Token::LBrace,
+                '}' => Token::RBrace,
+                '[' => Token::LBracket,
+                ']' => Token::RBracket,
+                '(' => Token::LParen,
+                ')' => Token::RParen,
+                '<' => Token::LAngle,
+                '>' => Token::RAngle,
+                ':' => Token::Colon,
+                ';' => Token::Semicolon,
+                ',' => Token::Comma,
+                '=' => Token::Equals,
+                '_' => self.parse_ident(),
+                '"' => self.parse_string(),
+                '/' => {
+                    let Some(t) = self.parse_comment_or_documentation() else {
+                        continue;
+                    };
+                    t
+                }
+                c if c.is_alphabetic() => self.parse_ident(),
+                c if c.is_numeric() || c == '-' => self.parse_number(),
+                o => Token::Unknown(o),
+            });
         }
 
         None
     }
-
-    fn read_identifier_or_array_or_dyn_array(
-        &self,
-        attr: &'static str,
-    ) -> IdentifierOrArrayOrDynArray<'src> {
-        let s = self.read_attr(attr, ERROR_IDENT);
-
-        if let Some(result) = self.try_parse_dyn_array(s, attr) {
-            result
-        } else if let Some(result) = self.try_parse_array(s, attr) {
-            match result {
-                IdentifierOrArray::Identifier(i) => IdentifierOrArrayOrDynArray::Identifier(i),
-                IdentifierOrArray::Array(i, s) => IdentifierOrArrayOrDynArray::Array(i, s),
-            }
-        } else {
-            IdentifierOrArrayOrDynArray::Identifier(self.parse_ident(s, attr, ERROR_IDENT))
-        }
-    }
 }
 
-impl<'a, 'src: 'a> Token<'src> {
-    fn new_protocol(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Protocol {
-            name: ctx.read_ident("name"),
-            version: ctx.read_version(),
-            access: ctx.read_access(),
-            span: span_for(ctx.node),
-        }
-    }
+#[cfg(test)]
+mod tests {
+    use super::Tokenizer;
+    use crate::tokenizer::Token;
 
-    fn new_message(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Message {
-            name: ctx.read_ident("name"),
-            direction: ctx.read_direction(),
-            span: span_for(ctx.node),
-        }
-    }
+    const SAMPLE: &str = include_str!("../../../system/system.cmp");
 
-    fn new_struct(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Struct {
-            name: ctx.read_ident("name"),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_enum(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Enum {
-            name: ctx.read_ident("name"),
-            repr: ctx.read_ident("repr"),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_field(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Field {
-            name: ctx.read_ident("name"),
-            kind: ctx.read_identifier_or_array("type"),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_variant(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Variant {
-            name: ctx.read_ident("name"),
-            value: ctx.read_variant_value("value"),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_flags(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Flags {
-            name: ctx.read_ident("name"),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_option(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Option {
-            name: ctx.read_ident("name"),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_bitset(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Bitset {
-            name: ctx.read_ident("name"),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_value(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::BValue {
-            name: ctx.read_ident("name"),
-            bits: ctx.read_usize("bits"),
-            repr: ctx.read_ident("repr"),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_stream(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::Stream {
-            name: ctx.read_ident("name"),
-            timeout: ctx.read_u8("timeout"),
-            direction: ctx.read_direction(),
-            span: span_for(ctx.node),
-        }
-    }
-
-    fn new_stream_field(ctx: &Context<'a, 'src>) -> Token<'src> {
-        Token::StreamField {
-            name: ctx.read_ident("name"),
-            kind: ctx.read_identifier_or_array_or_dyn_array("type"),
-            span: span_for(ctx.node),
-        }
-    }
-
-    #[must_use]
-    pub const fn span(&self) -> SourceSpan {
-        *match self {
-            Token::Protocol { span, .. }
-            | Token::Flags { span, .. }
-            | Token::Option { span, .. }
-            | Token::Bitset { span, .. }
-            | Token::BValue { span, .. }
-            | Token::Message { span, .. }
-            | Token::Struct { span, .. }
-            | Token::Enum { span, .. }
-            | Token::Variant { span, .. }
-            | Token::Field { span, .. }
-            | Token::Stream { span, .. }
-            | Token::StreamField { span, .. } => span,
-        }
-    }
-}
-
-fn get_content_span(content: &str, pos: TextPos) -> SourceSpan {
-    let mut y_pos = 1;
-    let mut row_pos = 0;
-    let mut idx = 0;
-    for char in content.chars() {
-        idx += 1;
-        if char != '\n' {
-            continue;
-        }
-
-        row_pos = idx;
-        y_pos += 1;
-        if y_pos == pos.row {
-            break;
-        }
-    }
-    SourceSpan::new(row_pos.into(), pos.col as usize)
-}
-
-pub fn tokenize<'a, 'src: 'a>(
-    content: &'src str,
-    diagnostics: &'a RefCell<Diagnostics>,
-) -> Vec<Token<'src>> {
-    let mut tokens = vec![];
-    let document = match Document::parse(content) {
-        Ok(document) => document,
-        Err(error) => {
-            let at = get_content_span(content, error.pos());
-            diagnostics
-                .borrow_mut()
-                .report_err(SyntaxError::Xml { span: at, error });
-            return vec![];
-        }
-    };
-    let mut is_stream = false;
-
-    for node in document
-        .root()
-        .descendants()
-        .filter(|n| n.node_type() == NodeType::Element)
-    {
-        let ctx = Context { diagnostics, node };
-        match node.tag_name().name() {
-            "protocol" => tokens.push(Token::new_protocol(&ctx)),
-            "message" => {
-                tokens.push(Token::new_message(&ctx));
-                is_stream = false;
-            }
-            "struct" => {
-                tokens.push(Token::new_struct(&ctx));
-                is_stream = false;
-            }
-            "enum" => {
-                tokens.push(Token::new_enum(&ctx));
-                is_stream = false;
-            }
-            "field" => {
-                if is_stream {
-                    tokens.push(Token::new_stream_field(&ctx));
-                } else {
-                    tokens.push(Token::new_field(&ctx));
+    #[test]
+    fn test() {
+        for token in Tokenizer::new(SAMPLE) {
+            match token {
+                Token::Ident(span) => {
+                    let slice = &SAMPLE[span.as_range()];
+                    println!("Ident: {slice}");
+                }
+                Token::String(span) => {
+                    let slice = &SAMPLE[span.as_range()];
+                    println!("String: {slice}");
+                }
+                Token::Number(span) => {
+                    let slice = &SAMPLE[span.as_range()];
+                    println!("Number: {slice}");
+                }
+                Token::Documentation(span) => {
+                    let slice = &SAMPLE[span.as_range()];
+                    println!("Documentation: {slice}");
+                }
+                o => {
+                    println!("{o:#?}");
                 }
             }
-            "variant" => tokens.push(Token::new_variant(&ctx)),
-            "flags" => tokens.push(Token::new_flags(&ctx)),
-            "option" => tokens.push(Token::new_option(&ctx)),
-            "bitset" => tokens.push(Token::new_bitset(&ctx)),
-            "value" => tokens.push(Token::new_value(&ctx)),
-            "stream" => {
-                tokens.push(Token::new_stream(&ctx));
-                is_stream = true;
-            }
-
-            _ => diagnostics
-                .borrow_mut()
-                .report_err(SyntaxError::UnknownTag {
-                    span: span_for(node),
-                }),
         }
     }
-
-    tokens
 }

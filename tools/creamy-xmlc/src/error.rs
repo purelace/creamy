@@ -9,21 +9,6 @@ use crate::Diagnostics;
 #[derive(Debug, Error, Diagnostic, Clone, PartialEq, Eq)]
 #[diagnostic(severity(Error))]
 pub enum SyntaxError {
-    #[error("[P000] Roxmltree error: {error}")]
-    #[diagnostic(code(syntax::xml))]
-    Xml {
-        #[label("Here")]
-        span: SourceSpan,
-        error: roxmltree::Error,
-    },
-
-    #[error("[P001] Unknown tag")]
-    #[diagnostic(code(syntax::unknown_tag))]
-    UnknownTag {
-        #[label("Here")]
-        span: SourceSpan,
-    },
-
     #[error("[P002] Missing '{attr}' attribute in <{tag}> tag")]
     #[diagnostic(code(syntax::missing_attribute))]
     #[diagnostic(help("add {attr}=\"...\" attribute"))]
@@ -92,6 +77,20 @@ pub enum SyntaxError {
     #[error("[P012] Not a number")]
     #[diagnostic(code(syntax::nan))]
     NotANumber {
+        #[label("Here")]
+        span: SourceSpan,
+    },
+
+    #[error("Syntax Error: expected '{expected}'")]
+    UnexpectedToken { expected: char },
+
+    #[error("Syntax Error: expected an item")]
+    UnexpectedEOF,
+
+    #[error("Syntax Error: unknown keyword '{actual}'")]
+    UnknownKeyword {
+        actual: String,
+
         #[label("Here")]
         span: SourceSpan,
     },

@@ -1,0 +1,25 @@
+#name    "bitset"
+#version "1.3.3+7"
+#access  "Private"
+#schema  1
+
+struct Pointer {
+    address: u64,
+}
+
+bitset Sample {
+    len:      u8:5,
+
+    // Error: only numeric types are allowed
+    ptr:      Pointer:8,
+    capacity: f32:21,
+
+    // Error: zero width is not allowed
+    empty: u32:0,
+
+    // Error: TODO
+    value: i8:24,
+
+    // Error: invalid size
+    offset: i128: 1024,
+}

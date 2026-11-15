@@ -2,9 +2,8 @@
 
 use alloc::string::{String, ToString};
 
+use miette::SourceSpan;
 use thiserror::Error;
-
-use crate::symbols::VariantValue;
 
 pub trait Fallback {
     fn fallback() -> Self;
@@ -51,7 +50,7 @@ pub enum SemanticError {
         //span: SourceSpan,
         //#[related]
         //model: TypeModel,
-        actual: usize,
+        actual: u64,
     },
 
     #[error("[P201] Target align '{actual}' is not power of 2")]
@@ -96,11 +95,7 @@ pub enum SemanticError {
         diagnostic(code(semantic::enum_variant_value_out_of_range))
     )]
     #[cfg_attr(feature = "std", diagnostic(help("allowed range ({min}..={max})")))]
-    EnumVariantValueOutOfRange {
-        value: VariantValue,
-        min: i64,
-        max: u64,
-    },
+    EnumVariantValueOutOfRange { value: String, min: i64, max: u64 },
 
     #[error("[P208] Cannot resolve type {from}: required type '{kind}' not found.")]
     CannotResolveTypeFieldNotFound { from: String, kind: String },
@@ -130,4 +125,7 @@ pub enum SemanticError {
     #[error("[P213] Zero width of bitset values is not allowed")]
     #[cfg_attr(feature = "std", diagnostic(code(semantic::zero_value_width)))]
     ZeroBitsetValueWidth,
+
+    #[error("[] The name `{name}` is defined multiple times")]
+    NameDefinedMultipleTimes { name: String, span: SourceSpan },
 }

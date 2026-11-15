@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use creamy_plugin_package::pool::{StringPool, StringPoolResolver};
 use creamy_xmlc::model::{
-    FinishedTypeTable, TypeId,
+    FinishedSymbolTable, TypeId,
     symbols::{StreamFieldSymbol, StreamFieldType, get_builtin_type_name, is_builtin_type},
 };
 
@@ -26,7 +26,7 @@ pub struct EnrichedStreamFieldSymbol<'s> {
 #[derive(Clone)]
 pub struct StreamFieldList<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> {
     module_path: AbsolutePath,
-    tt: &'s FinishedTypeTable,
+    tt: &'s FinishedSymbolTable,
     pool: &'s StringPool,
     fields: I,
 }
@@ -66,7 +66,7 @@ impl<'s, I: Iterator<Item = StreamFieldSymbol> + Clone> StreamFieldList<'s, I> {
     pub const fn new(
         module_path: AbsolutePath,
         pool: &'s StringPool,
-        tt: &'s FinishedTypeTable,
+        tt: &'s FinishedSymbolTable,
         fields: I,
     ) -> Self {
         Self {

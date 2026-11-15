@@ -1,0 +1,92 @@
+#name    "test"
+#version "0.0.1"
+#access  "Public"
+#schema  1
+
+flags TypeOptions {
+    Serialize,
+    Notify,
+    Destroy,
+    Setup,
+}
+
+bitset TypeMeta {
+    len:  u8:5,
+    size: i32:10,
+    data: i64:3,
+}
+
+enum[u8] LogType {
+    Debug   = 0,
+    Info    = 1,
+    Warning = 2,
+    Error   = 3
+}
+
+// Comment
+[Timeout(8)]
+stream[O] PlayerList {
+    count:    u32,
+    checksum: u32
+}
+
+/// Documentation
+[Timeout(3)]
+stream[D] Log {
+    kind:   LogType,
+    length: u32,
+    data:   Array<u8>
+}
+
+message[I] Snapshot {
+    flag:      u8,
+    small_val: u16,
+    timestamp: i64,
+    guid:      u128,
+}
+
+message[O] VectorArray {
+    coordinates: [f32; 6]
+}
+
+message[D] SendSignedLimits {
+    small_int: i16,
+    mid_int:   i64,
+    big_int:   i128
+}
+
+struct BucketSmall {
+    d: u64,
+    c: u32,
+    b: u16,
+    a: u8,
+}
+
+message[D] NestedValid {
+    data: BucketSmall,
+    extra: [u8; 8]
+}
+
+message[O] StatusWithData {
+    status: Status,
+    buffer: [u8; 26]
+}
+
+message[O] StatusWithRemainder {
+    status: Status
+}
+
+enum[u8] Status {
+    Error = 0,
+    Allow = 1,
+    Deny  = 4,
+}
+
+struct SmartReference {
+    ref64: ReferenceX64,
+    len:   u64
+}
+
+struct ReferenceX64 {
+    inner: u64,
+}

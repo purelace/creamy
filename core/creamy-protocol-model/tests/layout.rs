@@ -52,7 +52,7 @@ fn validate() -> Result<(), Box<dyn core::error::Error>> {
     let vec = [
         FieldSymbol::new(
             StringId::new(1),
-            FieldType::Array(ArraySymbol::new(T_I16_ID, Size::try_new(2)?)),
+            FieldType::StaticArray(ArraySymbol::new(T_I16_ID, Size::try_new(2)?)),
             false,
         ),
         FieldSymbol::new(StringId::new(2), FieldType::Type(T_U8_ID), false),

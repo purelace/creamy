@@ -9,7 +9,7 @@ mod repr;
 use creamy_binary::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
-pub use enumeration::{EnumSymbol, VariantSymbol, VariantValue};
+pub use enumeration::{EnumSymbol, Number, VariantSymbol, VariantValue};
 pub use field::{Field, FieldSymbol, FieldType};
 pub use message::*;
 pub use numeric::*;
@@ -30,10 +30,11 @@ use crate::{
 pub enum Type {
     Numeric(NumericSymbol) = 0,
     Array(ArraySymbol) = 1,
-    Struct(StructSymbol) = 2,
+    Flags(FlagsSymbol) = 2,
     Enum(EnumSymbol) = 3,
-    Flags(FlagsSymbol) = 4,
-    Bitset(BitsetSymbol) = 5,
+    Bitset(BitsetSymbol) = 4,
+    Struct(StructSymbol) = 5,
+    Object(ObjectSymbol) = 6,
 }
 
 impl Type {
@@ -41,12 +42,13 @@ impl Type {
     #[must_use]
     pub const fn ident(&self) -> StringId {
         match self {
-            Type::Numeric(symbol) => symbol.name(),
+            Type::Numeric(s) => s.name(),
             Type::Array(_) => unreachable!(),
-            Type::Struct(symbol) => symbol.ident(),
-            Type::Enum(symbol) => symbol.ident(),
-            Type::Flags(symbol) => symbol.ident(),
-            Type::Bitset(symbol) => symbol.ident(),
+            Type::Struct(s) => s.ident(),
+            Type::Enum(s) => s.ident(),
+            Type::Flags(s) => s.ident(),
+            Type::Bitset(s) => s.ident(),
+            Type::Object(s) => s.ident(),
         }
     }
 
@@ -59,6 +61,7 @@ impl Type {
             Type::Enum(s) => Type::Enum(s.with_ident(id)),
             Type::Flags(s) => Type::Flags(s.with_ident(id)),
             Type::Bitset(s) => Type::Bitset(s.with_ident(id)),
+            Type::Object(s) => Type::Object(s.with_ident(id)),
         }
     }
 }
@@ -86,11 +89,19 @@ impl ArraySymbol {
     }
 
     #[must_use]
-    pub fn total_size(&self) -> u8 {
+    pub fn total_size(&self) -> u64 {
         let kind_size = self.kind.size().value();
         let array_len = self.len.value();
         kind_size * array_len
     }
+}
+
+#[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[element(MAX_STRUCTS, StructsRange)]
+pub struct ObjectSymbol {
+    #[token(ident)]
+    ident: StringId,
+    fields: FieldsRange,
 }
 
 #[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]

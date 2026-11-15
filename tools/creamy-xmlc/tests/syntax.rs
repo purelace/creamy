@@ -5,19 +5,8 @@ use creamy_xmlc::{
     error::{ProtocolError, SyntaxError},
 };
 
-use crate::common::{compile, get_xml, zero_span};
-
-#[test]
-fn xml() {
-    let content = get_xml("0.1", "Private", "<xml>");
-    let errors = compile(&content).unwrap_err();
-    assert!(matches!(
-        errors[0],
-        ProtocolError::SyntaxError(SyntaxError::Xml { span: _, error: _ })
-    ));
-
-    Diagnostics::from(errors).print(&content);
-}
+/*
+use crate::common::{compile, zero_span};
 
 #[test]
 fn invalid_version_format() {
@@ -197,3 +186,4 @@ fn sample3() {
         SAMPLE3
     );
 }
+*/

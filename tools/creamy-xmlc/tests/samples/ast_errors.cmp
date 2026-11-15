@@ -1,0 +1,10 @@
+#name    "ast_errors"
+#version "5.0.0"
+#access  "Private"
+#schema  1
+
+class
+
+enum[i64] Missing {
+    bytes: u16
+}

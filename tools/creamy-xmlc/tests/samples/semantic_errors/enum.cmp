@@ -1,0 +1,15 @@
+#name    "enum"
+#version "0.0.1"
+#access  "Public"
+#schema  1
+
+enum[C] Identifier {
+    Valid   = 0,
+    Invalid = 42,
+}
+
+enum[u32] OutOfRange {
+    Error   = -1,
+    Valid   = 0,
+    Invalid = 1,
+}

@@ -55,12 +55,12 @@ impl Field for StreamFieldSymbol {
         TypeId::new(StringId::new(index), TypeMeta::new(size, Align::B4))
     }
 
-    fn size(&self) -> u8 {
+    fn size(&self) -> u64 {
         match self.kind {
             StreamFieldType::Type(sym) => sym.size().value(),
             StreamFieldType::StaticArray(array) => array.total_size(),
             StreamFieldType::DynamicArray(_) => {
-                const ARRAY_LENGTH_FIELD: u8 = 4;
+                const ARRAY_LENGTH_FIELD: u64 = 4;
                 ARRAY_LENGTH_FIELD
             }
         }

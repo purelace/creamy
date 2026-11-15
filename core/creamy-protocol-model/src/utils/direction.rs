@@ -18,9 +18,9 @@ impl FromStr for Direction {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "Incoming" => Ok(Direction::Incoming),
-            "Outgoing" => Ok(Direction::Outgoing),
-            "Duplex" => Ok(Direction::Duplex),
+            "I" => Ok(Direction::Incoming),
+            "O" => Ok(Direction::Outgoing),
+            "D" => Ok(Direction::Duplex),
             _ => Err(()),
         }
     }

@@ -13,6 +13,22 @@ use crate::{
     utils::{EnumsRange, VariantsRange},
 };
 
+#[derive(BinRead, BinWrite, Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[repr(u8)]
+pub enum Number {
+    Signed(i64) = 0,
+    Unsigned(u64) = 1,
+}
+
+impl Display for Number {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Number::Signed(s) => write!(f, "{s}"),
+            Number::Unsigned(u) => write!(f, "{u}"),
+        }
+    }
+}
+
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum VariantValue {
@@ -41,7 +57,7 @@ impl Fallback for VariantValue {
 pub struct VariantSymbol {
     #[token(ident)]
     ident: StringId,
-    value: VariantValue,
+    value: Number,
 }
 
 #[derive(Token, BinWrite, BinRead, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -59,10 +75,8 @@ impl EnumSymbol {
     /// # Errors
     ///
     /// See [`TypeMeta`].
-    pub const fn meta(&self) -> Result<TypeMeta, SemanticError> {
+    pub fn meta(&self) -> Result<TypeMeta, SemanticError> {
         let ty = self.repr.as_numberic_symbol();
-        let size = ty.size();
-        let align = ty.align();
-        TypeMeta::try_new(size, align)
+        TypeMeta::try_new(ty.size(), ty.align())
     }
 }

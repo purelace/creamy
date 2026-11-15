@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use creamy_xmlc::model::{
-    FinishedTypeTable,
+    FinishedSymbolTable,
     strpool::{StringPool, StringPoolResolver},
     symbols::{FieldSymbol, FieldType, get_builtin_type_name, is_builtin_type},
 };
@@ -31,7 +31,7 @@ pub struct EnrichedFieldSymbol<'s> {
 #[derive(Clone)]
 pub struct FieldList<'s, I: Iterator<Item = FieldSymbol> + Clone> {
     module_path: AbsolutePath,
-    tt: &'s FinishedTypeTable,
+    tt: &'s FinishedSymbolTable,
     pool: &'s StringPool,
     fields: I,
 }
@@ -49,7 +49,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
                 };
                 EnrichedFieldType::Type { name: path }
             }
-            FieldType::Array(symbol) => {
+            FieldType::StaticArray(symbol) => {
                 let kind = self.tt.get_type(symbol.kind()).ident().resolve(self.pool);
                 EnrichedFieldType::Array {
                     kind: Cow::Borrowed(kind),
@@ -65,7 +65,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
     pub const fn new(
         module_path: AbsolutePath,
         pool: &'s StringPool,
-        tt: &'s FinishedTypeTable,
+        tt: &'s FinishedSymbolTable,
         fields: I,
     ) -> Self {
         Self {

@@ -1,0 +1,16 @@
+#name    "zero_sized_types"
+#version "0.0.1"
+#access  "Public"
+#schema  1
+
+// Zero sized types
+// ZST messages are allowed
+message[I] test0 {}
+
+struct test1 {}
+
+enum[u8] test2 {}
+
+flags test3 {}
+
+bitset test4 {}

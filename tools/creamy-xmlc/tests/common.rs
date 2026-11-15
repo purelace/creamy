@@ -1,23 +1,13 @@
 #![allow(clippy::missing_errors_doc)]
 
-use creamy_protocol_model::definition::ProtocolModel;
-use creamy_utils::strpool::StringPool;
-use creamy_xmlc::error::{AstError, ProtocolError, SyntaxError};
+use creamy_xmlc::{
+    SemanticModel,
+    error::{AstError, ProtocolError, SyntaxError},
+};
 use miette::SourceSpan;
 
-#[must_use]
-pub fn get_xml(version: &str, access: &str, content: &str) -> String {
-    format!(
-        r#"
-<?xml version="1.0" encoding="UTF-8" ?>
-<protocol name="test" version="{version}" access="{access}">
-    {content}
-</protocol>"#
-    )
-}
-
-pub fn compile(content: &str) -> Result<ProtocolModel, Vec<ProtocolError>> {
-    match creamy_xmlc::compile(&mut StringPool::default(), content) {
+pub fn compile(content: &str) -> Result<SemanticModel, Vec<ProtocolError>> {
+    match creamy_xmlc::SemanticModel::compile(content) {
         Ok(value) => Ok(value),
         Err(err) => Err(err.into_inner()),
     }
@@ -31,9 +21,7 @@ pub const fn zero_span() -> SourceSpan {
 pub fn zeroize_span(err: &mut ProtocolError) {
     match err {
         ProtocolError::SyntaxError(syntax) => match syntax {
-            SyntaxError::Xml { span, .. }
-            | SyntaxError::UnknownTag { span }
-            | SyntaxError::MissingAttribute { span, .. }
+            SyntaxError::MissingAttribute { span, .. }
             | SyntaxError::InvalidVersionFormat { span }
             | SyntaxError::InvalidAccess { span }
             | SyntaxError::InvalidDirection { span }
@@ -41,7 +29,9 @@ pub fn zeroize_span(err: &mut ProtocolError) {
             | SyntaxError::IntParse { span, .. }
             | SyntaxError::EmptyIdentifier { span }
             | SyntaxError::InvalidIdentifier { span }
+            | SyntaxError::UnknownKeyword { span, .. }
             | SyntaxError::NotANumber { span } => *span = zero_span(),
+            SyntaxError::UnexpectedEOF | SyntaxError::UnexpectedToken { .. } => return,
         },
         ProtocolError::AstError(ast) => {
             if let AstError::UnexpectedToken { span } = ast {

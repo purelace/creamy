@@ -1,8 +1,12 @@
-use std::cell::RefCell;
+use std::{
+    collections::{HashMap, HashSet},
+    num::ParseIntError,
+    str::FromStr,
+};
 
 use creamy_protocol_model::{
-    BitsetValuesRange, Direction, FieldsRange, OptionsRange, Size, TypeId, TypeMeta, TypeTable,
-    VariantsRange,
+    Access, BitsetValuesRange, Direction, FieldsRange, FinishedSymbolTable, OptionsRange, Size,
+    SymbolTable, TypeId, TypeMeta, VariantsRange, Version,
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     definition::ProtocolModel,
     error::{Fallback, SemanticError},
@@ -11,393 +15,90 @@ use creamy_protocol_model::{
     symbols::{
         ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID, FieldSymbol,
         FieldType, FlagsSymbol, HeapArraySymbol, I8_ID, I16_ID, I32_ID, I64_ID, I128_ID,
-        MessageSymbol, MessageSymbolType, OptionSymbol, PrimitiveRepr, StreamFieldSymbol,
-        StreamFieldType, StreamSymbol, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID,
-        T_I128_ID, T_U8_ID, T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID, U32_ID,
-        U64_ID, U128_ID, VariantSymbol,
+        MessageSymbol, MessageSymbolType, Number, ObjectSymbol, OptionSymbol, PrimitiveRepr,
+        StreamSymbol, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID, T_I128_ID, T_U8_ID,
+        T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID, U32_ID, U64_ID, U128_ID,
+        VariantSymbol,
     },
 };
-use creamy_utils::strpool::{StringPool, StringPoolIntern};
+use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern};
+use petgraph::{
+    algo::toposort,
+    graph::{DiGraph, NodeIndex},
+};
 
 use crate::{
-    diagnostics::Diagnostics,
-    error::ProtocolErrorExt,
-    tokenizer::tokenize,
-    tree::{
-        ProtocolTree, StreamFieldNode, StreamFieldTypeNode,
-        nodes::{
-            BitsetNode, EnumNode, FieldNode, FieldTypeNode, FlagsNode, MessageNode,
-            MessageNodeType, StreamNode, StructNode,
-        },
+    Diagnostics,
+    ast::{
+        BitsetNode, BitsetValueNode, ComplexType, DefineNode, DefineValueNode, EnumNode, FieldNode,
+        FlagsNode, IdentifierNode, MessageNode, MessageNodeType, ModifierNode, NumberNode,
+        ObjectNode, OptionNode, StructNode, SyntaxTree, SyntaxTreeBuilder, TypeRefNode,
+        VariantNode,
     },
+    error::ProtocolErrorExt,
 };
 
-fn insert_default_keywords(pool: &mut StringPool) {
-    assert_eq!(pool.get_id_or_add("u8"), U8_ID);
-    assert_eq!(pool.get_id_or_add("u16"), U16_ID);
-    assert_eq!(pool.get_id_or_add("u32"), U32_ID);
-    assert_eq!(pool.get_id_or_add("u64"), U64_ID);
-    assert_eq!(pool.get_id_or_add("u128"), U128_ID);
-
-    assert_eq!(pool.get_id_or_add("i8"), I8_ID);
-    assert_eq!(pool.get_id_or_add("i16"), I16_ID);
-    assert_eq!(pool.get_id_or_add("i32"), I32_ID);
-    assert_eq!(pool.get_id_or_add("i64"), I64_ID);
-    assert_eq!(pool.get_id_or_add("i128"), I128_ID);
-
-    assert_eq!(pool.get_id_or_add("f32"), F32_ID);
-    assert_eq!(pool.get_id_or_add("f64"), F64_ID);
+#[derive(Default)]
+pub struct Scope {
+    inner: HashSet<StringId>,
 }
 
-pub fn compile(pool: &mut StringPool, content: &str) -> Result<ProtocolModel, Diagnostics> {
-    insert_default_keywords(pool);
-
-    let content = content.trim();
-    let diag = RefCell::new(Diagnostics::default());
-    let tokens = tokenize(content, &diag);
-    let mut diag = diag.into_inner();
-    if diag.has_errors() {
-        return Err(diag);
-    }
-
-    let tree = ProtocolTree::new(tokens, &mut diag);
-    if diag.has_errors() {
-        return Err(diag);
-    }
-
-    let model = run(&mut diag, pool, tree);
-    if diag.has_errors() {
-        Err(diag)
-    } else {
-        Ok(model)
-    }
-}
-
-fn run(diag: &mut Diagnostics, pool: &mut StringPool, tree: ProtocolTree) -> ProtocolModel {
-    let name = tree.name.intern(pool);
-    let mut tt = TypeTable::new(tree.type_count());
-    let mut storage = SymbolStorage::default();
-    let mut resolver = Resolver::new(diag, &mut tt, &mut storage, pool);
-
-    resolver.resolve_flags(&tree.flags);
-    resolver.resolve_bitsets(&tree.bitsets);
-    resolver.resolve_enums(&tree.enums);
-    resolver.resolve_structs(&tree.structs);
-    resolver.resolve_messages(&tree.messages);
-
-    ProtocolModel::new(name, tree.version, tree.access, storage, tt.finish())
-}
-
-struct Resolver<'a> {
-    diag: &'a mut Diagnostics,
-    tt: &'a mut TypeTable,
-    storage: &'a mut SymbolStorage,
-    pool: &'a mut StringPool,
-    kind: Option<u8>,
-    too_many_message_reported: bool,
-}
-
-impl<'a> Resolver<'a> {
-    const fn new(
-        diag: &'a mut Diagnostics,
-        tt: &'a mut TypeTable,
-        storage: &'a mut SymbolStorage,
-        pool: &'a mut StringPool,
-    ) -> Self {
-        Self {
-            diag,
-            tt,
-            storage,
-            pool,
-            kind: Some(0),
-            too_many_message_reported: false,
-        }
-    }
-
-    fn resolve_flags(&mut self, flags: &[FlagsNode]) {
-        for f in flags {
-            let iter = f
-                .options
-                .iter()
-                .map(|n| OptionSymbol::new(n.name.intern(self.pool)));
-
-            let (start, len) = self.storage.add_symbol_from_iter(iter);
-
-            let bits = f.options.len();
-            let bytes = bits.div_ceil(8);
-            let meta = match bytes {
-                0 => {
-                    self.diag
-                        .report_err(SemanticError::InvalidSize { actual: 0 });
-                    TypeMeta::S1B_A1B
-                }
-                1 => TypeMeta::S1B_A1B,
-                2 => TypeMeta::S2B_A2B,
-                3 | 4 => TypeMeta::S4B_A4B,
-                5..=8 => TypeMeta::S8B_A8B,
-                9..=16 => TypeMeta::S16B_A16B,
-                _ => unreachable!(),
-            };
-
-            let symbol = FlagsSymbol::new(
-                f.name.intern(self.pool),
-                OptionsRange::new(start as u16, len as u16),
-            );
-            self.tt.register_type(meta, Type::Flags(symbol));
-        }
-    }
-
-    const fn is_numeric_type(type_id: TypeId) -> bool {
-        matches!(
-            type_id,
-            T_U8_ID
-                | T_U16_ID
-                | T_U32_ID
-                | T_U64_ID
-                | T_U128_ID
-                | T_I8_ID
-                | T_I16_ID
-                | T_I32_ID
-                | T_I64_ID
-                | T_I128_ID
-        )
-    }
-
-    fn validate_repr_type(&mut self, t: TypeId) -> TypeId {
-        if Self::is_numeric_type(t) {
-            t
-        } else {
-            self.report_err(SemanticError::ForbiddenType)
-        }
-    }
-
-    fn report_err<F: Fallback>(&mut self, e: impl Into<SemanticError>) -> F {
-        self.diag.report_err(e.into());
-        F::fallback()
-    }
-
-    fn resolve_bitsets(&mut self, nodes: &[BitsetNode]) {
-        const MAX_BITS: usize = MAX_PAYLOAD * 8;
-        for node in nodes {
-            let mut has_errors = false;
-            let mut total_bits = 0;
-            let mut bv_symbols = Vec::new();
-            for value in &node.values {
-                total_bits += value.bits;
-
-                if value.bits == 0 {
-                    has_errors = true;
-                    self.diag.report_err(SemanticError::ZeroBitsetValueWidth);
-                    continue;
-                }
-
-                if value.bits > MAX_BITS {
-                    has_errors = true;
-                    break;
-                }
-
-                if total_bits > MAX_BITS {
-                    has_errors = true;
-                    break;
-                }
-
-                let repr = self
-                    .tt
-                    .get_type_by_name(value.repr.intern(self.pool))
-                    .map(|t| self.validate_repr_type(t))
-                    .unwrap_or_else(|| self.report_err(SemanticError::ForbiddenType));
-
-                bv_symbols.push(BitsetValueSymbol::new(
-                    value.name.intern(self.pool),
-                    repr,
-                    value.bits as u8,
-                ));
-            }
-
-            let (start, len) = self.storage.add_symbol_from_iter(bv_symbols);
-
-            let bytes = total_bits.div_ceil(8);
-            let meta = TypeMeta::try_new(bytes as u8, 1).or_recover(self.diag);
-
-            let range = if has_errors {
-                BitsetValuesRange::new(0, 0)
-            } else {
-                BitsetValuesRange::new(start as u16, len as u16)
-            };
-
-            let symbol = BitsetSymbol::new(node.name.intern(self.pool), range);
-
-            self.tt.register_type(meta, Type::Bitset(symbol));
-        }
-    }
-
-    fn resolve_enums(&mut self, enums: &[EnumNode]) {
-        for e in enums {
-            if e.variants.is_empty() {
-                self.diag
-                    .report_err(SemanticError::InvalidSize { actual: 0 });
-            }
-
-            let result = PrimitiveRepr::try_from(e.repr.as_str());
-            let repr = match result {
-                Ok(repr) => repr,
-                Err(err) => {
-                    self.diag.report_err(err);
-                    PrimitiveRepr::U32
-                }
-            };
-
-            //TODO: check duplicates
-
-            let iter = e.variants.iter().filter_map(|n| {
-                let value = n.value;
-                if repr.is_valid_value(value) {
-                    Some(VariantSymbol::new(n.name.intern(self.pool), value))
-                } else {
-                    self.diag
-                        .report_err(SemanticError::EnumVariantValueOutOfRange {
-                            value,
-                            min: repr.get_min(),
-                            max: repr.get_max(),
-                        });
-                    None
-                }
-            });
-
-            let (start, len) = self.storage.add_symbol_from_iter(iter);
-
-            let symbol = EnumSymbol::new(
-                e.name.intern(self.pool),
-                repr,
-                VariantsRange::new(start as u16, len as u16),
-            );
-            let meta = symbol.meta().or_recover(self.diag);
-            self.tt.register_type(meta, Type::Enum(symbol));
-        }
-    }
-
-    fn resolve_field(
+impl Scope {
+    fn check_name(
+        &mut self,
         diag: &mut Diagnostics,
         pool: &mut StringPool,
-        tt: &TypeTable,
-        node: &FieldNode,
-    ) -> FieldSymbol {
-        let kind = match &node.kind {
-            FieldTypeNode::Type(name) => {
-                FieldType::Type(tt.get_type_by_name(name.intern(pool)).unwrap())
-            }
-            FieldTypeNode::Array(array) => {
-                let kind = tt.get_type_by_name(array.kind.intern(pool)).unwrap();
-                let size = Size::try_new(array.size);
-                FieldType::Array(ArraySymbol::new(kind, size.or_recover(diag)))
-            }
-        };
-        FieldSymbol::new(node.name.intern(pool), kind, false)
-    }
-
-    /// Returns a range of resolved fields
-    fn resolve_fields(
-        &mut self,
-        fields: &[FieldNode],
-        reserved: u8,
-        max_align: Option<u8>,
-    ) -> FieldsRange {
-        let Self {
-            diag,
-            tt,
-            storage,
-            pool,
-            ..
-        } = self;
-
-        let slice_len_before = storage.get_symbol_slice::<FieldSymbol>().len() as u16;
-
-        let calc = LayoutCalculator::new(
-            reserved,
-            max_align,
-            fields
-                .iter()
-                .map(|f| Self::resolve_field(diag, pool, tt, f))
-                .collect::<Vec<_>>()
-                .into_iter(),
-        );
-
-        for (item, _) in calc {
-            let symbol = match item {
-                LayoutItem::Field(s) => s,
-                LayoutItem::Padding { index, size } => FieldSymbol::new(
-                    pool.get_id_or_add(&format!("__padding{index}")),
-                    FieldType::Array(ArraySymbol::new(T_U8_ID, size)),
-                    true,
-                ),
-            };
-
-            storage.add_symbol(symbol);
+        ident: &IdentifierNode,
+    ) -> bool {
+        let id = ident.value.intern(pool);
+        if self.inner.insert(id) {
+            true
+        } else {
+            diag.report_err(SemanticError::NameDefinedMultipleTimes {
+                name: ident.value.to_string(),
+                span: ident.span.into(),
+            });
+            false
         }
-
-        let slice_len_after = storage.get_symbol_slice::<FieldSymbol>().len() as u16;
-        let len = slice_len_after - slice_len_before;
-        FieldsRange::new(slice_len_before, len as u8)
     }
+}
 
-    fn resolve_structs(&mut self, structs: &[StructNode]) {
-        let mut to_resolve = structs.len();
-        // Устанавливаем true чтобы пройти первую итерацию цикла
-        let mut is_any_resolved;
-        while to_resolve != 0 {
-            is_any_resolved = false;
-            for s in structs {
-                if self.tt.contains_name(s.name.intern(self.pool)) {
-                    continue;
-                }
+pub struct Context {
+    scope: Vec<Scope>,
+    diag: Diagnostics,
+    pool: StringPool,
+    storage: SymbolStorage,
+    table: SymbolTable,
+    kind: Option<u8>,
+    too_many_messages_reported: bool,
+}
 
-                let mut has_errors = false;
+impl Context {
+    fn new(types: u16) -> Self {
+        let mut pool = StringPool::default();
+        assert_eq!(pool.get_id_or_add("u8"), U8_ID);
+        assert_eq!(pool.get_id_or_add("u16"), U16_ID);
+        assert_eq!(pool.get_id_or_add("u32"), U32_ID);
+        assert_eq!(pool.get_id_or_add("u64"), U64_ID);
+        assert_eq!(pool.get_id_or_add("u128"), U128_ID);
 
-                if let Some(failed) = s
-                    .fields
-                    .iter()
-                    .find(|f| !self.tt.contains_name(f.kind.type_name().intern(self.pool)))
-                {
-                    if is_any_resolved {
-                        continue;
-                    }
+        assert_eq!(pool.get_id_or_add("i8"), I8_ID);
+        assert_eq!(pool.get_id_or_add("i16"), I16_ID);
+        assert_eq!(pool.get_id_or_add("i32"), I32_ID);
+        assert_eq!(pool.get_id_or_add("i64"), I64_ID);
+        assert_eq!(pool.get_id_or_add("i128"), I128_ID);
 
-                    let kind = failed.kind.type_name();
-                    let error = if s.name.as_str() == kind {
-                        SemanticError::SelfReference(s.name.to_string())
-                    //} else if messages.iter().any(|m| m.name() == kind) {
-                    //    ProtocolError::MessageReference(name.to_string())
-                    } else {
-                        SemanticError::CannotResolveTypeFieldNotFound {
-                            from: s.name.to_string(),
-                            kind: kind.to_string(),
-                        }
-                    };
-                    self.diag.report_err(error);
-                    has_errors = true;
-                }
+        assert_eq!(pool.get_id_or_add("f32"), F32_ID);
+        assert_eq!(pool.get_id_or_add("f64"), F64_ID);
 
-                if has_errors {
-                    self.tt.register_type(
-                        TypeMeta::S1B_A1B,
-                        Type::Struct(StructSymbol::new(
-                            s.name.intern(self.pool),
-                            FieldsRange::new(0, 0),
-                        )),
-                    );
-                } else {
-                    let new_range = self.resolve_fields(&s.fields, 0, None);
-                    let meta =
-                        ProtocolModel::get_struct_meta(self.storage.get_symbol_range(new_range))
-                            .or_recover(self.diag);
-                    let s = StructSymbol::new(s.name.intern(self.pool), new_range);
-
-                    self.tt.register_type(meta, Type::Struct(s));
-                }
-
-                to_resolve -= 1;
-                is_any_resolved = true;
-            }
+        Self {
+            scope: vec![Scope::default()],
+            diag: Diagnostics::default(),
+            pool,
+            storage: SymbolStorage::default(),
+            table: SymbolTable::new(types),
+            kind: Some(0),
+            too_many_messages_reported: false,
         }
     }
 
@@ -406,148 +107,674 @@ impl<'a> Resolver<'a> {
             self.kind = current.checked_add(1);
             current
         } else {
-            if !self.too_many_message_reported {
+            if !self.too_many_messages_reported {
                 self.diag.report_err(SemanticError::TooManyMessages);
-                self.too_many_message_reported = true;
+                self.too_many_messages_reported = true;
             }
             0
         }
     }
 
-    fn resolve_single_message(
-        &mut self,
-        m: &MessageNode,
-        messages: &[MessageNodeType],
-    ) -> MessageSymbol {
-        let mut has_errors = false;
+    fn contains_name_in_scope(&mut self, ident: &IdentifierNode) -> bool {
+        let index = self.scope.len() - 1;
+        !self.scope[index].check_name(&mut self.diag, &mut self.pool, ident)
+    }
 
-        if let Some(failed) = m
-            .fields
-            .iter()
-            .find(|f| !self.tt.contains_name(f.kind.type_name().intern(self.pool)))
-        {
-            let kind = failed.kind.type_name();
-            let error = if m.name.as_str() == kind {
-                SemanticError::SelfReference(m.name.to_string())
-            } else if messages.iter().any(|m| m.name() == kind) {
-                SemanticError::MessageReference(m.name.to_string())
-            } else {
-                SemanticError::CannotResolveTypeFieldNotFound {
-                    from: m.name.to_string(),
-                    kind: kind.to_string(),
-                }
-            };
-            self.diag.report_err(error);
-            has_errors = true;
+    fn push_scope(&mut self) {
+        self.scope.push(Scope::default());
+    }
+
+    fn pop_scope(&mut self) {
+        self.scope.pop();
+    }
+}
+
+fn build_dependency_graph<'src>(
+    pool: &mut StringPool,
+    table: &SymbolTable,
+    tree: &'src SyntaxTree<'src>,
+) -> (HashMap<NodeIndex, usize>, DiGraph<&'src str, ()>) {
+    let mut map = HashMap::new();
+    let mut transform = HashMap::new();
+    let mut graph = DiGraph::<&str, ()>::new();
+
+    for (i, node) in tree.complex.iter().enumerate() {
+        let index = graph.add_node(node.ident());
+        map.insert(node.ident(), index);
+        transform.insert(index, i);
+    }
+
+    let mut f = |root_ident: &str, fields: &[FieldNode]| {
+        for node in fields {
+            let ident = node.kind.ident();
+            let id = ident.intern(pool);
+            if table.contains_name(id) {
+                return;
+            }
+
+            let a = *map.get(root_ident).unwrap();
+            let b = *map.get(ident).unwrap();
+            graph.add_edge(a, b, ());
+        }
+    };
+
+    for root in &tree.complex {
+        f(root.ident(), root.fields());
+    }
+
+    (transform, graph)
+}
+
+fn resolve_option_list(context: &mut Context, nodes: &[OptionNode<'_>]) -> OptionsRange {
+    context.push_scope();
+
+    let offset = context.storage.get_symbol_slice::<OptionSymbol>().len();
+    let mut len = 0usize;
+
+    for root in nodes {
+        let ident = root.ident.value.intern(&mut context.pool);
+        if context.contains_name_in_scope(&root.ident) {
+            continue;
         }
 
-        if has_errors {
-            MessageSymbol::new(
-                m.name.intern(self.pool),
-                FieldsRange::new(0, 0),
-                Direction::Incoming,
-                0,
-            )
-        } else {
-            let new_range = self.resolve_fields(&m.fields, HEADER_BYTES, Some(32));
+        context.storage.add_symbol(OptionSymbol::new(ident));
+        len += 1;
+    }
 
-            // Check size and align
-            ProtocolModel::get_message_meta(self.storage.get_symbol_range(new_range))
-                .or_recover(self.diag);
+    context.pop_scope();
+    OptionsRange::new(offset as u16, len as u16)
+}
 
-            MessageSymbol::new(
-                m.name.intern(self.pool),
-                new_range,
-                m.direction,
-                self.issue_kind(),
-            )
+fn get_flags_type_metadata(diag: &mut Diagnostics, options_count: usize) -> TypeMeta {
+    let bits = options_count;
+    let bytes = bits.div_ceil(8);
+    match bytes {
+        0 => {
+            diag.report_err(SemanticError::InvalidSize { actual: 0 });
+            TypeMeta::S1B_A1B
+        }
+        1 => TypeMeta::S1B_A1B,
+        2 => TypeMeta::S2B_A2B,
+        3 | 4 => TypeMeta::S4B_A4B,
+        5..=8 => TypeMeta::S8B_A8B,
+        9..=16 => TypeMeta::S16B_A16B,
+        _ => unreachable!(),
+    }
+}
+
+fn resolve_flags(context: &mut Context, nodes: &[FlagsNode<'_>]) {
+    for root in nodes {
+        if context.contains_name_in_scope(&root.ident) {
+            continue;
+        }
+
+        let options = resolve_option_list(context, &root.options);
+        context.table.register_type(
+            get_flags_type_metadata(&mut context.diag, root.options.len()),
+            Type::Flags(FlagsSymbol::new(
+                root.ident.value.intern(&mut context.pool),
+                options,
+            )),
+        );
+    }
+}
+
+pub fn to_number(node: &NumberNode, repr: PrimitiveRepr) -> Result<Number, ParseIntError> {
+    let s = node.value;
+    match repr {
+        PrimitiveRepr::U8 => s.parse::<u8>().map(|v| Number::Unsigned(u64::from(v))),
+        PrimitiveRepr::U16 => s.parse::<u16>().map(|v| Number::Unsigned(u64::from(v))),
+        PrimitiveRepr::U32 => s.parse::<u32>().map(|v| Number::Unsigned(u64::from(v))),
+        PrimitiveRepr::U64 => s.parse::<u64>().map(Number::Unsigned),
+
+        PrimitiveRepr::I8 => s.parse::<i8>().map(|v| Number::Signed(i64::from(v))),
+        PrimitiveRepr::I16 => s.parse::<i16>().map(|v| Number::Signed(i64::from(v))),
+        PrimitiveRepr::I32 => s.parse::<i32>().map(|v| Number::Signed(i64::from(v))),
+        PrimitiveRepr::I64 => s.parse::<i64>().map(Number::Signed),
+    }
+}
+
+fn resolve_variants(
+    diag: &mut Diagnostics,
+    pool: &mut StringPool,
+    storage: &mut SymbolStorage,
+    nodes: &[VariantNode<'_>],
+    repr: PrimitiveRepr,
+) -> VariantsRange {
+    let mut scope = HashSet::new();
+
+    let offset = storage.get_symbol_slice::<VariantSymbol>().len();
+    let mut len = 0usize;
+
+    for root in nodes {
+        match to_number(&root.value, repr) {
+            Ok(value) => {
+                let ident = root.ident.value.intern(pool);
+                if !scope.insert(ident) {
+                    diag.report_err(SemanticError::NameDefinedMultipleTimes {
+                        name: root.ident.value.to_string(),
+                        span: root.ident.span.into(),
+                    });
+                    continue;
+                }
+
+                storage.add_symbol(VariantSymbol::new(ident, value));
+                len += 1;
+            }
+            Err(_) => {
+                diag.report_err(SemanticError::EnumVariantValueOutOfRange {
+                    value: root.value.value.to_string(),
+                    min: repr.get_min(),
+                    max: repr.get_max(),
+                });
+            }
         }
     }
 
-    fn resolve_stream_field(
-        diag: &mut Diagnostics,
-        pool: &mut StringPool,
-        tt: &TypeTable,
-        node: &StreamFieldNode,
-    ) -> StreamFieldSymbol {
-        let kind = match &node.kind {
-            StreamFieldTypeNode::Type(name) => {
-                StreamFieldType::Type(tt.get_type_by_name(name.intern(pool)).unwrap())
-            }
-            StreamFieldTypeNode::StaticArray(array) => {
-                let kind = tt.get_type_by_name(array.kind.intern(pool)).unwrap();
-                let size = Size::try_new(array.size);
-                StreamFieldType::StaticArray(ArraySymbol::new(kind, size.or_recover(diag)))
-            }
-            StreamFieldTypeNode::DynamicArray(array) => {
-                let kind = tt.get_type_by_name(array.kind.intern(pool)).unwrap();
-                StreamFieldType::DynamicArray(HeapArraySymbol::new(kind))
+    VariantsRange::new(offset as u16, len as u16)
+}
+
+fn resolve_enums(context: &mut Context, nodes: &[EnumNode<'_>]) {
+    for root in nodes {
+        if context.contains_name_in_scope(&root.ident) {
+            continue;
+        }
+
+        if root.variants.is_empty() {
+            context
+                .diag
+                .report_err(SemanticError::InvalidSize { actual: 0 });
+        }
+
+        //TODO: fallback
+        let repr = match PrimitiveRepr::try_from(root.modifier.ident.value) {
+            Ok(repr) => repr,
+            Err(err) => {
+                context.diag.report_err(err);
+                PrimitiveRepr::U32
             }
         };
-        StreamFieldSymbol::new(node.name.intern(pool), kind, false)
-    }
 
-    /// Returns a range of resolved fields
-    fn resolve_stream_fields(&mut self, fields: &[StreamFieldNode]) -> FieldsRange {
-        let Self {
-            diag,
-            tt,
-            storage,
-            pool,
-            ..
-        } = self;
-
-        let slice_len_before = storage.get_symbol_slice::<StreamFieldSymbol>().len() as u16;
-        let calc = LayoutCalculator::new(
-            0,
-            None,
-            fields
-                .iter()
-                .map(|f| Self::resolve_stream_field(diag, pool, tt, f))
-                .collect::<Vec<_>>()
-                .into_iter(),
+        let symbol = EnumSymbol::new(
+            root.ident.value.intern(&mut context.pool),
+            repr,
+            resolve_variants(
+                &mut context.diag,
+                &mut context.pool,
+                &mut context.storage,
+                &root.variants,
+                repr,
+            ),
         );
+        context.table.register_type(
+            symbol.meta().or_recover(&mut context.diag),
+            Type::Enum(symbol),
+        );
+    }
+}
 
-        for (item, _) in calc {
-            let symbol = match item {
-                LayoutItem::Field(s) => s,
-                LayoutItem::Padding { index, size } => StreamFieldSymbol::new(
-                    pool.get_id_or_add(&format!("__padding{index}")),
-                    StreamFieldType::StaticArray(ArraySymbol::new(T_U8_ID, size)),
-                    true,
-                ),
-            };
+const fn is_numeric_type(type_id: TypeId) -> bool {
+    matches!(
+        type_id,
+        T_U8_ID
+            | T_U16_ID
+            | T_U32_ID
+            | T_U64_ID
+            | T_U128_ID
+            | T_I8_ID
+            | T_I16_ID
+            | T_I32_ID
+            | T_I64_ID
+            | T_I128_ID
+    )
+}
 
-            storage.add_symbol(symbol);
+fn validate_repr_type(diag: &mut Diagnostics, t: TypeId) -> TypeId {
+    if is_numeric_type(t) {
+        t
+    } else {
+        diag.report_err(SemanticError::ForbiddenType);
+        TypeId::fallback()
+    }
+}
+
+fn resolve_bitset_values(
+    context: &mut Context,
+    nodes: &[BitsetValueNode<'_>],
+) -> (u64, BitsetValuesRange) {
+    const MAX_BITS: u64 = MAX_PAYLOAD as u64 * 8;
+
+    context.push_scope();
+
+    let offset = context
+        .storage
+        .get_symbol_slice::<BitsetValueSymbol>()
+        .len();
+    let mut len = 0usize;
+
+    let mut has_errors = true;
+    let mut total_bits = 0;
+    for root in nodes {
+        if context.contains_name_in_scope(&root.ident) {
+            continue;
         }
 
-        let slice_len_after = storage.get_symbol_slice::<StreamFieldSymbol>().len() as u16;
-        let len = slice_len_after - slice_len_before;
-        FieldsRange::new(slice_len_before, len as u8)
+        let value_ident = root.ident.value.intern(&mut context.pool);
+        let type_ident = root.kind.ident.value.intern(&mut context.pool);
+
+        let width = root.kind.width.value.parse::<u64>().unwrap();
+        //TODO: too big width
+
+        total_bits += width;
+
+        if width == 0 {
+            has_errors = true;
+            context.diag.report_err(SemanticError::ZeroBitsetValueWidth);
+            continue;
+        }
+
+        if width > MAX_BITS {
+            has_errors = true;
+            break;
+        }
+
+        if total_bits > MAX_BITS {
+            has_errors = true;
+            break;
+        }
+
+        let repr = context
+            .table
+            .get_type_by_name(type_ident)
+            .map(|t| validate_repr_type(&mut context.diag, t))
+            .unwrap_or_else(|| {
+                context.diag.report_err(SemanticError::ForbiddenType);
+                TypeId::fallback()
+            });
+
+        context
+            .storage
+            .add_symbol(BitsetValueSymbol::new(value_ident, repr, width as u8));
+        len += 1;
     }
 
-    fn resolve_stream_message(&mut self, m: &StreamNode) -> StreamSymbol {
-        StreamSymbol::new(
-            m.name.intern(self.pool),
-            m.direction,
-            m.timeout,
-            self.issue_kind(),
-            self.resolve_stream_fields(&m.fields),
-        )
+    let range = if has_errors {
+        BitsetValuesRange::new(0, 0)
+    } else {
+        BitsetValuesRange::new(offset as u16, len as u16)
+    };
+
+    context.pop_scope();
+
+    (total_bits.div_ceil(8), range)
+}
+
+fn resolve_bitsets(context: &mut Context, nodes: &[BitsetNode<'_>]) {
+    for root in nodes {
+        if context.contains_name_in_scope(&root.ident) {
+            continue;
+        }
+
+        let (bytes, range) = resolve_bitset_values(context, &root.values);
+        let meta = TypeMeta::try_new(bytes, 1).or_recover(&mut context.diag);
+        let meta = if meta.size().value() > MAX_PAYLOAD as u64 {
+            context.diag.report_err(SemanticError::InvalidSize {
+                actual: meta.size().value(),
+            });
+            TypeMeta::fallback()
+        } else {
+            meta
+        };
+        context.table.register_type(
+            meta,
+            Type::Bitset(BitsetSymbol::new(
+                root.ident.value.intern(&mut context.pool),
+                range,
+            )),
+        );
+    }
+}
+
+fn resolve_field(
+    diag: &mut Diagnostics,
+    pool: &mut StringPool,
+    table: &mut SymbolTable,
+    node: &FieldNode,
+    is_object: bool,
+) -> FieldSymbol {
+    let kind = match &node.kind {
+        TypeRefNode::Identifier(n) => {
+            FieldType::Type(table.get_type_by_name(n.value.intern(pool)).unwrap())
+        }
+        TypeRefNode::StaticArray(n) => {
+            let kind = table.get_type_by_name(n.kind.value.intern(pool)).unwrap();
+            let size = n.size.value.parse::<u64>().unwrap();
+            let size = Size::try_new(size).or_recover(diag);
+            FieldType::StaticArray(ArraySymbol::new(kind, size))
+        }
+        TypeRefNode::DynamicArray(n) => {
+            if !is_object {
+                todo!("report err")
+            }
+
+            let kind = table.get_type_by_name(n.ident().intern(pool)).unwrap();
+            FieldType::HeapArray(HeapArraySymbol::new(kind))
+        }
+    };
+    FieldSymbol::new(node.ident.value.intern(pool), kind, false)
+}
+
+fn resolve_fields(
+    context: &mut Context,
+    nodes: &[FieldNode],
+    reserved: u8,
+    max_align: Option<u8>,
+    is_object: bool,
+) -> FieldsRange {
+    let offset = context.storage.get_symbol_slice::<FieldSymbol>().len();
+    let mut len = 0u8;
+
+    let calc = LayoutCalculator::new(
+        reserved,
+        max_align,
+        nodes
+            .iter()
+            .map(|f| {
+                resolve_field(
+                    &mut context.diag,
+                    &mut context.pool,
+                    &mut context.table,
+                    f,
+                    is_object,
+                )
+            })
+            .collect::<Vec<_>>()
+            .into_iter(),
+    );
+
+    for (item, _) in calc {
+        let symbol = match item {
+            LayoutItem::Field(s) => s,
+            LayoutItem::Padding { index, size } => FieldSymbol::new(
+                context.pool.get_id_or_add(&format!("__padding{index}")),
+                FieldType::StaticArray(ArraySymbol::new(T_U8_ID, size)),
+                true,
+            ),
+        };
+
+        context.storage.add_symbol(symbol);
+        len += 1;
     }
 
-    fn resolve_messages(&mut self, messages: &[MessageNodeType]) {
-        for m in messages {
-            let kind = match m {
-                MessageNodeType::Single(m) => {
-                    MessageSymbolType::Single(self.resolve_single_message(m, messages))
-                }
-                MessageNodeType::Stream(m) => {
-                    MessageSymbolType::Stream(self.resolve_stream_message(m))
-                }
-            };
+    FieldsRange::new(offset as u16, len)
+}
 
-            self.storage.add_symbol(kind);
+fn resolve_struct(context: &mut Context, node: &StructNode) {
+    let range = resolve_fields(context, &node.fields, 0, None, false);
+    let meta = ProtocolModel::get_struct_meta(context.storage.get_symbol_range(range))
+        .or_recover(&mut context.diag);
+    let s = StructSymbol::new(node.ident.value.intern(&mut context.pool), range);
+    context.table.register_type(meta, Type::Struct(s));
+}
+
+fn resolve_object(context: &mut Context, node: &ObjectNode) {
+    let range = resolve_fields(context, &node.fields, 0, None, true);
+    let meta = ProtocolModel::get_struct_meta(context.storage.get_symbol_range(range))
+        .or_recover(&mut context.diag);
+    let s = ObjectSymbol::new(node.ident.value.intern(&mut context.pool), range);
+    context.table.register_type(meta, Type::Object(s));
+}
+
+fn resolve_message_modififer(diag: &mut Diagnostics, modifier: &ModifierNode) -> Direction {
+    match Direction::from_str(modifier.ident.value) {
+        Ok(d) => d,
+        Err(_) => todo!(),
+    }
+}
+
+fn resolve_message(context: &mut Context, node: &MessageNode) {
+    match node.kind {
+        MessageNodeType::Single => {
+            let range = resolve_fields(context, &node.fields, HEADER_BYTES, Some(32), false);
+
+            // Check size and align
+            ProtocolModel::get_message_meta(context.storage.get_symbol_range(range))
+                .or_recover(&mut context.diag);
+
+            let kind = context.issue_kind();
+            context
+                .storage
+                .add_symbol(MessageSymbolType::Single(MessageSymbol::new(
+                    node.ident.value.intern(&mut context.pool),
+                    range,
+                    resolve_message_modififer(&mut context.diag, &node.modifier),
+                    kind,
+                )));
+        }
+        MessageNodeType::Stream => {
+            let range = resolve_fields(context, &node.fields, 0, None, true);
+            let kind = context.issue_kind();
+            context
+                .storage
+                .add_symbol(MessageSymbolType::Stream(StreamSymbol::new(
+                    node.ident.value.intern(&mut context.pool),
+                    resolve_message_modififer(&mut context.diag, &node.modifier),
+                    4, //TODO: timeout
+                    kind,
+                    range,
+                )));
+        }
+    }
+}
+
+fn resolve_complex_types(tree: &SyntaxTree, context: &mut Context) {
+    let (transform, graph) = build_dependency_graph(&mut context.pool, &context.table, tree);
+    match toposort(&graph, None) {
+        Ok(order) => {
+            for ty in order
+                .into_iter()
+                .rev()
+                .map(|i| transform.get(&i).unwrap())
+                .map(|i| &tree.complex[*i])
+            {
+                match ty {
+                    ComplexType::Struct(n) => resolve_struct(context, n),
+                    ComplexType::Object(n) => resolve_object(context, n),
+                    ComplexType::Message(n) => resolve_message(context, n),
+                }
+            }
+        }
+        Err(_) => todo!(),
+    }
+}
+
+struct Defines {
+    name: String,
+    version: Version,
+    access: Access,
+    schema: u32,
+}
+
+fn resolve_define_list(context: &mut Context, nodes: &[DefineNode]) -> Defines {
+    let mut name = None;
+    let mut version = None;
+    let mut access = None;
+    let mut schema = None;
+
+    for root in nodes {
+        match root.ident.value {
+            "name" if name.is_none() => match &root.value {
+                DefineValueNode::String(n) => {
+                    name = Some(n.value.to_string());
+                }
+                DefineValueNode::Number(_) => {
+                    todo!("unexpected expression")
+                }
+            },
+            "name" if name.is_some() => {
+                todo!("attribute defined multiple times");
+            }
+            "version" if version.is_none() => match &root.value {
+                DefineValueNode::String(n) => {
+                    version = Some(Version::from_str(n.value).unwrap());
+                }
+                DefineValueNode::Number(_) => {
+                    todo!("unexpected expression")
+                }
+            },
+            "version" if version.is_some() => {
+                todo!("attribute defined multiple times");
+            }
+            "access" if access.is_none() => match &root.value {
+                DefineValueNode::String(n) => {
+                    access = Some(Access::from_str(n.value).unwrap());
+                }
+                DefineValueNode::Number(_) => {
+                    todo!("unexpected expression")
+                }
+            },
+            "access" if access.is_some() => {
+                todo!("attribute defined multiple times");
+            }
+            "schema" if schema.is_none() => match &root.value {
+                DefineValueNode::String(_) => {
+                    todo!("unexpected expression")
+                }
+                DefineValueNode::Number(n) => {
+                    schema = Some(n.value.parse::<u32>().unwrap());
+                }
+            },
+            "schema" if schema.is_some() => {
+                todo!("attribute defined multiple times");
+            }
+            _ => todo!("unknown define node"),
+        }
+    }
+
+    Defines {
+        name: name.unwrap(),
+        version: version.unwrap(),
+        access: access.unwrap(),
+        schema: schema.unwrap(),
+    }
+}
+
+#[derive(Debug)]
+pub struct SemanticModel {
+    name: String,
+    version: Version,
+    access: Access,
+    schema: u32,
+    table: FinishedSymbolTable,
+    storage: SymbolStorage,
+    pool: StringPool,
+}
+
+impl SemanticModel {
+    pub fn compile(source: &str) -> Result<Self, Diagnostics> {
+        let mut diag = Diagnostics::default();
+        let tree: SyntaxTree = SyntaxTreeBuilder::new(source).run(&mut diag);
+        if diag.has_errors() {
+            return Err(diag);
+        }
+
+        let mut context = Context::new(tree.type_count() as u16);
+        let defines = resolve_define_list(&mut context, &tree.defines);
+        resolve_flags(&mut context, &tree.flags);
+        resolve_enums(&mut context, &tree.enums);
+        resolve_bitsets(&mut context, &tree.bitsets);
+        resolve_complex_types(&tree, &mut context);
+
+        if context.diag.has_errors() {
+            return Err(context.diag);
+        }
+
+        Ok(Self {
+            name: defines.name,
+            version: defines.version,
+            access: defines.access,
+            schema: defines.schema,
+            table: context.table.finish(),
+            storage: context.storage,
+            pool: context.pool,
+        })
+    }
+
+    #[must_use]
+    pub const fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    #[must_use]
+    pub const fn version(&self) -> &Version {
+        &self.version
+    }
+
+    #[must_use]
+    pub const fn access(&self) -> Access {
+        self.access
+    }
+
+    #[must_use]
+    pub const fn schema(&self) -> u32 {
+        self.schema
+    }
+
+    #[must_use]
+    pub const fn pool(&self) -> &StringPool {
+        &self.pool
+    }
+
+    #[must_use]
+    pub fn messages(&self) -> &[MessageSymbolType] {
+        self.storage.get_symbol_slice::<MessageSymbolType>()
+    }
+
+    #[must_use]
+    pub fn types(&self) -> &[Type] {
+        self.table.types()
+    }
+
+    #[must_use]
+    pub const fn table(&self) -> &FinishedSymbolTable {
+        &self.table
+    }
+
+    #[must_use]
+    pub fn fields_range(&self, range: FieldsRange) -> &[FieldSymbol] {
+        self.storage.get_symbol_range::<FieldSymbol>(range)
+    }
+
+    #[must_use]
+    pub fn variants_slice(&self, range: VariantsRange) -> &[VariantSymbol] {
+        self.storage.get_symbol_range::<VariantSymbol>(range)
+    }
+
+    #[must_use]
+    pub fn bvalues_slice(&self, range: BitsetValuesRange) -> &[BitsetValueSymbol] {
+        self.storage.get_symbol_range::<BitsetValueSymbol>(range)
+    }
+
+    #[must_use]
+    pub fn options_slice(&self, range: OptionsRange) -> &[OptionSymbol] {
+        self.storage.get_symbol_range::<OptionSymbol>(range)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    const SAMPLE: &str = include_str!("../../../system/system.cmp");
+
+    #[test]
+    fn test() {
+        match super::SemanticModel::compile(SAMPLE) {
+            Ok(model) => {
+                dbg!(model);
+            }
+            Err(d) => {
+                d.print(SAMPLE);
+                panic!();
+            }
         }
     }
 }

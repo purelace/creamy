@@ -11,21 +11,10 @@ use crate::{
     utils::{Align, Array, Range, Size, TypesRange},
 };
 
-#[derive(BinRead, BinWrite, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct TypeMeta {
-    /// See [Align] for valid values
-    /// * 00000 - size (max 28) `[11100_XXX]`
-    /// * 000   - align (max 3) `[XXXXX_011]`
-    value: u8,
-}
-
-impl Debug for TypeMeta {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("TypeMeta")
-            .field("size", &self.size().value())
-            .field("align", &self.align().size())
-            .finish()
-    }
+    align: Align,
+    size: Size,
 }
 
 impl Fallback for TypeMeta {
@@ -37,23 +26,23 @@ impl Fallback for TypeMeta {
 impl TypeMeta {
     /// * Size:  1 byte
     /// * Align: 1 byte
-    pub const S1B_A1B: Self = TypeMeta::new_raw_with_assert(1, 0);
+    pub const S1B_A1B: Self = TypeMeta::new_const(1, 1);
 
     /// * Size:  2 byte
     /// * Align: 2 byte
-    pub const S2B_A2B: Self = TypeMeta::new_raw_with_assert(2, 1);
+    pub const S2B_A2B: Self = TypeMeta::new_const(2, 2);
 
     /// * Size:  4 byte
     /// * Align: 4 byte
-    pub const S4B_A4B: Self = TypeMeta::new_raw_with_assert(4, 2);
+    pub const S4B_A4B: Self = TypeMeta::new_const(4, 4);
 
     /// * Size:  8 byte
     /// * Align: 8 byte
-    pub const S8B_A8B: Self = TypeMeta::new_raw_with_assert(8, 3);
+    pub const S8B_A8B: Self = TypeMeta::new_const(8, 8);
 
     /// * Size:  16 byte
     /// * Align: 16 byte
-    pub const S16B_A16B: Self = TypeMeta::new_raw_with_assert(16, 4);
+    pub const S16B_A16B: Self = TypeMeta::new_const(16, 16);
 
     /// Tries to wrap raw size and alignment values into a safe object.
     ///
@@ -68,57 +57,39 @@ impl TypeMeta {
     /// * size > [`Size::MAX_VALUE`]
     /// * align != 2^k
     /// * align > 16
-    pub const fn try_new(size: u8, align: u8) -> Result<Self, SemanticError> {
-        if size == 0 || size > Size::MAX_VALUE {
-            return Err(SemanticError::InvalidSize {
-                actual: size as usize,
-            });
-        }
-
-        if align > 16 {
-            return Err(SemanticError::ForbiddenAlign { actual: align });
-        }
-
+    pub fn try_new(size: u64, align: u8) -> Result<Self, SemanticError> {
         if !align.is_power_of_two() {
             return Err(SemanticError::AlignIsNotPowerOfTwo { actual: align });
         }
 
-        let size = size << 3;
-        let value = size | Align::discriminant_from_size(align);
-        Ok(Self { value })
+        let Some(align) = Align::new(align) else {
+            return Err(SemanticError::ForbiddenAlign { actual: align });
+        };
+
+        let size = Size::try_new(size)?;
+
+        Ok(Self { align, size })
     }
 
-    const fn new_raw_with_assert(size: u8, align: u8) -> Self {
-        assert!(size <= Size::MAX_VALUE);
-        assert!(align <= 4);
-        let size = size << 3;
-        let value = size | align;
-        Self { value }
+    const fn new_const(size: u64, align: u8) -> Self {
+        Self {
+            align: Align::new(align).unwrap(),
+            size: unsafe { Size::new_unchecked(size) },
+        }
     }
 
     pub(crate) const fn new(size: Size, align: Align) -> Self {
-        let size = size.value();
-        let align = align.discriminant();
-        Self::new_raw_with_assert(size, align)
+        Self { align, size }
     }
 
     #[must_use]
-    // TODO: const
-    pub fn size(self) -> Size {
-        cfg_select! {
-            debug_assertions =>
-            {
-                #[allow(clippy::missing_panics_doc)]
-                Size::try_new(self.value >> 3).expect("Unreachable!")
-            }
-            _ => unsafe { Size::new_unchecked(self.value >> 3) },
-        }
+    pub const fn size(self) -> Size {
+        self.size
     }
 
     #[must_use]
     pub const fn align(self) -> Align {
-        let value = self.value & 0b0000_0111;
-        unsafe { core::mem::transmute(value) }
+        self.align
     }
 }
 
@@ -158,14 +129,14 @@ impl Fallback for TypeId {
     }
 }
 
-pub struct TypeTable {
+pub struct SymbolTable {
     index: u16,
     types: Array<MaybeUninit<Type>>,
     //Fix 'same Id's but different types'
     inner: HashMap<StringId, TypeId>,
 }
 
-impl TypeTable {
+impl SymbolTable {
     #[must_use]
     pub fn new(types: u16) -> Self {
         let types = types as usize + NumericSymbol::COUNT;
@@ -213,21 +184,21 @@ impl TypeTable {
     }
 
     #[must_use]
-    pub fn finish(self) -> FinishedTypeTable {
+    pub fn finish(self) -> FinishedSymbolTable {
         debug_assert_eq!(self.index as usize, self.types.len());
-        FinishedTypeTable {
+        FinishedSymbolTable {
             types: unsafe { self.types.assume_init() },
         }
     }
 }
 
 #[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
-pub struct FinishedTypeTable {
+pub struct FinishedSymbolTable {
     types: Array<Type>,
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))]
-impl FinishedTypeTable {
+impl FinishedSymbolTable {
     #[must_use]
     pub fn type_count(&self) -> usize {
         self.types.len()
@@ -263,7 +234,7 @@ impl FinishedTypeTable {
     }
 }
 
-impl Index<TypesRange> for FinishedTypeTable {
+impl Index<TypesRange> for FinishedSymbolTable {
     type Output = [Type];
 
     fn index(&self, index: TypesRange) -> &Self::Output {

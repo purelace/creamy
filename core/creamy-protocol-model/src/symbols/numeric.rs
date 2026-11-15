@@ -121,7 +121,7 @@ impl NumericSymbol {
     }
 
     #[must_use]
-    pub const fn size(&self) -> u8 {
+    pub const fn size(&self) -> u64 {
         match self {
             NumericSymbol::U8 | NumericSymbol::I8 => 1,
             NumericSymbol::U16 | NumericSymbol::I16 => 2,

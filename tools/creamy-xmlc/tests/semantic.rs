@@ -1,90 +1,29 @@
 mod common;
 
 use creamy_protocol_model::error::SemanticError;
-use creamy_xmlc::model::symbols::VariantValue;
 
-use crate::common::{compile, get_xml};
+use crate::common::compile;
 
-const SAMPLE0: &str = r#"
-<!-- Struct size limit -->
-<struct name="Sync">
-    <field name="value0" type="u128"/>
-    <field name="value1" type="u128"/>
-    <field name="value2" type="u128"/>
-    <field name="value3" type="u128"/>
-    <field name="value4" type="u128"/>
-    <field name="value5" type="u128"/>
-    <field name="value6" type="u128"/>
-    <field name="value7" type="u128"/>
-    <field name="value10" type="u128"/>
-    <field name="value11" type="u128"/>
-    <field name="value12" type="u128"/>
-    <field name="value13" type="u128"/>
-    <field name="value14" type="u128"/>
-    <field name="value15" type="u128"/>
-</struct>
-
-<!-- Message size limit -->
-<message name="Signal" direction="Duplex">
-    <field name="value0" type="u8"/>
-    <field name="value1" type="u16"/>
-    <field name="value2" type="u32"/>
-    <field name="value3" type="u64"/>
-    <field name="value4" type="u128"/>
-
-    <field name="value5" type="i8"/>
-    <field name="value6" type="i16"/>
-    <field name="value7" type="i32"/>
-    <field name="value8" type="i64"/>
-    <field name="value9" type="i128"/>
-
-    <field name="value10" type="f32"/>
-    <field name="value11" type="f64"/>
-</message>
-"#;
-
-const SAMPLE1: &str = r#"
-<!-- Zero sized types -->
-<!-- ZST messages are allowed -->
-<message name="test0" direction="Outgoing"/>
-
-<struct name="test1"/>
-<enum name="test2" repr="u8"/>
-<flags name="test3"/>
-<bitset name="test4"/>
-"#;
-
-const SAMPLE2: &str = r#"
-<enum name="Identifier" repr="C">
-    <variant name="Valid" value="0"/>
-    <variant name="Invalid" value="42"/>
-</enum>
-
-<enum name="OutOfRange" repr="u32">
-    <variant name="Error" value="-1"/>
-    <variant name="Valid" value="0"/>
-    <variant name="Invalid" value="1"/>
-</enum>
-"#;
+const SAMPLE0: &str = include_str!("samples/semantic_errors/size_limit.cmp");
+const SAMPLE1: &str = include_str!("samples/semantic_errors/zero_sized_types.cmp");
+const SAMPLE2: &str = include_str!("samples/semantic_errors/enum.cmp");
 
 #[test]
 fn semantic_errors_size_limit() {
-    let content = get_xml("0.0.1", "Public", SAMPLE0);
-    let errors = compile(&content).unwrap_err();
+    let errors = compile(SAMPLE0).unwrap_err();
     assert_diag!(
         errors,
         vec![
             SemanticError::InvalidSize { actual: 224 }.into(),
             SemanticError::InvalidSize { actual: 92 }.into(),
         ],
-        &content
+        SAMPLE0,
     );
 }
 
 #[test]
 fn semantic_errors_zero_sized_types() {
-    let content = get_xml("0.0.1", "Public", SAMPLE1);
-    let errors = compile(&content).unwrap_err();
+    let errors = compile(SAMPLE1).unwrap_err();
     assert_diag!(
         errors,
         vec![
@@ -93,27 +32,26 @@ fn semantic_errors_zero_sized_types() {
             SemanticError::InvalidSize { actual: 0 }.into(),
             SemanticError::InvalidSize { actual: 0 }.into(),
         ],
-        &content
+        SAMPLE1,
     );
 }
 
 #[test]
 fn semantic_errors_enums() {
-    let content = get_xml("0.0.1", "Public", SAMPLE2);
-    let errors = compile(&content).unwrap_err();
+    let errors = compile(SAMPLE2).unwrap_err();
     assert_diag!(
         errors,
         vec![
             // Enum errors
             SemanticError::InvalidEnumUnderlyingType.into(),
             SemanticError::EnumVariantValueOutOfRange {
-                value: VariantValue::Singed(-1),
+                value: "-1".into(),
                 min: 0,
                 max: u64::from(u32::MAX)
             }
             .into(),
         ],
-        &content
+        SAMPLE2,
     );
 }
 

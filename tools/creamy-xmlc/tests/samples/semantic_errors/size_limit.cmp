@@ -1,0 +1,40 @@
+#name    "size_limit"
+#version "0.0.1"
+#access  "Public"
+#schema  1
+
+// Struct size limit
+struct Sync {
+    value0:  u128,
+    value1:  u128,
+    value2:  u128,
+    value3:  u128,
+    value4:  u128,
+    value5:  u128,
+    value6:  u128,
+    value7:  u128,
+    value10: u128,
+    value11: u128,
+    value12: u128,
+    value13: u128,
+    value14: u128,
+    value15: u128,
+}
+
+// Message size limit
+message[D] Signal {
+    value0:  u8,
+    value1:  u16,
+    value2:  u32,
+    value3:  u64,
+    value4:  u128,
+
+    value5:  i8,
+    value6:  i16,
+    value7:  i32,
+    value8:  i64,
+    value9:  i128,
+
+    value10: f32,
+    value11: f64,
+}
