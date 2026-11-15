@@ -383,14 +383,12 @@ fn resolve_bitset_values(
             break;
         }
 
-        let repr = context
-            .table
-            .get_type_by_name(type_ident)
-            .map(|t| validate_repr_type(&mut context.diag, t))
-            .unwrap_or_else(|| {
-                context.diag.report_err(SemanticError::ForbiddenType);
-                TypeId::fallback()
-            });
+        let repr = if let Some(t) = context.table.get_type_by_name(type_ident) {
+            validate_repr_type(&mut context.diag, t)
+        } else {
+            context.diag.report_err(SemanticError::ForbiddenType);
+            TypeId::fallback()
+        };
 
         context
             .storage
