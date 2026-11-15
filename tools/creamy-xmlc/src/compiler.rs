@@ -18,10 +18,10 @@ use creamy_protocol_model::{
         MessageSymbol, MessageSymbolType, Number, ObjectSymbol, OptionSymbol, PrimitiveRepr,
         StreamSymbol, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID, T_I128_ID, T_U8_ID,
         T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID, U32_ID, U64_ID, U128_ID,
-        VariantSymbol,
+        VariantSymbol, get_builtin_type_name,
     },
 };
-use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern};
+use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern, StringPoolResolver};
 use petgraph::{
     algo::toposort,
     graph::{DiGraph, NodeIndex},
@@ -329,21 +329,10 @@ const fn is_numeric_type(type_id: TypeId) -> bool {
     )
 }
 
-fn validate_repr_type(diag: &mut Diagnostics, t: TypeId) -> TypeId {
-    if is_numeric_type(t) {
-        t
-    } else {
-        diag.report_err(SemanticError::ForbiddenType);
-        TypeId::fallback()
-    }
-}
-
 fn resolve_bitset_values(
     context: &mut Context,
     nodes: &[BitsetValueNode<'_>],
 ) -> (u64, BitsetValuesRange) {
-    const MAX_BITS: u64 = MAX_PAYLOAD as u64 * 8;
-
     context.push_scope();
 
     let offset = context
@@ -352,51 +341,73 @@ fn resolve_bitset_values(
         .len();
     let mut len = 0usize;
 
-    let mut has_errors = true;
     let mut total_bits = 0;
     for root in nodes {
         if context.contains_name_in_scope(&root.ident) {
             continue;
         }
 
-        let value_ident = root.ident.value.intern(&mut context.pool);
-        let type_ident = root.kind.ident.value.intern(&mut context.pool);
-
         let width = root.kind.width.value.parse::<u64>().unwrap();
-        //TODO: too big width
-
-        total_bits += width;
 
         if width == 0 {
-            has_errors = true;
-            context.diag.report_err(SemanticError::ZeroBitsetValueWidth);
+            context
+                .diag
+                .report_err(SemanticError::ZeroBitsetValueWidth {
+                    span: root.kind.width.span.into(),
+                });
             continue;
         }
 
-        if width > MAX_BITS {
-            has_errors = true;
-            break;
-        }
+        let mut has_error = false;
 
-        if total_bits > MAX_BITS {
-            has_errors = true;
-            break;
-        }
-
-        let repr = if let Some(t) = context.table.get_type_by_name(type_ident) {
-            validate_repr_type(&mut context.diag, t)
+        let repr = if let Some(t) = context
+            .table
+            .get_type_by_name(root.kind.ident.value.intern(&mut context.pool))
+        {
+            if is_numeric_type(t) {
+                t
+            } else {
+                has_error = true;
+                context.diag.report_err(SemanticError::ForbiddenType {
+                    span: root.kind.ident.span.into(),
+                });
+                TypeId::fallback()
+            }
         } else {
-            context.diag.report_err(SemanticError::ForbiddenType);
+            has_error = true;
+            context.diag.report_err(SemanticError::ForbiddenType {
+                span: root.kind.ident.span.into(),
+            });
             TypeId::fallback()
         };
 
-        context
-            .storage
-            .add_symbol(BitsetValueSymbol::new(value_ident, repr, width as u8));
+        if width > repr.size().value() * 8 && !has_error {
+            context
+                .diag
+                .report_err(SemanticError::BitsetValueExceedsRepr {
+                    actual: width,
+                    repr: get_builtin_type_name(repr)
+                        .resolve(&context.pool)
+                        .to_string(),
+                    max_possible: repr.size().value() * 8,
+                    span: root.kind.span.into(),
+                });
+            total_bits += 1;
+        } else {
+            total_bits += width;
+        }
+
+        context.storage.add_symbol(BitsetValueSymbol::new(
+            root.ident.value.intern(&mut context.pool),
+            repr,
+            width as u8,
+        ));
+
         len += 1;
     }
 
-    let range = if has_errors {
+    let bytes = total_bits.div_ceil(8);
+    let range = if bytes > MAX_PAYLOAD as u64 {
         BitsetValuesRange::new(0, 0)
     } else {
         BitsetValuesRange::new(offset as u16, len as u16)
@@ -404,7 +415,7 @@ fn resolve_bitset_values(
 
     context.pop_scope();
 
-    (total_bits.div_ceil(8), range)
+    (bytes, range)
 }
 
 fn resolve_bitsets(context: &mut Context, nodes: &[BitsetNode<'_>]) {

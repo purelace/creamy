@@ -18,6 +18,15 @@ impl Span {
     pub const fn as_range(&self) -> core::ops::Range<usize> {
         self.offset..self.offset + self.length
     }
+
+    pub fn extend(a: Self, b: Self) -> Self {
+        let max_point_a = a.offset + a.length;
+        let max_point_b = b.offset + b.length;
+        let max_point = max_point_a.max(max_point_b);
+        let offset = a.offset.min(b.offset);
+        let length = max_point - offset;
+        Span { offset, length }
+    }
 }
 
 #[derive(Debug)]

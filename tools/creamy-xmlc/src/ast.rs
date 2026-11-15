@@ -154,12 +154,14 @@ pub struct FlagsNode<'src> {
 pub struct BitsetValueTypeNode<'src> {
     pub ident: IdentifierNode<'src>,
     pub width: NumberNode<'src>,
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct BitsetValueNode<'src> {
     pub ident: IdentifierNode<'src>,
     pub kind: BitsetValueTypeNode<'src>,
+    pub span: Span,
 }
 
 #[derive(Debug)]
@@ -712,14 +714,22 @@ impl<'src> SyntaxTreeBuilder<'src> {
                         value: self.slice_for(span),
                         span,
                     };
+
                     self.consume_colon(diag);
                     let kind = self.consume_ident(diag);
                     self.consume_colon(diag);
                     let width = self.consume_number(diag);
 
+                    let kind = BitsetValueTypeNode {
+                        span: Span::extend(kind.span, width.span),
+                        ident: kind,
+                        width,
+                    };
+
                     inner.push(BitsetValueNode {
+                        span: Span::extend(ident.span, kind.span),
                         ident,
-                        kind: BitsetValueTypeNode { ident: kind, width },
+                        kind,
                     });
 
                     match self.tokenizer.next() {

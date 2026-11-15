@@ -7,7 +7,7 @@ struct Pointer {
     address: u64,
 }
 
-bitset Sample {
+bitset Sample0 {
     len:      u8:5,
 
     // Error: only numeric types are allowed
@@ -17,9 +17,24 @@ bitset Sample {
     // Error: zero width is not allowed
     empty: u32:0,
 
-    // Error: TODO
+    // Error: width can't be more than repr size
     value: i8:24,
 
-    // Error: invalid size
+    // Error: width can't be more than repr size
     offset: i128: 1024,
+
+    padding0: i64: 1,
+    padding1: u64: 1,
+}
+
+// Error: Invalid size
+bitset Sample1 {
+    padding0: i64: 64,
+    padding1: u64: 64,
+    padding2: i64: 64,
+    padding3: u64: 64,
+    padding4: i64: 64,
+    padding5: u64: 64,
+    padding6: i64: 64,
+    padding7: u64: 64,
 }

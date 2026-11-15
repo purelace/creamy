@@ -126,6 +126,13 @@ pub enum SemanticError {
     #[cfg_attr(feature = "std", diagnostic(code(semantic::zero_value_width)))]
     ZeroBitsetValueWidth,
 
+    #[error("[] Bitset value width {actual} is larger than {repr} (max {max_possible} bits)")]
+    BitsetValueExceedsRepr {
+        actual: u64,
+        repr: String,
+        max_possible: u64,
+    },
+
     #[error("[] The name `{name}` is defined multiple times")]
     NameDefinedMultipleTimes { name: String, span: SourceSpan },
 }
