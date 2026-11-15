@@ -35,7 +35,7 @@ use crate::{
         ObjectNode, OptionNode, StructNode, SyntaxTree, SyntaxTreeBuilder, TypeRefNode,
         VariantNode,
     },
-    error::ProtocolErrorExt,
+    error::{ProtocolErrorExt, SyntaxError},
 };
 
 #[derive(Default)]
@@ -616,7 +616,13 @@ fn resolve_define_list(context: &mut Context, nodes: &[DefineNode]) -> Defines {
             }
             "version" if version.is_none() => match &root.value {
                 DefineValueNode::String(n) => {
-                    version = Some(Version::from_str(n.value).unwrap());
+                    version = Some(
+                        Version::from_str(n.value)
+                            .map_err(|_| SyntaxError::InvalidVersionFormat {
+                                span: n.span.into(),
+                            })
+                            .or_recover(&mut context.diag),
+                    );
                 }
                 DefineValueNode::Number(_) => {
                     todo!("unexpected expression")
@@ -671,6 +677,12 @@ pub struct SemanticModel {
 }
 
 impl SemanticModel {
+    #[must_use]
+    pub fn to_protocol_model(mut self) -> ProtocolModel {
+        let name = self.name.intern(&mut self.pool);
+        ProtocolModel::new(name, self.version, self.access, self.storage, self.table)
+    }
+
     pub fn compile(source: &str) -> Result<Self, Diagnostics> {
         let mut diag = Diagnostics::default();
         let tree: SyntaxTree = SyntaxTreeBuilder::new(source).run(&mut diag);

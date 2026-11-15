@@ -30,7 +30,6 @@ use ::semver::Version;
 use creamy_binary::{BinRead, BinWrite};
 use creamy_manifest::Manifest;
 use creamy_protocol_model::definition::ProtocolModel;
-use creamy_utils::strpool::StringPool;
 
 pub use crate::error::Error;
 
@@ -43,7 +42,7 @@ pub struct BinaryPlugin {
     /// The manifest containing plugin metadata.
     pub manifest: Manifest,
     /// The string pool used for shared string references.
-    pub pool: StringPool,
+    pub pool: creamy_utils::strpool::StringPool,
     /// A list of compiled protocol models.
     pub models: Vec<ProtocolModel>,
     /// The raw core logic of the plugin.

@@ -3,7 +3,7 @@ use std::{path::Path, str::FromStr};
 use creamy_manifest::Manifest;
 use creamy_protocol_model::definition::ProtocolModel;
 use creamy_utils::strpool::StringPool;
-use creamy_xmlc::compile;
+use creamy_xmlc::SemanticModel;
 use fs_err as fs;
 use semver::Version;
 
@@ -22,8 +22,6 @@ pub fn compile_to_binary(
     plugin_dir: impl AsRef<Path>,
     core: Box<[u8]>,
 ) -> Result<BinaryPlugin, Error> {
-    let mut pool = StringPool::default();
-
     let plugin_dir = plugin_dir.as_ref();
     let creamy_dir = plugin_dir.join(".creamy");
     if !fs::exists(&creamy_dir)? {
@@ -37,7 +35,7 @@ pub fn compile_to_binary(
     let definitions_path = creamy_dir.join("definitions");
     let models = if fs::exists(&definitions_path)? {
         let dir = fs::read_dir(definitions_path)?;
-        compile_protocols(dir, &mut pool)?
+        compile_protocols(dir)?
     } else {
         vec![]
     };
@@ -46,7 +44,8 @@ pub fn compile_to_binary(
         #[allow(clippy::missing_panics_doc)]
         version: Version::from_str(env!("CARGO_PKG_VERSION")).expect("Unreachable"),
         manifest,
-        pool,
+        //TODO: remove string pool from binary package
+        pool: StringPool::default(),
         models,
         core,
     })
@@ -57,7 +56,7 @@ fn get_files_len(files_count: usize) -> Result<u32, Error> {
     u32::try_from(files_count).map_err(|_| Error::TooManyFiles)
 }
 
-fn compile_protocols(dir: fs::ReadDir, pool: &mut StringPool) -> Result<Vec<ProtocolModel>, Error> {
+fn compile_protocols(dir: fs::ReadDir) -> Result<Vec<ProtocolModel>, Error> {
     let files = dir
         .flatten()
         .filter(|e| e.path().extension().is_some_and(|p| p == "xml"))
@@ -69,7 +68,11 @@ fn compile_protocols(dir: fs::ReadDir, pool: &mut StringPool) -> Result<Vec<Prot
     let mut protocols = Vec::with_capacity(len as usize);
     for path in files {
         let content = fs::read_to_string(path)?;
-        protocols.push(compile(pool, &content).unwrap());
+        protocols.push(
+            SemanticModel::compile(&content)
+                .unwrap()
+                .to_protocol_model(),
+        );
     }
 
     Ok(protocols)

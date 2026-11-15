@@ -23,3 +23,5 @@ debug
 
 
 examples/shell/plugins
+tools/zed-extensions/
+tools/tree-sitter-cmp
