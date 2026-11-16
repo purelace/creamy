@@ -172,11 +172,11 @@ pub fn collect_write_variants(repr: Repr, s: &DataEnum) -> Vec<proc_macro2::Toke
             .enumerate()
             .map(|(i, f)| {
                 if let Some(ident) = f.ident.as_ref() {
-                    quote! { #ident }
+                    quote! { #ident, }
                 } else {
                     is_fields_unnamed = true;
                     let ident = format_ident!("i{i}");
-                    quote! { #ident }
+                    quote! { #ident, }
                 }
             })
             .collect::<Vec<_>>();
