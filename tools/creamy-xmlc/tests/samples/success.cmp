@@ -24,14 +24,12 @@ enum[u8] LogType {
 }
 
 // Comment
-[Timeout(8)]
 stream[O] PlayerList {
     count:    u32,
     checksum: u32
 }
 
 /// Documentation
-[Timeout(3)]
 stream[D] Log {
     kind:   LogType,
     length: u32,

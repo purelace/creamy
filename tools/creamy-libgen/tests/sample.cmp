@@ -1,0 +1,50 @@
+#name    "system"
+#version "1.0.0"
+#access  "Public"
+#schema  1
+
+enum[u8] Level {
+    Trace   = 0,
+    Debug   = 1,
+    Info    = 2,
+    Warning = 3,
+    Error   = 4,
+}
+
+bitset TypeMeta {
+    is_valid: u8:1, //TODO: bool
+    is_const: u8:1, //TODO: bool
+
+    align:    u16:3,
+    size:     u16:5,
+
+    attributes_mask:  u32:6,
+    offset_modifier:  i8:4,
+    custom_type_id:   u64:8,
+    version:          u8:4,
+}
+
+flags Permissions {
+    User,
+    Group,
+    Others,
+    All
+}
+
+message[O] SetPermissions {
+    permissions: Permissions,
+    class: u16,
+}
+
+object String {
+    inner: Array<u8>,
+}
+
+stream[I] Log {
+    level: Level,
+    content: String,
+}
+
+struct SpanId {
+    value: u64
+}

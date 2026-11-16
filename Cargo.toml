@@ -91,7 +91,6 @@ criterion = { version = "0.8.2", features = ["html_reports"] }
 bitflags = "2.13.2"
 tempfile = "3.27.0"
 tracing-subscriber = "0.3.23"
-roxmltree = "0.21.2"
 inotify = "0.11.5"
 
 hashbrown = { version = "0.17.1", features = ["serde"] }

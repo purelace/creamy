@@ -8,8 +8,6 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
-    #[inline(never)]
-    #[cold]
     pub fn report_err(&mut self, error: impl Into<ProtocolError>) {
         self.errors.push(error.into());
     }
@@ -19,13 +17,13 @@ impl Diagnostics {
         !self.errors.is_empty()
     }
 
-    pub fn print(&self, content: &str) {
+    pub fn print(&self, file: &str, content: &str) {
         let content = content.trim();
         for err in &self.errors {
             eprintln!(
                 "{:?}\n",
                 miette::Report::new(err.clone()).with_source_code(
-                    NamedSource::new("test.xml", content.to_string()).with_language("XML")
+                    NamedSource::new(file, content.to_string()).with_language("CMP")
                 )
             );
         }

@@ -26,7 +26,7 @@ where
             let n = &f.name;
             let kind = &match f.kind {
                 EnrichedFieldType::Type { name } => path_to_string(&name),
-                EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]"),
+                EnrichedFieldType::StaticArray { kind, len } => format!("[{kind}; {len}]"),
                 EnrichedFieldType::Special(s) => match s {
                     SpecialFieldType::SubscriberId => args.subscriber_id_path(),
                     SpecialFieldType::ProtocolId => args.protocol_id_path(),
@@ -126,7 +126,7 @@ where
             let n = f.name;
             let t = match f.kind {
                 EnrichedFieldType::Type { name } => path_to_string(&name),
-                EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]"),
+                EnrichedFieldType::StaticArray { kind, len } => format!("[{kind}; {len}]"),
                 EnrichedFieldType::Special(s) => match s {
                     SpecialFieldType::SubscriberId => args.subscriber_id_path(),
                     SpecialFieldType::ProtocolId => args.protocol_id_path(),

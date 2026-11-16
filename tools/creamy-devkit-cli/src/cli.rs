@@ -90,12 +90,12 @@ pub enum ShowCommand {
         flat: bool,
         /// Message name or ID [0-255]
         message: StringOrNumber,
-        /// Target XML file
-        xml_file: String,
+        /// Target CMP file
+        file: String,
     },
     /// List all available messages
     Messages {
-        /// Target XML file
-        xml_file: String,
+        /// Target CMP file
+        file: String,
     },
 }

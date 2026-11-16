@@ -2,8 +2,6 @@
 #version "1.0.0"
 #access  "Public"
 #schema  1
-//#include <builtin>
-//#types
 
 // Reference: cbus-core
 [Builtin]
@@ -15,6 +13,12 @@ struct SubscriberId {
 [Builtin]
 struct ProtocolId {
     value: u8,
+}
+
+// Reference: Rust strings
+[Builtin]
+object String {
+    inner: Array<u8>,
 }
 
 message[O] ProtocolDeclared {
@@ -38,13 +42,11 @@ message[O] ConsumerDisappeared {
     consumer_id: u8,
 }
 
-[Extension(from="1.2", until="2.0")]
 message[D] StreamKeepAlive {
     stream_kind: u8,
     stream_id: u8,
 }
 
-[Experimental]
 enum[u8] LogType {
     Debug   = 0,
     Info    = 1,
@@ -52,13 +54,6 @@ enum[u8] LogType {
     Error   = 3,
 }
 
-// Reference: Rust strings
-[Builtin]
-object String {
-    inner: Array<u8>,
-}
-
-[Timeout(4), Experimental]
 stream[I] Log {
     kind: LogType,
     content: String,

@@ -3,33 +3,11 @@ use std::{borrow::Cow, fs::File, io::Write};
 use creamy_libgen::{
     AbsolutePath,
     prelude::*,
-    proxy::{EnrichedStreamFieldType, SpecialFieldType},
+    proxy::{EnrichedObjectSymbol, SpecialFieldType},
 };
+use creamy_xmlc::model::symbols::Number;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
-
-const MANIFEST: &str = r#"
-[package]
-id = "org.creamy.system"
-name = "system"
-version = "1.0.0"
-description = "Builtin package"
-repository = "https://github.com/purelace/creamy"
-authors = [ "selrisu <myirisuchan@gmail.com>" ]
-
-[protocols]
-system = { version = "1.0.0", provide = true  }
-"#;
-
-fn setup_root() -> std::io::Result<TempDir> {
-    let dir = tempfile::tempdir()?;
-    let path = dir.path().join(".creamy");
-    std::fs::create_dir_all(path.join("definitions"))?;
-    File::create_new(path.join("manifest.toml"))
-        .and_then(|mut f| f.write_all(MANIFEST.as_bytes()))?;
-
-    Ok(dir)
-}
 
 fn header_field<'s>(
     name: impl Into<Cow<'s, str>>,
@@ -89,7 +67,7 @@ impl<'s> CodeGenerator<'s> for Mock {
                 },
                 EnrichedFieldSymbol {
                     name: "__padding0".into(),
-                    kind: EnrichedFieldType::Array {
+                    kind: EnrichedFieldType::StaticArray {
                         kind: "u8".into(),
                         len: 1,
                     },
@@ -104,7 +82,7 @@ impl<'s> CodeGenerator<'s> for Mock {
                 },
                 EnrichedFieldSymbol {
                     name: "__padding1".into(),
-                    kind: EnrichedFieldType::Array {
+                    kind: EnrichedFieldType::StaticArray {
                         kind: "u8".into(),
                         len: 24,
                     },
@@ -118,12 +96,11 @@ impl<'s> CodeGenerator<'s> for Mock {
     fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
     where
         F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-        C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+        C: SymbolIterator<EnrichedFieldSymbol<'s>>,
     {
         assert_eq!(symbol.name, "Log");
         assert_eq!(symbol.protocol, 2);
         assert_eq!(symbol.kind, 1);
-        assert_eq!(symbol.timeout, 60);
         assert_eq!(symbol.dispatch_value, 2u32 << 16 | 1u32);
         let message_fields = symbol.message_fields.collect::<Vec<_>>();
         assert_eq!(
@@ -156,7 +133,7 @@ impl<'s> CodeGenerator<'s> for Mock {
                 },
                 EnrichedFieldSymbol {
                     name: "data".into(),
-                    kind: EnrichedFieldType::Array {
+                    kind: EnrichedFieldType::StaticArray {
                         kind: "u8".into(),
                         len: 27
                     },
@@ -166,33 +143,29 @@ impl<'s> CodeGenerator<'s> for Mock {
         );
 
         let content_fields = symbol.content_fields.collect::<Vec<_>>();
-        let t0 = content_fields[0].type_id;
-        let t1 = content_fields[1].type_id;
-        let t2 = content_fields[2].type_id;
         assert_eq!(
             content_fields,
             [
-                EnrichedStreamFieldSymbol {
+                EnrichedFieldSymbol {
                     name: "level".into(),
-                    kind: EnrichedStreamFieldType::Type {
+                    kind: EnrichedFieldType::Type {
                         name: Path::from_absolute(AbsolutePath::from_iter(["system", "Level"])),
                     },
-                    type_id: t0,
                     is_padding: false,
                 },
-                EnrichedStreamFieldSymbol {
-                    name: "__padding0".into(),
-                    kind: EnrichedStreamFieldType::StaticArray {
-                        kind: "u8".into(),
-                        len: 3
-                    },
-                    type_id: t1,
-                    is_padding: true
-                },
-                EnrichedStreamFieldSymbol {
+                //EnrichedFieldSymbol {
+                //    name: "__padding0".into(),
+                //    kind: EnrichedFieldType::StaticArray {
+                //        kind: "u8".into(),
+                //        len: 3
+                //    },
+                //    is_padding: true
+                //},
+                EnrichedFieldSymbol {
                     name: "content".into(),
-                    kind: EnrichedStreamFieldType::DynamicArray { kind: "u8".into() },
-                    type_id: t2,
+                    kind: EnrichedFieldType::Type {
+                        name: Path::from_absolute(AbsolutePath::from_iter(["system", "String"]))
+                    },
                     is_padding: false
                 }
             ]
@@ -331,23 +304,23 @@ impl<'s> CodeGenerator<'s> for Mock {
             [
                 EnrichedVariantSymbol {
                     name: "Trace",
-                    value: VariantValue::Unsigned(0)
+                    value: Number::Unsigned(0)
                 },
                 EnrichedVariantSymbol {
                     name: "Debug",
-                    value: VariantValue::Unsigned(1)
+                    value: Number::Unsigned(1)
                 },
                 EnrichedVariantSymbol {
                     name: "Info",
-                    value: VariantValue::Unsigned(2)
+                    value: Number::Unsigned(2)
                 },
                 EnrichedVariantSymbol {
                     name: "Warning",
-                    value: VariantValue::Unsigned(3)
+                    value: Number::Unsigned(3)
                 },
                 EnrichedVariantSymbol {
                     name: "Error",
-                    value: VariantValue::Unsigned(4)
+                    value: Number::Unsigned(4)
                 },
             ]
         );
@@ -376,6 +349,22 @@ impl<'s> CodeGenerator<'s> for Mock {
         );
     }
 
+    fn generate_object<I>(&mut self, symbol: EnrichedObjectSymbol<'s, I>)
+    where
+        I: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    {
+        assert_eq!(symbol.name, "String");
+        let fields = symbol.fields.collect::<Vec<_>>();
+        assert_eq!(
+            fields,
+            [EnrichedFieldSymbol {
+                name: "inner".into(),
+                kind: EnrichedFieldType::HeapArray { kind: "u8".into() },
+                is_padding: false,
+            }]
+        );
+    }
+
     fn end_protocol(&mut self) {}
 
     fn generate_dispatcher<G, M>(&mut self, _: G, _: M)
@@ -396,16 +385,36 @@ impl<'s> CodeGenerator<'s> for Mock {
     }
 }
 
-fn setup_env(xml_file: &str) -> Result<(TempDir, Codegen), Box<dyn core::error::Error>> {
+const MANIFEST: &str = r#"
+[package]
+id = "org.creamy.system"
+name = "system"
+version = "1.0.0"
+description = "Builtin package"
+repository = "https://github.com/purelace/creamy"
+authors = [ "selrisu <myirisuchan@gmail.com>" ]
+
+[protocols]
+system = { version = "1.0.0", provide = true  }
+"#;
+
+fn setup_root() -> std::io::Result<TempDir> {
+    let dir = tempfile::tempdir()?;
+    let path = dir.path().join(".creamy");
+    std::fs::create_dir_all(path.join("definitions"))?;
+    File::create_new(path.join("manifest.toml"))
+        .and_then(|mut f| f.write_all(MANIFEST.as_bytes()))?;
+
+    Ok(dir)
+}
+
+fn setup_env(file: &str) -> Result<(TempDir, Codegen), Box<dyn core::error::Error>> {
     let root = setup_root()?;
     let directory = root.as_ref().join(".creamy");
     let protocols = directory.join("definitions");
 
     let working_dir = std::env::current_dir()?;
-    std::fs::copy(
-        working_dir.join("tests/xml").join(xml_file),
-        protocols.join(xml_file),
-    )?;
+    std::fs::copy(working_dir.join("tests").join(file), protocols.join(file))?;
     let mut library = ProtocolLibrary::new(
         &std::fs::read_to_string(directory.join("manifest.toml"))?,
         root.as_ref().into(),
@@ -416,7 +425,7 @@ fn setup_env(xml_file: &str) -> Result<(TempDir, Codegen), Box<dyn core::error::
 
 #[test]
 fn test() -> Result<(), Box<dyn core::error::Error>> {
-    let (_dir, mut codegen) = setup_env("struct.xml")?;
+    let (_dir, mut codegen) = setup_env("sample.cmp")?;
     codegen.run(&mut Mock)?;
     Ok(())
 }

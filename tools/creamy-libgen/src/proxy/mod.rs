@@ -2,10 +2,12 @@ mod bitset;
 mod enumeration;
 mod field;
 mod flags;
-mod stream_field;
+mod object;
+mod r#struct;
 
 pub use bitset::*;
 pub use enumeration::*;
 pub use field::*;
 pub use flags::*;
-pub use stream_field::*;
+pub use object::*;
+pub use r#struct::*;

@@ -1,16 +1,16 @@
 use super::Size;
 use crate::{
     TypeId,
-    symbols::{Field, FieldSymbol, T_U8_ID},
+    symbols::{FieldSymbol, T_U8_ID},
 };
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum LayoutItem<F: Field> {
-    Field(F),
+pub enum LayoutItem {
+    Field(FieldSymbol),
     Padding { index: u8, size: Size },
 }
 
-impl<F: Field> LayoutItem<F> {
+impl LayoutItem {
     fn type_id(&self) -> TypeId {
         match self {
             LayoutItem::Field(f) => f.type_id(),
@@ -35,7 +35,7 @@ pub struct LayoutStep {
 }
 
 impl LayoutStep {
-    fn new<F: Field>(symbol: &LayoutItem<F>, total_size: u64) -> Self {
+    fn new(symbol: &LayoutItem, total_size: u64) -> Self {
         let type_id = symbol.type_id();
         let align = type_id.align().size();
         let size = symbol.size();
@@ -50,16 +50,16 @@ impl LayoutStep {
     }
 }
 
-pub struct LayoutCalculator<F: Field, I: Iterator<Item = F>> {
+pub struct LayoutCalculator<I: Iterator<Item = FieldSymbol>> {
     total_size: u64,
     padding_index: u8,
     max_align: u8,
     left_pad: bool,
     fields: I,
-    prev: Option<(LayoutItem<F>, LayoutStep)>,
+    prev: Option<(LayoutItem, LayoutStep)>,
 }
 
-impl<F: Field, I: Iterator<Item = F>> LayoutCalculator<F, I> {
+impl<I: Iterator<Item = FieldSymbol>> LayoutCalculator<I> {
     #[must_use]
     pub fn new(reserved: u8, max_align: Option<u8>, fields: I) -> Self {
         Self {
@@ -77,7 +77,7 @@ impl<F: Field, I: Iterator<Item = F>> LayoutCalculator<F, I> {
         self.total_size
     }
 
-    fn new_padding(&mut self, padding: u64) -> (LayoutItem<F>, LayoutStep) {
+    fn new_padding(&mut self, padding: u64) -> (LayoutItem, LayoutStep) {
         let size = Size::try_new(padding).unwrap();
         let item = LayoutItem::Padding {
             index: self.padding_index,
@@ -92,8 +92,8 @@ impl<F: Field, I: Iterator<Item = F>> LayoutCalculator<F, I> {
     }
 }
 
-impl<F: Field, I: Iterator<Item = F>> Iterator for LayoutCalculator<F, I> {
-    type Item = (LayoutItem<F>, LayoutStep);
+impl<I: Iterator<Item = FieldSymbol>> Iterator for LayoutCalculator<I> {
+    type Item = (LayoutItem, LayoutStep);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((f, s)) = self.prev.take() {
@@ -113,11 +113,6 @@ impl<F: Field, I: Iterator<Item = F>> Iterator for LayoutCalculator<F, I> {
                 self.prev = Some((item, step));
                 Some(self.new_padding(step.padding))
             };
-
-            //let Some(result) = self.total_size.checked_add(step.padding + step.size) else {
-            //
-            //};
-            //TODO: overflow
         }
 
         if self.left_pad {
@@ -139,7 +134,7 @@ pub fn compute_layout(
     reserved: u8,
     max_align: Option<u8>,
     fields: &[FieldSymbol],
-    mut f: impl FnMut(LayoutItem<FieldSymbol>, LayoutStep),
+    mut f: impl FnMut(LayoutItem, LayoutStep),
 ) -> u64 {
     let calculator = LayoutCalculator::new(reserved, max_align, fields.iter().copied());
     let mut total_size = u64::from(reserved);

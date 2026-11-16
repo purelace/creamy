@@ -36,7 +36,7 @@ pub enum DefineValueNode<'src> {
 }
 
 #[derive(Debug)]
-pub struct DefineNode<'src> {
+pub struct DirectiveNode<'src> {
     pub ident: IdentifierNode<'src>,
     pub value: DefineValueNode<'src>,
 }
@@ -52,8 +52,18 @@ pub enum AttributeParameterValueNode<'src> {
     String(StringNode<'src>),
 }
 
+impl AttributeParameterValueNode<'_> {
+    pub const fn span(&self) -> Span {
+        match self {
+            AttributeParameterValueNode::Number(n) => n.span,
+            AttributeParameterValueNode::String(n) => n.span,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct NamedAttributeParameterNode<'src> {
+    pub span: Span,
     pub ident: IdentifierNode<'src>,
     pub value: AttributeParameterValueNode<'src>,
 }
@@ -66,6 +76,7 @@ pub enum AttributeParameterListNode<'src> {
 
 #[derive(Debug)]
 pub struct AttributeNode<'src> {
+    pub span: Span,
     pub ident: IdentifierNode<'src>,
     pub parameters: Option<AttributeParameterListNode<'src>>,
 }
@@ -244,8 +255,8 @@ impl<'src> SyntaxTreeBuilder<'src> {
         while let Some(token) = self.tokenizer.next() {
             match token {
                 // define
-                Token::Hash => {
-                    tree.defines.push(self.parse_define_node(diag));
+                Token::Hash(_) => {
+                    tree.directives.push(self.parse_directive_node(diag));
                 }
 
                 // keyword
@@ -296,12 +307,19 @@ impl<'src> SyntaxTreeBuilder<'src> {
                 // docs
                 Token::Documentation(span) => documentation.lines.push(span),
                 // attribute
-                Token::LBracket => {
+                Token::LBracket(_) => {
                     attributes.push(self.parse_attribute_node(diag));
                 }
 
                 Token::Unknown(_) => todo!(),
-                u => todo!("unexpected token: {u:#?}"),
+                u => {
+                    diag.report_err(SyntaxError::UnexpectedToken {
+                        expected: "keyword, documentation or attribute",
+                        span: u.span().into(),
+                    });
+                    return tree;
+                    //todo!("unexpected token: {u:#?}")
+                }
             }
         }
 
@@ -343,8 +361,8 @@ impl<'src> SyntaxTreeBuilder<'src> {
         }
     }
 
-    fn parse_define_node(&mut self, diag: &mut Diagnostics) -> DefineNode<'src> {
-        DefineNode {
+    fn parse_directive_node(&mut self, diag: &mut Diagnostics) -> DirectiveNode<'src> {
+        DirectiveNode {
             ident: self.consume_ident(diag),
             value: self.consume_define_value_node(diag),
         }
@@ -352,7 +370,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_rparen(&mut self, diag: &mut Diagnostics) {
         match self.tokenizer.next() {
-            Some(Token::RParen) => {}
+            Some(Token::RParen(_)) => {}
             Some(other) => todo!(),
             None => todo!("end of file"),
         }
@@ -360,9 +378,12 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_equals(&mut self, diag: &mut Diagnostics) -> bool {
         match self.tokenizer.next() {
-            Some(Token::Equals) => true,
+            Some(Token::Equals(_)) => true,
             Some(other) => {
-                diag.report_err(SyntaxError::UnexpectedToken { expected: '=' });
+                diag.report_err(SyntaxError::UnexpectedToken {
+                    expected: "=",
+                    span: other.span().into(),
+                });
                 false
             }
             None => {
@@ -386,6 +407,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
         match self.tokenizer.next() {
             Some(Token::Number(span)) => NamedAttributeParameterNode {
+                span: Span::extend(ident.span, span),
                 ident,
                 value: AttributeParameterValueNode::Number(NumberNode {
                     value: self.slice_for(span),
@@ -393,6 +415,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
                 }),
             },
             Some(Token::String(span)) => NamedAttributeParameterNode {
+                span: Span::extend(ident.span, span),
                 ident,
                 value: AttributeParameterValueNode::String(StringNode {
                     value: self.slice_for(span),
@@ -409,7 +432,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
         diag: &mut Diagnostics,
     ) -> AttributeParameterListNode<'src> {
         match self.tokenizer.next() {
-            Some(Token::RParen) => AttributeParameterListNode::Named(Vec::new()),
+            Some(Token::RParen(_)) => AttributeParameterListNode::Named(Vec::new()),
             Some(Token::Number(span)) => {
                 self.consume_rparen(diag);
                 AttributeParameterListNode::Unnamed(AttributeParameterValueNode::Number(
@@ -435,16 +458,16 @@ impl<'src> SyntaxTreeBuilder<'src> {
                         Some(Token::Ident(span)) => {
                             inner.push(self.consume_named_parameter_node(span, diag));
                             match self.tokenizer.next() {
-                                Some(Token::RParen) => {
+                                Some(Token::RParen(_)) => {
                                     return AttributeParameterListNode::Named(inner);
                                 }
-                                Some(Token::Comma) => {}
+                                Some(Token::Comma(_)) => {}
                                 Some(other) => todo!("other: {other:#?}"),
                                 None => todo!("end of file"),
                             }
                         }
-                        Some(Token::RParen) => return AttributeParameterListNode::Named(inner),
-                        Some(Token::Comma) => {
+                        Some(Token::RParen(_)) => return AttributeParameterListNode::Named(inner),
+                        Some(Token::Comma(_)) => {
                             /* TODO: этого тут не должно быть */
                         }
                         Some(other) => todo!("other: {other:#?}"),
@@ -462,34 +485,40 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
         loop {
             let ident = match self.tokenizer.next() {
-                Some(Token::RBracket) => break,
+                Some(Token::RBracket(_)) => break,
                 Some(Token::Ident(span)) => IdentifierNode {
                     value: self.slice_for(span),
                     span,
                 },
-                Some(Token::Comma) => continue,
+                Some(Token::Comma(_)) => continue,
                 Some(other) => todo!("other: {other:#?}"),
                 None => todo!("end of file"),
             };
 
             match self.tokenizer.next() {
-                Some(Token::Comma) => {
+                Some(Token::Comma(_)) => {
                     list.inner.push(AttributeNode {
+                        span: ident.span,
                         ident,
                         parameters: None,
                     });
                 }
-                Some(Token::RBracket) => {
+                Some(Token::RBracket(_)) => {
                     list.inner.push(AttributeNode {
+                        span: ident.span,
                         ident,
                         parameters: None,
                     });
                     break;
                 }
-                Some(Token::LParen) => list.inner.push(AttributeNode {
-                    ident,
-                    parameters: Some(self.consume_attribute_parameter_list_node(diag)),
-                }),
+                Some(Token::LParen(_)) => {
+                    let parameters = self.consume_attribute_parameter_list_node(diag);
+                    list.inner.push(AttributeNode {
+                        span: ident.span,
+                        ident,
+                        parameters: Some(parameters),
+                    })
+                }
                 Some(other) => todo!("other: {other:#?}"),
                 None => todo!("end of file"),
             }
@@ -500,7 +529,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_lbrace(&mut self, diag: &mut Diagnostics) {
         match self.tokenizer.next() {
-            Some(Token::LBrace) => {}
+            Some(Token::LBrace(_)) => {}
             Some(other) => todo!(),
             None => todo!("end of file"),
         }
@@ -508,7 +537,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_rbrace(&mut self, diag: &mut Diagnostics) {
         match self.tokenizer.next() {
-            Some(Token::RBrace) => {}
+            Some(Token::RBrace(_)) => {}
             Some(other) => todo!(),
             None => todo!("end of file"),
         }
@@ -516,7 +545,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_comma(&mut self, diag: &mut Diagnostics) {
         match self.tokenizer.next() {
-            Some(Token::Comma) => {}
+            Some(Token::Comma(_)) => {}
             Some(other) => todo!(),
             None => todo!("end of file"),
         }
@@ -536,13 +565,13 @@ impl<'src> SyntaxTreeBuilder<'src> {
                     });
 
                     match self.tokenizer.next() {
-                        Some(Token::RBrace) => break,
-                        Some(Token::Comma) => {}
+                        Some(Token::RBrace(_)) => break,
+                        Some(Token::Comma(_)) => {}
                         Some(other) => todo!("other: {other:#?}"),
                         None => todo!("end of file"),
                     }
                 }
-                Some(Token::RBrace) => break,
+                Some(Token::RBrace(_)) => break,
                 Some(other) => todo!("other: {other:#?}"),
                 None => todo!("end of file"),
             }
@@ -571,7 +600,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_lbracket(&mut self, diag: &mut Diagnostics) {
         match self.tokenizer.next() {
-            Some(Token::LBracket) => {}
+            Some(Token::LBracket(_)) => {}
             Some(other) => todo!(),
             None => todo!("end of file"),
         }
@@ -579,7 +608,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_rbracket(&mut self, diag: &mut Diagnostics) {
         match self.tokenizer.next() {
-            Some(Token::RBracket) => {}
+            Some(Token::RBracket(_)) => {}
             Some(other) => todo!(),
             None => todo!("end of file"),
         }
@@ -625,9 +654,12 @@ impl<'src> SyntaxTreeBuilder<'src> {
             return ControlFlow::Continue;
         }
 
-        match self.skip_until(&[Token::RBrace, Token::Comma]) {
-            Some(Token::RBrace) => ControlFlow::Break,
-            Some(Token::Comma) => ControlFlow::Skip,
+        match self.skip_until(&[
+            Token::RBrace(Span::default()),
+            Token::Comma(Span::default()),
+        ]) {
+            Some(Token::RBrace(_)) => ControlFlow::Break,
+            Some(Token::Comma(_)) => ControlFlow::Skip,
             Some(_) => unreachable!(),
             None => {
                 self.report_eof(diag);
@@ -658,13 +690,13 @@ impl<'src> SyntaxTreeBuilder<'src> {
                     inner.push(VariantNode { ident, value });
 
                     match self.tokenizer.next() {
-                        Some(Token::RBrace) => break,
-                        Some(Token::Comma) => {}
+                        Some(Token::RBrace(_)) => break,
+                        Some(Token::Comma(_)) => {}
                         Some(other) => todo!("other: {other:#?}"),
                         None => todo!("end of file"),
                     }
                 }
-                Some(Token::RBrace) => break,
+                Some(Token::RBrace(_)) => break,
                 Some(other) => todo!("other: {other:#?}"),
                 None => todo!("end of file"),
             }
@@ -695,7 +727,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_colon(&mut self, diag: &mut Diagnostics) {
         match self.tokenizer.next() {
-            Some(Token::Colon) => {}
+            Some(Token::Colon(_)) => {}
             Some(other) => todo!(),
             None => todo!("end of file"),
         }
@@ -733,13 +765,13 @@ impl<'src> SyntaxTreeBuilder<'src> {
                     });
 
                     match self.tokenizer.next() {
-                        Some(Token::RBrace) => break,
-                        Some(Token::Comma) => {}
+                        Some(Token::RBrace(_)) => break,
+                        Some(Token::Comma(_)) => {}
                         Some(other) => todo!(),
                         None => todo!("end of file"),
                     }
                 }
-                Some(Token::RBrace) => break,
+                Some(Token::RBrace(_)) => break,
                 Some(other) => todo!("other: {other:#?}"),
                 None => todo!("end of file"),
             }
@@ -768,7 +800,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_langle(&mut self, diag: &mut Diagnostics) -> bool {
         match self.tokenizer.next() {
-            Some(Token::LAngle) => true,
+            Some(Token::LAngle(_)) => true,
             Some(other) => {
                 todo!("other: {other:#?}");
             }
@@ -781,7 +813,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_rangle(&mut self, diag: &mut Diagnostics) {
         match self.tokenizer.next() {
-            Some(Token::RAngle) => {}
+            Some(Token::RAngle(_)) => {}
             Some(other) => todo!(),
             None => todo!("end of file"),
         }
@@ -789,7 +821,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
     fn consume_semicolon(&mut self, diag: &mut Diagnostics) {
         match self.tokenizer.next() {
-            Some(Token::Semicolon) => {}
+            Some(Token::Semicolon(_)) => {}
             Some(other) => todo!(),
             None => todo!("end of file"),
         }
@@ -808,7 +840,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
                     TypeRefNode::Identifier(IdentifierNode { value: ident, span })
                 }
             }
-            Some(Token::LBracket) => {
+            Some(Token::LBracket(_)) => {
                 let kind = self.consume_ident(diag);
                 self.consume_semicolon(diag);
                 let size = self.consume_number(diag);
@@ -836,13 +868,13 @@ impl<'src> SyntaxTreeBuilder<'src> {
                     inner.push(FieldNode { ident, kind });
 
                     match self.tokenizer.next() {
-                        Some(Token::RBrace) => break,
-                        Some(Token::Comma) => {}
+                        Some(Token::RBrace(_)) => break,
+                        Some(Token::Comma(_)) => {}
                         Some(other) => todo!("other: {other:#?}"),
                         None => todo!("end of file"),
                     }
                 }
-                Some(Token::RBrace) => break,
+                Some(Token::RBrace(_)) => break,
                 Some(other) => todo!("other: {other:#?}"),
                 None => todo!("end of file"),
             }
@@ -932,7 +964,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
 #[derive(Default, Debug)]
 pub struct SyntaxTree<'src> {
-    pub defines: Vec<DefineNode<'src>>,
+    pub directives: Vec<DirectiveNode<'src>>,
     pub flags: Vec<FlagsNode<'src>>,
     pub enums: Vec<EnumNode<'src>>,
     pub bitsets: Vec<BitsetNode<'src>>,
@@ -949,21 +981,5 @@ impl SyntaxTree<'_> {
                 .iter()
                 .map(|n| usize::from(matches!(n, ComplexType::Struct(_) | ComplexType::Object(_))))
                 .sum::<usize>()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::SyntaxTreeBuilder;
-    use crate::Diagnostics;
-
-    const SAMPLE: &str = include_str!("../../../system/system.cmp");
-
-    #[test]
-    fn test() {
-        let mut diag = Diagnostics::default();
-        let builder = SyntaxTreeBuilder::new(SAMPLE);
-        let tree = builder.run(&mut diag);
-        dbg!(tree);
     }
 }

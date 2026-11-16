@@ -14,7 +14,6 @@ mod tokenizer;
 
 mod diagnostics;
 pub mod error;
-mod r#macro;
 
 pub use diagnostics::Diagnostics;
 

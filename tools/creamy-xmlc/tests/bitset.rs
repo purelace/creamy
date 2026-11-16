@@ -5,11 +5,16 @@ use self::common::zero_span;
 mod common;
 
 const ERROR_SAMPLE: &str = include_str!("samples/bitset_errors.cmp");
+const ERROR_SAMPLE_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/samples/bitset_errors.cmp"
+);
 
 #[test]
 fn errors() {
     let errors = common::compile(ERROR_SAMPLE).unwrap_err();
     assert_diag!(
+        ERROR_SAMPLE_PATH,
         errors,
         vec![
             SemanticError::ForbiddenType { span: zero_span() }.into(),

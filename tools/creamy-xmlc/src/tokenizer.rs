@@ -2,7 +2,7 @@ use std::str::Chars;
 
 use miette::SourceSpan;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
     offset: usize,
     length: usize,
@@ -29,41 +29,66 @@ impl Span {
     }
 }
 
-#[derive(Debug)]
 pub enum Token {
     Ident(Span),
     /// "..."
     String(Span),
+    /// -0123456789
     Number(Span),
     /// ///
     Documentation(Span),
     /// #
-    Hash,
+    Hash(Span),
     /// {
-    LBrace,
+    LBrace(Span),
     /// }
-    RBrace,
+    RBrace(Span),
     /// [
-    LBracket,
+    LBracket(Span),
     /// ]
-    RBracket,
+    RBracket(Span),
     /// (
-    LParen,
+    LParen(Span),
     /// )
-    RParen,
+    RParen(Span),
     /// <
-    LAngle,
+    LAngle(Span),
     /// \>
-    RAngle,
+    RAngle(Span),
     /// :
-    Colon,
+    Colon(Span),
     /// ;
-    Semicolon,
+    Semicolon(Span),
     /// ,
-    Comma,
+    Comma(Span),
     /// =
-    Equals,
-    Unknown(char),
+    Equals(Span),
+    Unknown((char, Span)),
+}
+
+impl core::fmt::Debug for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ident(_) => f.debug_tuple("Ident").finish(),
+            Self::String(_) => f.debug_tuple("String").finish(),
+            Self::Number(_) => f.debug_tuple("Number").finish(),
+            Self::Documentation(_) => f.debug_tuple("Documentation").finish(),
+            Self::Hash(_) => f.debug_tuple("Hash").finish(),
+            Self::LBrace(_) => f.debug_tuple("LBrace").finish(),
+            Self::RBrace(_) => f.debug_tuple("RBrace").finish(),
+            Self::LBracket(_) => f.debug_tuple("LBracket").finish(),
+            Self::RBracket(_) => f.debug_tuple("RBracket").finish(),
+            Self::LParen(_) => f.debug_tuple("LParen").finish(),
+            Self::RParen(_) => f.debug_tuple("RParen").finish(),
+            Self::LAngle(_) => f.debug_tuple("LAngle").finish(),
+            Self::RAngle(_) => f.debug_tuple("RAngle").finish(),
+            Self::Colon(_) => f.debug_tuple("Colon").finish(),
+            Self::Semicolon(_) => f.debug_tuple("Semicolon").finish(),
+            Self::Comma(_) => f.debug_tuple("Comma").finish(),
+            Self::Equals(_) => f.debug_tuple("Equals").finish(),
+            Self::Unknown(_) => f.debug_tuple("Unknown").finish(),
+        }
+    }
 }
 
 impl Token {
@@ -74,21 +99,44 @@ impl Token {
                 | (Self::String(_), Self::String(_))
                 | (Self::Number(_), Self::Number(_))
                 | (Self::Documentation(_), Self::Documentation(_))
-                | (Self::Hash, Self::Hash)
-                | (Self::LBrace, Self::LBrace)
-                | (Self::RBrace, Self::RBrace)
-                | (Self::LBracket, Self::LBracket)
-                | (Self::RBracket, Self::RBracket)
-                | (Self::LParen, Self::LParen)
-                | (Self::RParen, Self::RParen)
-                | (Self::LAngle, Self::LAngle)
-                | (Self::RAngle, Self::RAngle)
-                | (Self::Colon, Self::Colon)
-                | (Self::Semicolon, Self::Semicolon)
-                | (Self::Comma, Self::Comma)
-                | (Self::Equals, Self::Equals)
+                | (Self::Hash(_), Self::Hash(_))
+                | (Self::LBrace(_), Self::LBrace(_))
+                | (Self::RBrace(_), Self::RBrace(_))
+                | (Self::LBracket(_), Self::LBracket(_))
+                | (Self::RBracket(_), Self::RBracket(_))
+                | (Self::LParen(_), Self::LParen(_))
+                | (Self::RParen(_), Self::RParen(_))
+                | (Self::LAngle(_), Self::LAngle(_))
+                | (Self::RAngle(_), Self::RAngle(_))
+                | (Self::Colon(_), Self::Colon(_))
+                | (Self::Semicolon(_), Self::Semicolon(_))
+                | (Self::Comma(_), Self::Comma(_))
+                | (Self::Equals(_), Self::Equals(_))
                 | (Self::Unknown(_), Self::Unknown(_))
         )
+    }
+
+    pub const fn span(&self) -> Span {
+        match self {
+            Token::Ident(span)
+            | Token::String(span)
+            | Token::Number(span)
+            | Token::Documentation(span)
+            | Token::Hash(span)
+            | Token::LBrace(span)
+            | Token::RBrace(span)
+            | Token::LBracket(span)
+            | Token::RBracket(span)
+            | Token::LParen(span)
+            | Token::RParen(span)
+            | Token::LAngle(span)
+            | Token::RAngle(span)
+            | Token::Colon(span)
+            | Token::Semicolon(span)
+            | Token::Comma(span)
+            | Token::Equals(span)
+            | Token::Unknown((_, span)) => *span,
+        }
     }
 }
 
@@ -112,13 +160,11 @@ impl<'src> Tokenizer<'src> {
             offset: self.offset,
             length,
         };
-        self.offset += length + 1;
+        self.offset += length;
         span
     }
 
     fn parse_ident(&mut self) -> Token {
-        self.offset -= 1;
-
         let mut length = 1;
         for c in self.chars.by_ref() {
             if c.is_alphanumeric() || c == '_' {
@@ -133,6 +179,7 @@ impl<'src> Tokenizer<'src> {
     }
 
     fn parse_string(&mut self) -> Token {
+        self.offset += 1;
         let mut length = 0;
         for c in self.chars.by_ref() {
             if c == '"' {
@@ -140,12 +187,12 @@ impl<'src> Tokenizer<'src> {
             }
             length += 1;
         }
-
-        Token::String(self.create_span_with_length(length))
+        let span = self.create_span_with_length(length);
+        self.offset += 1;
+        Token::String(span)
     }
 
     fn parse_number(&mut self) -> Token {
-        self.offset -= 1;
         let mut length = 1;
 
         for c in self.chars.by_ref() {
@@ -167,7 +214,7 @@ impl<'src> Tokenizer<'src> {
         match char {
             Some('/') => match self.chars.next() {
                 Some('/') => {
-                    self.offset += 1;
+                    self.offset += 2;
                     let mut length = 0;
                     for c in self.chars.by_ref() {
                         if c == '\n' {
@@ -176,11 +223,13 @@ impl<'src> Tokenizer<'src> {
 
                         length += 1;
                     }
+                    let span = self.create_span_with_length(length);
+                    self.offset += 1;
 
-                    Some(Token::Documentation(self.create_span_with_length(length)))
+                    Some(Token::Documentation(span))
                 }
                 Some(_) => {
-                    self.offset += 1;
+                    self.offset += 2;
                     for c in self.chars.by_ref() {
                         self.offset += 1;
                         if c == '\n' {
@@ -192,7 +241,7 @@ impl<'src> Tokenizer<'src> {
                 }
                 None => None,
             },
-            Some(o) => Some(Token::Unknown(o)),
+            Some(o) => Some(Token::Unknown((o, self.create_span_with_length(1)))),
             None => None,
         }
     }
@@ -202,25 +251,25 @@ impl Iterator for Tokenizer<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(char) = self.current_char.take().or_else(|| {
-            self.offset += 1;
-            self.chars.next()
-        }) {
+        while let Some(char) = self.current_char.take().or_else(|| self.chars.next()) {
             return Some(match char {
-                c if c.is_whitespace() => continue,
-                '#' => Token::Hash,
-                '{' => Token::LBrace,
-                '}' => Token::RBrace,
-                '[' => Token::LBracket,
-                ']' => Token::RBracket,
-                '(' => Token::LParen,
-                ')' => Token::RParen,
-                '<' => Token::LAngle,
-                '>' => Token::RAngle,
-                ':' => Token::Colon,
-                ';' => Token::Semicolon,
-                ',' => Token::Comma,
-                '=' => Token::Equals,
+                c if c.is_whitespace() => {
+                    self.offset += 1;
+                    continue;
+                }
+                '#' => Token::Hash(self.create_span_with_length(1)),
+                '{' => Token::LBrace(self.create_span_with_length(1)),
+                '}' => Token::RBrace(self.create_span_with_length(1)),
+                '[' => Token::LBracket(self.create_span_with_length(1)),
+                ']' => Token::RBracket(self.create_span_with_length(1)),
+                '(' => Token::LParen(self.create_span_with_length(1)),
+                ')' => Token::RParen(self.create_span_with_length(1)),
+                '<' => Token::LAngle(self.create_span_with_length(1)),
+                '>' => Token::RAngle(self.create_span_with_length(1)),
+                ':' => Token::Colon(self.create_span_with_length(1)),
+                ';' => Token::Semicolon(self.create_span_with_length(1)),
+                ',' => Token::Comma(self.create_span_with_length(1)),
+                '=' => Token::Equals(self.create_span_with_length(1)),
                 '_' => self.parse_ident(),
                 '"' => self.parse_string(),
                 '/' => {
@@ -231,7 +280,7 @@ impl Iterator for Tokenizer<'_> {
                 }
                 c if c.is_alphabetic() => self.parse_ident(),
                 c if c.is_numeric() || c == '-' => self.parse_number(),
-                o => Token::Unknown(o),
+                o => Token::Unknown((o, self.create_span_with_length(1))),
             });
         }
 
@@ -245,7 +294,6 @@ mod tests {
     use crate::tokenizer::Token;
 
     const SAMPLE: &str = include_str!("../../../system/system.cmp");
-
     #[test]
     fn test() {
         for token in Tokenizer::new(SAMPLE) {

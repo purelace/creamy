@@ -108,10 +108,6 @@ impl TypeId {
         }
     }
 
-    pub(crate) const fn index(self) -> u16 {
-        self.index
-    }
-
     #[must_use]
     pub fn size(self) -> Size {
         self.meta.size()

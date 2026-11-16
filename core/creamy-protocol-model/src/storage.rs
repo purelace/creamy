@@ -10,10 +10,7 @@ use strum::{EnumIter, IntoEnumIterator};
 use super::symbols::{
     BitsetValueSymbol, FieldSymbol, MessageSymbolType, OptionSymbol, VariantSymbol,
 };
-use crate::{
-    symbols::StreamFieldSymbol,
-    utils::{Range, VectorElement},
-};
+use crate::utils::{Range, VectorElement};
 
 #[repr(u8)]
 #[derive(BinRead, BinWrite, EnumIter, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -23,7 +20,6 @@ pub enum SymbolKey {
     Option = 2,
     Variant = 3,
     Field = 4,
-    StreamField = 5,
 }
 
 fn create_storage() -> Vec<Box<dyn UntypedStorage>> {
@@ -35,7 +31,6 @@ fn create_storage() -> Vec<Box<dyn UntypedStorage>> {
             SymbolKey::Option => TypedStorage::<OptionSymbol>::boxed(),
             SymbolKey::Variant => TypedStorage::<VariantSymbol>::boxed(),
             SymbolKey::Field => TypedStorage::<FieldSymbol>::boxed(),
-            SymbolKey::StreamField => TypedStorage::<StreamFieldSymbol>::boxed(),
         };
 
         vec.push(storage);
@@ -53,7 +48,6 @@ fn read_storage<R: creamy_binary::Read>(
         SymbolKey::Option => TypedStorage::<OptionSymbol>::read_boxed(reader)?,
         SymbolKey::Variant => TypedStorage::<VariantSymbol>::read_boxed(reader)?,
         SymbolKey::Field => TypedStorage::<FieldSymbol>::read_boxed(reader)?,
-        SymbolKey::StreamField => TypedStorage::<StreamFieldSymbol>::read_boxed(reader)?,
     };
 
     Ok(storage)

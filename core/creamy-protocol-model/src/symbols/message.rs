@@ -4,10 +4,9 @@ use creamy_binary::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
-use super::{ArraySymbol, Field};
 use crate::{
-    Align, Direction, TypeId, TypeMeta,
-    constraints::{MAX_FIELDS, MAX_MESSAGES},
+    Direction, TypeId,
+    constraints::MAX_MESSAGES,
     storage::SymbolKey,
     utils::{FieldsRange, MessagesRange, VectorElement},
 };
@@ -27,55 +26,20 @@ impl HeapArraySymbol {
     pub const fn kind(&self) -> TypeId {
         self.kind
     }
+
+    #[must_use]
+    pub const fn size(&self) -> u64 {
+        const ARRAY_LENGTH_FIELD: u64 = 4;
+        ARRAY_LENGTH_FIELD
+    }
 }
 
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
-pub enum StreamFieldType {
-    Type(TypeId) = 0,
-    StaticArray(ArraySymbol) = 1,
-    DynamicArray(HeapArraySymbol) = 2,
-}
-
-#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[element(MAX_FIELDS, FieldsRange)]
-#[key(SymbolKey::StreamField)]
-pub struct StreamFieldSymbol {
-    #[token(ident)]
-    ident: StringId,
-    kind: StreamFieldType,
-    is_padding: bool,
-}
-
-impl Field for StreamFieldSymbol {
-    fn type_id(&self) -> TypeId {
-        let type_id = self.type_id();
-        let index = type_id.index();
-        let size = type_id.size();
-        TypeId::new(StringId::new(index), TypeMeta::new(size, Align::B4))
-    }
-
-    fn size(&self) -> u64 {
-        match self.kind {
-            StreamFieldType::Type(sym) => sym.size().value(),
-            StreamFieldType::StaticArray(array) => array.total_size(),
-            StreamFieldType::DynamicArray(_) => {
-                const ARRAY_LENGTH_FIELD: u64 = 4;
-                ARRAY_LENGTH_FIELD
-            }
-        }
-    }
-}
-
-impl StreamFieldSymbol {
-    #[must_use]
-    pub const fn type_id(&self) -> TypeId {
-        match self.kind {
-            StreamFieldType::Type(sym) => sym,
-            StreamFieldType::StaticArray(sym) => sym.kind(),
-            StreamFieldType::DynamicArray(sym) => sym.kind(),
-        }
-    }
+pub enum ApiStatus {
+    Stable = 0,
+    Extension = 1,
+    Experimental = 2,
 }
 
 #[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -86,6 +50,7 @@ pub struct MessageSymbol {
     fields: FieldsRange,
     direction: Direction,
     kind: u8,
+    api: ApiStatus,
 }
 
 #[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -98,15 +63,14 @@ pub struct StreamSymbol {
     /// Direction of the message
     direction: Direction,
 
-    /// Timeout in frames
-    timeout: u8,
-
     /// Type of the message stream.
-    /// Allowed types: `[ Head, Payload, Tail ]`
     kind: u8,
 
     /// Content of the message stream.
     content: FieldsRange,
+
+    /// Api status of the message
+    api: ApiStatus,
 }
 
 #[derive(BinRead, BinWrite, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]

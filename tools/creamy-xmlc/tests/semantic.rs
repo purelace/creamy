@@ -5,13 +5,16 @@ use creamy_protocol_model::error::SemanticError;
 use crate::common::compile;
 
 const SAMPLE0: &str = include_str!("samples/semantic_errors/size_limit.cmp");
-const SAMPLE1: &str = include_str!("samples/semantic_errors/zero_sized_types.cmp");
-const SAMPLE2: &str = include_str!("samples/semantic_errors/enum.cmp");
+const SAMPLE0_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/samples/semantic_errors/size_limit.cmp"
+);
 
 #[test]
 fn semantic_errors_size_limit() {
     let errors = compile(SAMPLE0).unwrap_err();
     assert_diag!(
+        SAMPLE0_PATH,
         errors,
         vec![
             SemanticError::InvalidSize { actual: 224 }.into(),
@@ -21,10 +24,17 @@ fn semantic_errors_size_limit() {
     );
 }
 
+const SAMPLE1: &str = include_str!("samples/semantic_errors/zero_sized_types.cmp");
+const SAMPLE1_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/samples/semantic_errors/zero_sized_types.cmp"
+);
+
 #[test]
 fn semantic_errors_zero_sized_types() {
     let errors = compile(SAMPLE1).unwrap_err();
     assert_diag!(
+        SAMPLE1_PATH,
         errors,
         vec![
             SemanticError::InvalidSize { actual: 0 }.into(),
@@ -36,10 +46,17 @@ fn semantic_errors_zero_sized_types() {
     );
 }
 
+const SAMPLE2: &str = include_str!("samples/semantic_errors/enum.cmp");
+const SAMPLE2_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/samples/semantic_errors/enum.cmp"
+);
+
 #[test]
 fn semantic_errors_enums() {
     let errors = compile(SAMPLE2).unwrap_err();
     assert_diag!(
+        SAMPLE2_PATH,
         errors,
         vec![
             // Enum errors

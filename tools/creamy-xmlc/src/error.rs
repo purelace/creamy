@@ -82,7 +82,11 @@ pub enum SyntaxError {
     },
 
     #[error("Syntax Error: expected '{expected}'")]
-    UnexpectedToken { expected: char },
+    UnexpectedToken {
+        expected: &'static str,
+        #[label("Here")]
+        span: SourceSpan,
+    },
 
     #[error("Syntax Error: expected an item")]
     UnexpectedEOF,

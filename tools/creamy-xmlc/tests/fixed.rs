@@ -3,6 +3,10 @@ use creamy_xmlc::SemanticModel;
 use pretty_assertions::assert_eq;
 
 const CONTENT: &str = include_str!("samples/fixed/invalid_field_range.cmp");
+const CONTENT_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/samples/fixed/invalid_field_range.cmp"
+);
 
 #[test]
 fn invalid_field_range() {
@@ -10,7 +14,7 @@ fn invalid_field_range() {
     let protocol = match result {
         Ok(protocol) => protocol,
         Err(d) => {
-            d.print(CONTENT);
+            d.print(CONTENT_PATH, CONTENT);
             panic!();
         }
     };

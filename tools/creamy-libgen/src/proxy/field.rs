@@ -17,8 +17,9 @@ pub enum SpecialFieldType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EnrichedFieldType<'s> {
     Type { name: Path },
-    Array { kind: Cow<'s, str>, len: u8 },
+    StaticArray { kind: Cow<'s, str>, len: u64 },
     Special(SpecialFieldType),
+    HeapArray { kind: Cow<'s, str> },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,11 +50,17 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
                 };
                 EnrichedFieldType::Type { name: path }
             }
-            FieldType::StaticArray(symbol) => {
-                let kind = self.tt.get_type(symbol.kind()).ident().resolve(self.pool);
-                EnrichedFieldType::Array {
+            FieldType::StaticArray(s) => {
+                let kind = self.tt.get_type(s.kind()).ident().resolve(self.pool);
+                EnrichedFieldType::StaticArray {
                     kind: Cow::Borrowed(kind),
-                    len: symbol.len().value(),
+                    len: s.len().value(),
+                }
+            }
+            FieldType::HeapArray(s) => {
+                let kind = self.tt.get_type(s.kind()).ident().resolve(self.pool);
+                EnrichedFieldType::HeapArray {
+                    kind: Cow::Borrowed(kind),
                 }
             }
         }

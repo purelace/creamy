@@ -10,7 +10,7 @@ use creamy_binary::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 pub use enumeration::{EnumSymbol, Number, VariantSymbol, VariantValue};
-pub use field::{Field, FieldSymbol, FieldType};
+pub use field::{FieldSymbol, FieldType};
 pub use message::*;
 pub use numeric::*;
 pub use repr::PrimitiveRepr;

@@ -21,7 +21,7 @@ use std::{
 };
 
 pub use args::Args;
-use creamy_libgen::prelude::*;
+use creamy_libgen::{prelude::*, proxy::EnrichedObjectSymbol};
 use genco::{lang::rust::Tokens, quote};
 pub use libgen::Target;
 
@@ -124,7 +124,7 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
     fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
     where
         F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-        C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+        C: SymbolIterator<EnrichedFieldSymbol<'s>>,
     {
         self.push_tokens(symbols::generate_stream_message::<F, C>(
             &symbol, &self.args,
@@ -157,6 +157,12 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
         I: Iterator<Item = EnrichedFieldSymbol<'s>>,
     {
         self.push_tokens(symbols::generate_struct(&self.args, symbol));
+    }
+
+    fn generate_object<I>(&mut self, symbol: EnrichedObjectSymbol<'s, I>)
+    where
+        I: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    {
     }
 
     fn end_protocol(&mut self) {

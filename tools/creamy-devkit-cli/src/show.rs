@@ -1,7 +1,4 @@
-use creamy_xmlc::model::{
-    definition::ProtocolModel,
-    strpool::{StringPool, StringPoolIntern},
-};
+use creamy_xmlc::SemanticModel;
 
 use crate::{
     cli::{ShowCommand, StringOrNumber},
@@ -10,34 +7,29 @@ use crate::{
 };
 
 pub fn execute_show_cmd(show: ShowCommand) -> anyhow::Result<()> {
-    let mut pool = StringPool::default();
     match show {
         ShowCommand::Layout {
             flat,
             message,
-            xml_file,
+            file,
         } => {
-            let model = compile_protocol(&mut pool, xml_file)?;
-            let message_index = get_message_index(&model, &mut pool, message).unwrap();
-            show_memory_layout(&model, &pool, flat, message_index);
+            let model = compile_protocol(&file)?;
+            let message_index = get_message_index(&model, message).unwrap();
+            show_memory_layout(&model, flat, message_index);
         }
-        ShowCommand::Messages { xml_file } => {
-            let def = compile_protocol(&mut pool, xml_file)?;
-            show_all_messages(&def, &pool);
+        ShowCommand::Messages { file } => {
+            let model = compile_protocol(&file)?;
+            show_all_messages(&model);
         }
     }
 
     Ok(())
 }
 
-fn get_message_index(
-    model: &ProtocolModel,
-    pool: &mut StringPool,
-    key: StringOrNumber,
-) -> Option<u8> {
+fn get_message_index(model: &SemanticModel, key: StringOrNumber) -> Option<u8> {
     match key {
         StringOrNumber::String(name) => {
-            let name_id = name.intern(pool);
+            let name_id = model.pool().try_get_id(&name)?;
             model
                 .messages()
                 .iter()

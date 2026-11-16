@@ -36,7 +36,6 @@ message[O] SetPermissions {
     class:       u16,
 }
 
-[Timeout(60)]
 stream[I] Log {
     level:   Level,
     content: Array<u8>,

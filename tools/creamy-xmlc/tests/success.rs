@@ -3,6 +3,7 @@ use creamy_utils::strpool::StringPoolResolver;
 use creamy_xmlc::SemanticModel;
 
 const SAMPLE: &str = include_str!("samples/success.cmp");
+const SAMPLE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/samples/success.cmp");
 
 #[test]
 fn success_path() {
@@ -10,7 +11,7 @@ fn success_path() {
     let protocol = match result {
         Ok(protocol) => protocol,
         Err(d) => {
-            d.print(SAMPLE);
+            d.print(SAMPLE_PATH, SAMPLE);
             panic!();
         }
     };

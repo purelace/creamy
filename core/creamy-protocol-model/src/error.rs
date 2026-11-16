@@ -120,19 +120,52 @@ pub enum SemanticError {
         feature = "std",
         diagnostic(help("u8, u16, u32, u64, u128, i8, i16, i32, i64, i128"))
     )]
-    ForbiddenType,
+    ForbiddenType {
+        #[label("Here")]
+        span: SourceSpan,
+    },
 
     #[error("[P213] Zero width of bitset values is not allowed")]
     #[cfg_attr(feature = "std", diagnostic(code(semantic::zero_value_width)))]
-    ZeroBitsetValueWidth,
+    ZeroBitsetValueWidth {
+        #[label("Here")]
+        span: SourceSpan,
+    },
 
     #[error("[] Bitset value width {actual} is larger than {repr} (max {max_possible} bits)")]
     BitsetValueExceedsRepr {
         actual: u64,
         repr: String,
         max_possible: u64,
+        #[label("Here")]
+        span: SourceSpan,
     },
 
-    #[error("[] The name `{name}` is defined multiple times")]
+    #[error("The name `{name}` is defined multiple times")]
     NameDefinedMultipleTimes { name: String, span: SourceSpan },
+
+    #[error("Duplicate `[{name}]` attribute")]
+    #[cfg_attr(
+        feature = "std",
+        diagnostic(help(
+            "the `[{name}]` attribute cannot be applied multiple times to the same item"
+        ))
+    )]
+    DuplicateAttributeError {
+        name: &'static str,
+        #[label("Here")]
+        span: SourceSpan,
+    },
+    #[error("conflicting attributes `[{a}]` and `[{b}]`")]
+    #[diagnostic(help(
+        "`[{a}]` and `[{b}]` are mutually exclusive. Remove one of the conflicting attributes"
+    ))]
+    ConflictingAttributes { a: &'static str, b: &'static str },
+
+    #[error("unknown attribute `{name}`")]
+    UnknownAttribute {
+        name: String,
+        #[label("Here")]
+        span: SourceSpan,
+    },
 }

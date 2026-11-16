@@ -13,12 +13,12 @@ use creamy_protocol_model::{
     layout::{LayoutCalculator, LayoutItem},
     storage::SymbolStorage,
     symbols::{
-        ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID, FieldSymbol,
-        FieldType, FlagsSymbol, HeapArraySymbol, I8_ID, I16_ID, I32_ID, I64_ID, I128_ID,
-        MessageSymbol, MessageSymbolType, Number, ObjectSymbol, OptionSymbol, PrimitiveRepr,
-        StreamSymbol, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID, T_I128_ID, T_U8_ID,
-        T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID, U32_ID, U64_ID, U128_ID,
-        VariantSymbol, get_builtin_type_name,
+        ApiStatus, ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID,
+        FieldSymbol, FieldType, FlagsSymbol, HeapArraySymbol, I8_ID, I16_ID, I32_ID, I64_ID,
+        I128_ID, MessageSymbol, MessageSymbolType, Number, ObjectSymbol, OptionSymbol,
+        PrimitiveRepr, StreamSymbol, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID,
+        T_I128_ID, T_U8_ID, T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID, U32_ID,
+        U64_ID, U128_ID, VariantSymbol, get_builtin_type_name,
     },
 };
 use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern, StringPoolResolver};
@@ -30,12 +30,14 @@ use petgraph::{
 use crate::{
     Diagnostics,
     ast::{
-        BitsetNode, BitsetValueNode, ComplexType, DefineNode, DefineValueNode, EnumNode, FieldNode,
-        FlagsNode, IdentifierNode, MessageNode, MessageNodeType, ModifierNode, NumberNode,
-        ObjectNode, OptionNode, StructNode, SyntaxTree, SyntaxTreeBuilder, TypeRefNode,
-        VariantNode,
+        AttributeListNode, AttributeParameterListNode, AttributeParameterValueNode, BitsetNode,
+        BitsetValueNode, ComplexType, DefineValueNode, DirectiveNode, EnumNode, FieldNode,
+        FlagsNode, IdentifierNode, MessageNode, MessageNodeType, ModifierNode,
+        NamedAttributeParameterNode, NumberNode, ObjectNode, OptionNode, StructNode, SyntaxTree,
+        SyntaxTreeBuilder, TypeRefNode, VariantNode,
     },
     error::{ProtocolErrorExt, SyntaxError},
+    tokenizer::Span,
 };
 
 #[derive(Default)]
@@ -541,16 +543,186 @@ fn resolve_message_modififer(diag: &mut Diagnostics, modifier: &ModifierNode) ->
     }
 }
 
+#[derive(Default)]
+struct Metadata {
+    from: Option<Option<Version>>,
+    until: Option<Option<Version>>,
+    reason: Option<String>,
+}
+
+#[derive(Default)]
+struct Attributes {
+    extension: Option<Metadata>,
+    experimental: Option<Metadata>,
+    builtin: bool,
+}
+
+impl Attributes {
+    fn get_api_status(&self, context: &mut Context) -> ApiStatus {
+        match (&self.experimental, &self.extension) {
+            (Some(_), Some(_)) => {
+                context
+                    .diag
+                    .report_err(SemanticError::ConflictingAttributes {
+                        a: "Experimental",
+                        b: "Extension",
+                    });
+                ApiStatus::Stable
+            }
+            (Some(_), None) => ApiStatus::Experimental,
+            (None, Some(_)) => ApiStatus::Extension,
+            (None, None) => ApiStatus::Stable,
+        }
+    }
+}
+
+fn consume_string<'src>(
+    context: &mut Context,
+    value: &AttributeParameterValueNode<'src>,
+) -> Option<(&'src str, Span)> {
+    match value {
+        AttributeParameterValueNode::Number(n) => {
+            context.diag.report_err(SyntaxError::UnexpectedToken {
+                expected: "string",
+                span: n.span.into(),
+            });
+            None
+        }
+        AttributeParameterValueNode::String(n) => Some((n.value, n.span)),
+    }
+}
+
+fn consume_version(context: &mut Context, node: &NamedAttributeParameterNode) -> Option<Version> {
+    if let Some((v, s)) = consume_string(context, &node.value) {
+        Some(parse_version(&mut context.diag, v, s))
+    } else {
+        None
+    }
+}
+
+fn consume_metadata(context: &mut Context, node: Option<&AttributeParameterListNode>) -> Metadata {
+    let mut metadata = Metadata::default();
+    if let Some(params) = &node {
+        match params {
+            AttributeParameterListNode::Unnamed(_) => {
+                todo!("unsupported")
+                //return None;
+            }
+            AttributeParameterListNode::Named(n) => {
+                for n in n {
+                    match n.ident.value {
+                        "from" => {
+                            if metadata.from.is_some() {
+                                todo!("parameter already defined");
+                                //continue;
+                            }
+
+                            // TODO: version can't be lower than protocol version
+                            // TODO: version can't be more than until version
+                            metadata.from = Some(consume_version(context, n));
+                        }
+                        "until" => {
+                            if metadata.until.is_some() {
+                                todo!("parameter already defined");
+                                //continue;
+                            }
+
+                            metadata.until = Some(consume_version(context, n));
+                        }
+                        "reason" => {
+                            if metadata.reason.is_some() {
+                                todo!("parameter already defined");
+                            }
+
+                            metadata.reason =
+                                if let Some((v, _)) = consume_string(context, &n.value) {
+                                    Some(v.to_string())
+                                } else {
+                                    Some(String::new())
+                                };
+                        }
+                        _ => todo!("unknown parameter"),
+                    }
+                }
+                metadata
+            }
+        }
+    } else {
+        metadata
+    }
+}
+
+fn resolve_attribute_list(context: &mut Context, list: &[AttributeListNode]) -> Attributes {
+    let mut attributes = Attributes::default();
+
+    for root in list.iter().flat_map(|n| &n.inner) {
+        match root.ident.value {
+            "Extension" => {
+                if attributes.extension.is_some() {
+                    context
+                        .diag
+                        .report_err(SemanticError::DuplicateAttributeError {
+                            name: "Extension",
+                            span: root.ident.span.into(),
+                        });
+                    continue;
+                }
+
+                attributes.extension = Some(consume_metadata(context, root.parameters.as_ref()));
+            }
+            "Experimental" => {
+                if attributes.experimental.is_some() {
+                    context
+                        .diag
+                        .report_err(SemanticError::DuplicateAttributeError {
+                            name: "Experimental",
+                            span: root.ident.span.into(),
+                        });
+                    continue;
+                }
+
+                attributes.experimental = Some(consume_metadata(context, root.parameters.as_ref()));
+            }
+            "Builtin" => {
+                if attributes.builtin {
+                    context
+                        .diag
+                        .report_err(SemanticError::DuplicateAttributeError {
+                            name: "Builtin",
+                            span: root.ident.span.into(),
+                        });
+                    continue;
+                }
+
+                attributes.builtin = true;
+                if root.parameters.is_some() {
+                    panic!("'Builtin' attribute doesn't accept any parameter")
+                }
+            }
+            other => {
+                context.diag.report_err(SemanticError::UnknownAttribute {
+                    name: other.to_string(),
+                    span: root.ident.span.into(),
+                });
+            }
+        }
+    }
+
+    attributes
+}
+
 fn resolve_message(context: &mut Context, node: &MessageNode) {
+    let attributes = resolve_attribute_list(context, &node.attributes);
+    let api = attributes.get_api_status(context);
     match node.kind {
         MessageNodeType::Single => {
             let range = resolve_fields(context, &node.fields, HEADER_BYTES, Some(32), false);
+            let kind = context.issue_kind();
 
             // Check size and align
             ProtocolModel::get_message_meta(context.storage.get_symbol_range(range))
                 .or_recover(&mut context.diag);
 
-            let kind = context.issue_kind();
             context
                 .storage
                 .add_symbol(MessageSymbolType::Single(MessageSymbol::new(
@@ -558,6 +730,7 @@ fn resolve_message(context: &mut Context, node: &MessageNode) {
                     range,
                     resolve_message_modififer(&mut context.diag, &node.modifier),
                     kind,
+                    api,
                 )));
         }
         MessageNodeType::Stream => {
@@ -568,9 +741,9 @@ fn resolve_message(context: &mut Context, node: &MessageNode) {
                 .add_symbol(MessageSymbolType::Stream(StreamSymbol::new(
                     node.ident.value.intern(&mut context.pool),
                     resolve_message_modififer(&mut context.diag, &node.modifier),
-                    4, //TODO: timeout
                     kind,
                     range,
+                    api,
                 )));
         }
     }
@@ -597,14 +770,20 @@ fn resolve_complex_types(tree: &SyntaxTree, context: &mut Context) {
     }
 }
 
-struct Defines {
+fn parse_version(diag: &mut Diagnostics, value: &str, span: Span) -> Version {
+    Version::from_str(value)
+        .map_err(|_| SyntaxError::InvalidVersionFormat { span: span.into() })
+        .or_recover(diag)
+}
+
+struct Directives {
     name: String,
     version: Version,
     access: Access,
     schema: u32,
 }
 
-fn resolve_define_list(context: &mut Context, nodes: &[DefineNode]) -> Defines {
+fn resolve_directive_list(context: &mut Context, nodes: &[DirectiveNode]) -> Directives {
     let mut name = None;
     let mut version = None;
     let mut access = None;
@@ -625,13 +804,7 @@ fn resolve_define_list(context: &mut Context, nodes: &[DefineNode]) -> Defines {
             }
             "version" if version.is_none() => match &root.value {
                 DefineValueNode::String(n) => {
-                    version = Some(
-                        Version::from_str(n.value)
-                            .map_err(|_| SyntaxError::InvalidVersionFormat {
-                                span: n.span.into(),
-                            })
-                            .or_recover(&mut context.diag),
-                    );
+                    version = Some(parse_version(&mut context.diag, n.value, n.span));
                 }
                 DefineValueNode::Number(_) => {
                     todo!("unexpected expression")
@@ -666,7 +839,7 @@ fn resolve_define_list(context: &mut Context, nodes: &[DefineNode]) -> Defines {
         }
     }
 
-    Defines {
+    Directives {
         name: name.unwrap(),
         version: version.unwrap(),
         access: access.unwrap(),
@@ -700,7 +873,7 @@ impl SemanticModel {
         }
 
         let mut context = Context::new(tree.type_count() as u16);
-        let defines = resolve_define_list(&mut context, &tree.defines);
+        let directives = resolve_directive_list(&mut context, &tree.directives);
         resolve_flags(&mut context, &tree.flags);
         resolve_enums(&mut context, &tree.enums);
         resolve_bitsets(&mut context, &tree.bitsets);
@@ -711,10 +884,10 @@ impl SemanticModel {
         }
 
         Ok(Self {
-            name: defines.name,
-            version: defines.version,
-            access: defines.access,
-            schema: defines.schema,
+            name: directives.name,
+            version: directives.version,
+            access: directives.access,
+            schema: directives.schema,
             table: context.table.finish(),
             storage: context.storage,
             pool: context.pool,
@@ -785,6 +958,7 @@ impl SemanticModel {
 #[cfg(test)]
 mod tests {
     const SAMPLE: &str = include_str!("../../../system/system.cmp");
+    const SAMPLE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../system/system.cmp");
 
     #[test]
     fn test() {
@@ -793,7 +967,7 @@ mod tests {
                 dbg!(model);
             }
             Err(d) => {
-                d.print(SAMPLE);
+                d.print(SAMPLE_PATH, SAMPLE);
                 panic!();
             }
         }

@@ -1,7 +1,4 @@
-use creamy_libgen::{
-    EnrichedStructSymbol,
-    proxy::{EnrichedFieldSymbol, EnrichedFieldType},
-};
+use creamy_libgen::proxy::{EnrichedFieldSymbol, EnrichedFieldType, EnrichedStructSymbol};
 use genco::{lang::rust::Tokens, quote};
 
 use crate::{
@@ -23,8 +20,9 @@ where
             let n = s.name;
             let t = match s.kind {
                 EnrichedFieldType::Type { name } => path_to_string(&name),
-                EnrichedFieldType::Array { kind, len } => format!("[{kind}; {len}]"),
+                EnrichedFieldType::StaticArray { kind, len } => format!("[{kind}; {len}]"),
                 EnrichedFieldType::Special(_) => unreachable!(),
+                EnrichedFieldType::HeapArray { .. } => unreachable!(),
             };
             quote! {
                 pub $n: $t,

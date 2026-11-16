@@ -9,9 +9,7 @@ use crate::{
     constraints::{HEADER_BYTES, MAX_PAYLOAD},
     error::SemanticError,
     layout::compute_layout,
-    symbols::{
-        BitsetValueSymbol, FieldSymbol, OptionSymbol, StreamFieldSymbol, Type, VariantSymbol,
-    },
+    symbols::{BitsetValueSymbol, FieldSymbol, OptionSymbol, Type, VariantSymbol},
     table::{FinishedSymbolTable, TypeMeta},
     utils::{BitsetValuesRange, FieldsRange, OptionsRange, VariantsRange},
 };
@@ -77,11 +75,6 @@ impl ProtocolModel {
     #[must_use]
     pub fn fields_range(&self, range: FieldsRange) -> &[FieldSymbol] {
         self.storage.get_symbol_range::<FieldSymbol>(range)
-    }
-
-    #[must_use]
-    pub fn stream_fields_range(&self, range: FieldsRange) -> &[StreamFieldSymbol] {
-        self.storage.get_symbol_range::<StreamFieldSymbol>(range)
     }
 
     #[must_use]

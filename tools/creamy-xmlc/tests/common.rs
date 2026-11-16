@@ -31,8 +31,9 @@ pub fn zeroize_span(err: &mut ProtocolError) {
             | SyntaxError::EmptyIdentifier { span }
             | SyntaxError::InvalidIdentifier { span }
             | SyntaxError::UnknownKeyword { span, .. }
+            | SyntaxError::UnexpectedToken { span, .. }
             | SyntaxError::NotANumber { span } => *span = zero_span(),
-            SyntaxError::UnexpectedEOF | SyntaxError::UnexpectedToken { .. } => (),
+            SyntaxError::UnexpectedEOF => (),
         },
         ProtocolError::AstError(ast) => {
             if let AstError::UnexpectedToken { span } = ast {
@@ -57,10 +58,14 @@ pub fn zeroize_errors(errors: &mut Vec<ProtocolError>) {
 
 #[macro_export]
 macro_rules! assert_diag {
-    ($left: expr, $right: expr, $content: expr $(,)?) => {
+    (
+        $path: expr,
+        $left: expr,
+        $right: expr,
+        $content: expr $(,)?) => {
         let mut o = $left.clone();
         common::zeroize_errors(&mut o);
         pretty_assertions::assert_eq!(o, $right);
-        creamy_xmlc::Diagnostics::from($left).print($content);
+        creamy_xmlc::Diagnostics::from($left).print($path, $content);
     };
 }

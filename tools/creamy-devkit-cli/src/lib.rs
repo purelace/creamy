@@ -1,20 +1,17 @@
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![cfg_attr(coverage_nightly, coverage(off))]
-#![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::missing_panics_doc)]
 
 mod build;
 pub mod cli;
-mod generate;
 mod init;
 mod show;
 mod tui;
 mod utils;
 
 use clap::Parser;
-use creamy_plugin_package::{model::definition::ProtocolModel, pool::StringPool};
-use creamy_xmlc::compile;
+use creamy_xmlc::SemanticModel;
 
 use self::utils::get_workdir;
 use crate::{
@@ -36,9 +33,15 @@ pub fn run() -> anyhow::Result<()> {
     }
 }
 
-fn compile_protocol(pool: &mut StringPool, xml_file: String) -> anyhow::Result<ProtocolModel> {
-    let content = std::fs::read_to_string(xml_file)?;
-    Ok(compile(pool, &content).unwrap())
+fn compile_protocol(file: &str) -> anyhow::Result<SemanticModel> {
+    let content = std::fs::read_to_string(file)?;
+    match SemanticModel::compile(&content) {
+        Ok(m) => Ok(m),
+        Err(d) => {
+            d.print(file, &content);
+            panic!();
+        }
+    }
 }
 
 #[allow(unused)]

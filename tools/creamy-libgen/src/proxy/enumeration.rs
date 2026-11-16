@@ -1,9 +1,9 @@
-use creamy_xmlc::model::symbols::{PrimitiveRepr, VariantValue};
+use creamy_xmlc::model::symbols::{Number, PrimitiveRepr};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnrichedVariantSymbol<'s> {
     pub name: &'s str,
-    pub value: VariantValue,
+    pub value: Number,
 }
 
 pub struct EnrichedEnumSymbol<'s, I>

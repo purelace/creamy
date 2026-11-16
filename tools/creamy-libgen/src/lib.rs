@@ -11,10 +11,10 @@ pub mod prelude {
 
     pub use crate::{
         CodeGenerator, Codegen, EnrichedSingleMessageSymbol, EnrichedStreamMessageSymbol,
-        EnrichedStructSymbol, GenResult, Path, ProtocolLibrary, SymbolIterator, Target,
+        GenResult, Path, ProtocolLibrary, SymbolIterator, Target,
         proxy::{
             EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
-            EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStreamFieldSymbol,
+            EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStructSymbol,
             EnrichedVariantSymbol, FlagUnderlyingType,
         },
     };
@@ -27,12 +27,12 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf};
 use creamy_phf::{PerfectHashTable, generate_perfect_hash_table};
 use creamy_plugin_package::manifest::Manifest;
 use creamy_xmlc::{
-    compile,
+    SemanticModel,
     model::{
         Direction,
         constraints::MAX_PAYLOAD,
-        definition::{BinaryWriter, ProtocolModel},
-        strpool::{StringId, StringPool, StringPoolResolver},
+        definition::BinaryWriter,
+        strpool::{StringId, StringPoolResolver},
         symbols::{MessageSymbolType, Type},
     },
 };
@@ -40,9 +40,9 @@ pub use utils::{AbsolutePath, Path};
 
 use self::proxy::{
     BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
-    EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStreamFieldSymbol,
-    EnrichedVariantSymbol, FieldList, FlagUnderlyingType, OptionList, SpecialFieldType,
-    StreamFieldList,
+    EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedObjectSymbol,
+    EnrichedStructSymbol, EnrichedVariantSymbol, FieldList, FlagUnderlyingType, OptionList,
+    SpecialFieldType,
 };
 
 #[derive(Clone, Copy)]
@@ -57,15 +57,6 @@ pub enum Target {
 
 pub type GenResult = anyhow::Result<()>;
 
-#[derive(Clone)]
-pub struct EnrichedStructSymbol<'s, I>
-where
-    I: Iterator<Item = EnrichedFieldSymbol<'s>>,
-{
-    pub name: &'s str,
-    pub fields: I,
-}
-
 pub trait CodeGenerator<'s> {
     //TODO: start/end namespace
     fn start_protocol(&mut self, protocol: &'s str, id: Option<u8>);
@@ -77,7 +68,7 @@ pub trait CodeGenerator<'s> {
     fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
     where
         F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-        C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>;
+        C: SymbolIterator<EnrichedFieldSymbol<'s>>;
 
     fn generate_bitset<I>(&mut self, symbol: EnrichedBitsetSymbol<'s, I>)
     where
@@ -92,6 +83,10 @@ pub trait CodeGenerator<'s> {
         I: SymbolIterator<EnrichedVariantSymbol<'s>>;
 
     fn generate_struct<I>(&mut self, symbol: EnrichedStructSymbol<'s, I>)
+    where
+        I: SymbolIterator<EnrichedFieldSymbol<'s>>;
+
+    fn generate_object<I>(&mut self, symbol: EnrichedObjectSymbol<'s, I>)
     where
         I: SymbolIterator<EnrichedFieldSymbol<'s>>;
 
@@ -112,9 +107,8 @@ pub trait CodeGenerator<'s> {
 }
 
 pub struct ProtocolLibrary {
-    pool: StringPool,
     manifest: Manifest,
-    inner: HashMap<String, ProtocolModel>,
+    inner: HashMap<String, SemanticModel>,
     creamy_dir: PathBuf,
 }
 
@@ -127,7 +121,6 @@ impl ProtocolLibrary {
     #[must_use]
     pub fn new(manifest: &str, creamy_dir: PathBuf) -> Self {
         Self {
-            pool: StringPool::default(),
             manifest: Manifest::read_manifest(manifest).expect("Cannot read manifest"),
             inner: HashMap::new(),
             creamy_dir,
@@ -143,7 +136,7 @@ impl ProtocolLibrary {
         result: Result<std::fs::DirEntry, std::io::Error>,
     ) -> Option<Result<std::fs::DirEntry, std::io::Error>> {
         let result = result.map(|e| {
-            if e.path().extension().is_some_and(|e| e == "xml") {
+            if e.path().extension().is_some_and(|e| e == "cmp") {
                 Some(e)
             } else {
                 None
@@ -165,20 +158,18 @@ impl ProtocolLibrary {
         &mut self,
         path: impl AsRef<std::path::Path>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let path = path.as_ref();
         for entry in std::fs::read_dir(path)?.filter_map(Self::filter) {
             let entry = entry?;
             let content = std::fs::read_to_string(entry.path())?;
-            let definition = match compile(&mut self.pool, &content) {
+            let model = match SemanticModel::compile(&content) {
                 Ok(v) => v,
                 Err(d) => {
-                    d.print(&content);
+                    d.print(&path.as_os_str().to_string_lossy(), &content);
                     panic!();
                 }
             };
-            self.inner.insert(
-                definition.name().resolve(&self.pool).to_string(),
-                definition,
-            );
+            self.inner.insert(model.name().to_string(), model);
         }
 
         Ok(())
@@ -206,7 +197,6 @@ impl Codegen {
         let mut protocol_paths = vec![];
 
         let ProtocolLibrary {
-            pool,
             manifest,
             inner,
             creamy_dir,
@@ -215,7 +205,6 @@ impl Codegen {
         generator.start_protocol("generated", None);
 
         Self::generate_protocols(
-            pool,
             manifest,
             inner,
             self.target,
@@ -253,9 +242,8 @@ impl Codegen {
 
     #[allow(clippy::explicit_counter_loop)]
     fn generate_protocols<'s, G: CodeGenerator<'s>>(
-        pool: &'s StringPool,
         manifest: &'s Manifest,
-        library: &'s mut HashMap<String, ProtocolModel>,
+        library: &'s mut HashMap<String, SemanticModel>,
         target: Target,
         message_paths: &mut Vec<Path>,
         protocol_paths: &mut Vec<Path>,
@@ -266,7 +254,7 @@ impl Codegen {
         for (name, protocol) in manifest.requested_protocols() {
             let model = library.get(name.as_str()).unwrap();
 
-            generator.start_protocol(model.name().resolve(pool), Some(protocol_id));
+            generator.start_protocol(name, Some(protocol_id));
             protocol_paths.push(Path::from_absolute(AbsolutePath::from_iter([
                 name.as_str(),
                 "ID",
@@ -286,19 +274,18 @@ impl Codegen {
                 // 2. Или группа поставляется И направление Outgoing
                 // 3. Или группа НЕ поставляется И направление Incoming
                 let should_add = dir == Direction::Duplex
-                    || (protocol.provide() && dir == Direction::Outgoing)
-                    || (!protocol.provide() && dir == Direction::Incoming);
+                    || (protocol.provide() && dir == Direction::Incoming)
+                    || (!protocol.provide() && dir == Direction::Outgoing);
 
                 if should_add {
                     message_paths.push(Path::from_absolute(AbsolutePath::from_iter([
                         name.as_str(),
-                        message_symbol.ident().resolve(pool),
+                        message_symbol.ident().resolve(model.pool()),
                     ])));
                 }
             }
 
             Self::generate_protocol(
-                pool,
                 model,
                 &dispatch_values,
                 &AbsolutePath::from_iter([name.as_str()]),
@@ -358,8 +345,7 @@ impl Codegen {
     }
 
     fn generate_types<'s, G: CodeGenerator<'s>>(
-        pool: &'s StringPool,
-        model: &'s ProtocolModel,
+        model: &'s SemanticModel,
         module_path: &AbsolutePath,
         types: &[Type],
         generator: &mut G,
@@ -367,26 +353,13 @@ impl Codegen {
         for ty in types {
             match ty {
                 Type::Numeric(_) | Type::Array(_) => {}
-                Type::Struct(symbol) => {
-                    let fields = model.fields_range(symbol.fields());
-                    let symbol = EnrichedStructSymbol {
-                        name: symbol.ident().resolve(pool),
-                        fields: FieldList::new(
-                            module_path.clone(),
-                            pool,
-                            model.table(),
-                            fields.iter().copied(),
-                        ),
-                    };
-                    generator.generate_struct(symbol);
-                }
-                Type::Enum(symbol) => {
+                Type::Enum(s) => {
                     let symbol = EnrichedEnumSymbol {
-                        name: symbol.ident().resolve(pool),
-                        repr: symbol.repr(),
-                        variants: model.variants_slice(symbol.variants()).iter().map(|v| {
+                        name: s.ident().resolve(model.pool()),
+                        repr: s.repr(),
+                        variants: model.variants_slice(s.variants()).iter().map(|v| {
                             EnrichedVariantSymbol {
-                                name: v.ident().resolve(pool),
+                                name: v.ident().resolve(model.pool()),
                                 value: v.value(),
                             }
                         }),
@@ -394,10 +367,10 @@ impl Codegen {
 
                     generator.generate_enum(symbol);
                 }
-                Type::Flags(symbol) => {
+                Type::Flags(s) => {
                     let symbol = EnrichedFlagsSymbol {
-                        name: symbol.ident().resolve(pool),
-                        underlying_type: match symbol.values().len() {
+                        name: s.ident().resolve(model.pool()),
+                        underlying_type: match s.values().len() {
                             1..=8 => FlagUnderlyingType::U8,
                             9..=16 => FlagUnderlyingType::U16,
                             17..=32 => FlagUnderlyingType::U32,
@@ -405,19 +378,45 @@ impl Codegen {
                             65..=128 => FlagUnderlyingType::U128,
                             other => unreachable!("Unreachable length: {other}"),
                         },
-                        options: OptionList::new(pool, model.options_slice(symbol.values())),
+                        options: OptionList::new(model.pool(), model.options_slice(s.values())),
                     };
 
                     generator.generate_flags(symbol);
                 }
-                Type::Bitset(symbol) => {
-                    let slice = model.bvalues_slice(symbol.values());
+                Type::Bitset(s) => {
+                    let slice = model.bvalues_slice(s.values());
                     let symbol = EnrichedBitsetSymbol {
-                        name: symbol.ident().resolve(pool),
-                        values: BitsetValueList::new(pool, slice),
+                        name: s.ident().resolve(model.pool()),
+                        values: BitsetValueList::new(model.pool(), slice),
                     };
 
                     generator.generate_bitset(symbol);
+                }
+                Type::Struct(s) => {
+                    let fields = model.fields_range(s.fields());
+                    let symbol = EnrichedStructSymbol {
+                        name: s.ident().resolve(model.pool()),
+                        fields: FieldList::new(
+                            module_path.clone(),
+                            model.pool(),
+                            model.table(),
+                            fields.iter().copied(),
+                        ),
+                    };
+                    generator.generate_struct(symbol);
+                }
+                Type::Object(s) => {
+                    let slice = model.fields_range(s.fields());
+                    let symbol = EnrichedObjectSymbol {
+                        name: s.ident().resolve(model.pool()),
+                        fields: FieldList::new(
+                            module_path.clone(),
+                            model.pool(),
+                            model.table(),
+                            slice.iter().copied(),
+                        ),
+                    };
+                    generator.generate_object(symbol);
                 }
             }
         }
@@ -425,15 +424,14 @@ impl Codegen {
 
     #[allow(clippy::too_many_lines)]
     fn generate_protocol<'s, G: CodeGenerator<'s>>(
-        pool: &'s StringPool,
-        model: &'s ProtocolModel,
+        model: &'s SemanticModel,
         dispatch_value_table: &HashMap<StringId, (u8, u32)>, //protocol, value
         module_path: &AbsolutePath,
         types: &[Type],
         messages: &[MessageSymbolType],
         generator: &mut G,
     ) {
-        Self::generate_types(pool, model, module_path, types, generator);
+        Self::generate_types(model, module_path, types, generator);
 
         for message in messages {
             let (protocol, dispatch_value) =
@@ -442,7 +440,7 @@ impl Codegen {
             match message {
                 MessageSymbolType::Single(symbol) => {
                     let symbol = EnrichedSingleMessageSymbol {
-                        name: symbol.ident().resolve(pool),
+                        name: symbol.ident().resolve(model.pool()),
                         kind: symbol.kind(),
                         protocol,
                         dispatch_value,
@@ -450,7 +448,7 @@ impl Codegen {
                             message_header(),
                             FieldList::new(
                                 module_path.clone(),
-                                pool,
+                                model.pool(),
                                 model.table(),
                                 model.fields_range(symbol.fields()).iter().copied(),
                             ),
@@ -461,19 +459,18 @@ impl Codegen {
                 }
                 MessageSymbolType::Stream(symbol) => {
                     let symbol = EnrichedStreamMessageSymbol {
-                        name: symbol.ident().resolve(pool),
-                        timeout: symbol.timeout(),
+                        name: symbol.ident().resolve(model.pool()),
 
                         protocol,
                         kind: symbol.kind(),
                         dispatch_value,
 
                         message_fields: std::iter::chain(message_header(), data_array()),
-                        content_fields: StreamFieldList::new(
+                        content_fields: FieldList::new(
                             module_path.clone(),
-                            pool,
+                            model.pool(),
                             model.table(),
-                            model.stream_fields_range(symbol.content()).iter().copied(),
+                            model.fields_range(symbol.content()).iter().copied(),
                         ),
                     };
                     generator.generate_stream_message(symbol);
@@ -499,7 +496,7 @@ where
 pub struct EnrichedStreamMessageSymbol<'s, F, C>
 where
     F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
     pub name: &'s str,
 
@@ -507,8 +504,6 @@ where
     pub kind: u8,
     pub protocol: u8,
     pub dispatch_value: u32,
-
-    pub timeout: u8,
 
     pub message_fields: F,
     pub content_fields: C,
@@ -552,10 +547,9 @@ fn data_array() -> [EnrichedFieldSymbol<'static>; 2] {
         },
         EnrichedFieldSymbol {
             name: Cow::Borrowed("data"),
-            kind: EnrichedFieldType::Array {
+            kind: EnrichedFieldType::StaticArray {
                 kind: Cow::Borrowed("u8"),
-                #[allow(clippy::cast_possible_truncation)]
-                len: MAX_PAYLOAD as u8 - 1,
+                len: MAX_PAYLOAD as u64 - 1,
             },
             is_padding: false,
         },

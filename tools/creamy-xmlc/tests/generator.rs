@@ -1,10 +1,10 @@
 #[derive(Default)]
-pub struct XMLGeneratorBuilder {
+pub struct CMPGeneratorBuilder {
     messages: usize,
     fields_per_message: usize,
 }
 
-impl XMLGeneratorBuilder {
+impl CMPGeneratorBuilder {
     #[must_use]
     pub const fn messages(mut self, val: usize) -> Self {
         self.messages = val;
@@ -18,8 +18,8 @@ impl XMLGeneratorBuilder {
     }
 
     #[must_use]
-    pub const fn build(self) -> XMLGenerator {
-        XMLGenerator {
+    pub const fn build(self) -> Generator {
+        Generator {
             config: self,
             messages_created: 0,
             child_created: 0,
@@ -28,10 +28,10 @@ impl XMLGeneratorBuilder {
     }
 }
 
-pub struct XMLGenerator {
-    config: XMLGeneratorBuilder,
+pub struct Generator {
+    config: CMPGeneratorBuilder,
     messages_created: usize,
-    child_created: usize, // Счетчик полей/вариантов внутри текущего айтема
+    child_created: usize,
     state: State,
 }
 
@@ -41,10 +41,9 @@ enum State {
     CloseMessage,
 }
 
-impl Iterator for XMLGenerator {
+impl Iterator for Generator {
     type Item = String;
 
-    #[allow(clippy::too_many_lines)]
     fn next(&mut self) -> Option<Self::Item> {
         if self.messages_created >= self.config.messages {
             return None;
@@ -58,7 +57,7 @@ impl Iterator for XMLGenerator {
                     self.child_created = 0;
                     self.state = State::MessageFields;
                     Some(format!(
-                        r#"<message name="Message{value}" direction="Duplex">"#,
+                        "message[D] Message{value} {{\n",
                         value = self.messages_created,
                     ))
                 } else {
@@ -68,7 +67,7 @@ impl Iterator for XMLGenerator {
             }
             State::MessageFields => {
                 if self.child_created < self.config.fields_per_message {
-                    let res = format!(r#"<field name="f{}" type="u8" />"#, self.child_created);
+                    let res = format!("f{}: u8,", self.child_created);
                     self.child_created += 1;
                     Some(res)
                 } else {
@@ -79,7 +78,7 @@ impl Iterator for XMLGenerator {
             State::CloseMessage => {
                 self.messages_created += 1;
                 self.state = State::OpenMessage;
-                Some("</message>".to_string())
+                Some("\n}".to_string())
             }
         }
     }
