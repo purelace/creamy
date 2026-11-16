@@ -8,7 +8,7 @@ use crate::{
     Direction, TypeId,
     constraints::MAX_MESSAGES,
     storage::SymbolKey,
-    utils::{FieldsRange, MessagesRange, VectorElement},
+    utils::{FieldsRange, MessagesRange},
 };
 
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -17,6 +17,8 @@ pub struct HeapArraySymbol {
 }
 
 impl HeapArraySymbol {
+    const ARRAY_LENGTH_FIELD: u64 = 4;
+
     #[must_use]
     pub const fn new(kind: TypeId) -> Self {
         Self { kind }
@@ -28,9 +30,13 @@ impl HeapArraySymbol {
     }
 
     #[must_use]
+    pub const fn align(&self) -> u64 {
+        Self::ARRAY_LENGTH_FIELD
+    }
+
+    #[must_use]
     pub const fn size(&self) -> u64 {
-        const ARRAY_LENGTH_FIELD: u64 = 4;
-        ARRAY_LENGTH_FIELD
+        Self::ARRAY_LENGTH_FIELD
     }
 }
 
@@ -42,8 +48,9 @@ pub enum ApiStatus {
     Experimental = 2,
 }
 
-#[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[element(MAX_MESSAGES, MessagesRange)]
+#[key(SymbolKey::Message)]
 pub struct MessageSymbol {
     #[token(ident)]
     ident: StringId,
@@ -51,71 +58,12 @@ pub struct MessageSymbol {
     direction: Direction,
     kind: u8,
     api: ApiStatus,
+    message_type: MessageSymbolType,
 }
 
-#[derive(BinRead, BinWrite, Token, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[element(MAX_MESSAGES, MessagesRange)]
-pub struct StreamSymbol {
-    #[token(ident)]
-    /// Name of message.
-    ident: StringId,
-
-    /// Direction of the message
-    direction: Direction,
-
-    /// Type of the message stream.
-    kind: u8,
-
-    /// Content of the message stream.
-    content: FieldsRange,
-
-    /// Api status of the message
-    api: ApiStatus,
-}
-
-#[derive(BinRead, BinWrite, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[key(SymbolKey::Message)]
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum MessageSymbolType {
-    Single(MessageSymbol) = 0,
-    Stream(StreamSymbol) = 1,
-}
-
-impl VectorElement for MessageSymbolType {
-    const MAX_SIZE: usize = MAX_MESSAGES;
-    type RangeType = MessagesRange;
-}
-
-impl MessageSymbolType {
-    #[must_use]
-    pub const fn ident(&self) -> StringId {
-        match self {
-            MessageSymbolType::Single(m) => m.ident(),
-            MessageSymbolType::Stream(s) => s.ident(),
-        }
-    }
-
-    #[must_use]
-    pub const fn kind(&self) -> u8 {
-        match self {
-            MessageSymbolType::Single(m) => m.kind,
-            MessageSymbolType::Stream(m) => m.kind,
-        }
-    }
-
-    #[must_use]
-    pub const fn direction(&self) -> Direction {
-        match self {
-            MessageSymbolType::Single(m) => m.direction,
-            MessageSymbolType::Stream(m) => m.direction,
-        }
-    }
-
-    #[must_use]
-    pub const fn with_ident(&self, id: StringId) -> Self {
-        match self {
-            MessageSymbolType::Single(m) => MessageSymbolType::Single(m.with_ident(id)),
-            MessageSymbolType::Stream(m) => MessageSymbolType::Stream(m.with_ident(id)),
-        }
-    }
+    Single = 0,
+    Stream { lightweight_content: FieldsRange } = 1,
 }

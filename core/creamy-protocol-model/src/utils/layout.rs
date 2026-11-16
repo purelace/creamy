@@ -1,8 +1,5 @@
 use super::Size;
-use crate::{
-    TypeId,
-    symbols::{FieldSymbol, T_U8_ID},
-};
+use crate::symbols::{FieldSymbol, T_U8_ID};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum LayoutItem {
@@ -11,10 +8,10 @@ pub enum LayoutItem {
 }
 
 impl LayoutItem {
-    fn type_id(&self) -> TypeId {
+    fn align(&self) -> u64 {
         match self {
-            LayoutItem::Field(f) => f.type_id(),
-            LayoutItem::Padding { .. } => T_U8_ID,
+            LayoutItem::Field(f) => f.align(),
+            LayoutItem::Padding { .. } => T_U8_ID.align().size(),
         }
     }
 
@@ -29,18 +26,17 @@ impl LayoutItem {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LayoutStep {
     pub size: u64,
-    pub align: u8,
+    pub align: u64,
     pub padding: u64,
     pub offset: u64,
 }
 
 impl LayoutStep {
     fn new(symbol: &LayoutItem, total_size: u64) -> Self {
-        let type_id = symbol.type_id();
-        let align = type_id.align().size();
+        let align = symbol.align();
         let size = symbol.size();
 
-        let padding = (u64::from(align) - (total_size % u64::from(align))) % u64::from(align);
+        let padding = (align - (total_size % align)) % align;
         Self {
             size,
             align,
@@ -53,7 +49,7 @@ impl LayoutStep {
 pub struct LayoutCalculator<I: Iterator<Item = FieldSymbol>> {
     total_size: u64,
     padding_index: u8,
-    max_align: u8,
+    max_align: u64,
     left_pad: bool,
     fields: I,
     prev: Option<(LayoutItem, LayoutStep)>,
@@ -61,11 +57,11 @@ pub struct LayoutCalculator<I: Iterator<Item = FieldSymbol>> {
 
 impl<I: Iterator<Item = FieldSymbol>> LayoutCalculator<I> {
     #[must_use]
-    pub fn new(reserved: u8, max_align: Option<u8>, fields: I) -> Self {
+    pub fn new(max_align: Option<u8>, fields: I) -> Self {
         Self {
-            total_size: u64::from(reserved),
+            total_size: 0,
             padding_index: 0,
-            max_align: max_align.unwrap_or(1),
+            max_align: max_align.map_or(1, u64::from),
             left_pad: false,
             fields,
             prev: None,
@@ -120,8 +116,7 @@ impl<I: Iterator<Item = FieldSymbol>> Iterator for LayoutCalculator<I> {
         }
         self.left_pad = true;
 
-        let left = (u64::from(self.max_align) - (self.total_size % u64::from(self.max_align)))
-            % u64::from(self.max_align);
+        let left = (self.max_align - (self.total_size % self.max_align)) % self.max_align;
         if left == 0 {
             None
         } else {
@@ -131,13 +126,12 @@ impl<I: Iterator<Item = FieldSymbol>> Iterator for LayoutCalculator<I> {
 }
 
 pub fn compute_layout(
-    reserved: u8,
     max_align: Option<u8>,
     fields: &[FieldSymbol],
     mut f: impl FnMut(LayoutItem, LayoutStep),
 ) -> u64 {
-    let calculator = LayoutCalculator::new(reserved, max_align, fields.iter().copied());
-    let mut total_size = u64::from(reserved);
+    let calculator = LayoutCalculator::new(max_align, fields.iter().copied());
+    let mut total_size = 0;
 
     for (field, step) in calculator {
         total_size = step.offset + step.size;

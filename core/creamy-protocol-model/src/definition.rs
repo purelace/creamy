@@ -3,13 +3,13 @@ pub use creamy_binary::{BinaryReader, BinaryWriter};
 use creamy_utils::strpool::{StringId, StringPool};
 use semver::Version;
 
-use super::{storage::SymbolStorage, symbols::MessageSymbolType};
+use super::storage::SymbolStorage;
 use crate::{
     Access,
-    constraints::{HEADER_BYTES, MAX_PAYLOAD},
+    constraints::MAX_PAYLOAD,
     error::SemanticError,
     layout::compute_layout,
-    symbols::{BitsetValueSymbol, FieldSymbol, OptionSymbol, Type, VariantSymbol},
+    symbols::{BitsetValueSymbol, FieldSymbol, MessageSymbol, OptionSymbol, Type, VariantSymbol},
     table::{FinishedSymbolTable, TypeMeta},
     utils::{BitsetValuesRange, FieldsRange, OptionsRange, VariantsRange},
 };
@@ -58,8 +58,8 @@ impl ProtocolModel {
     }
 
     #[must_use]
-    pub fn messages(&self) -> &[MessageSymbolType] {
-        self.storage.get_symbol_slice::<MessageSymbolType>()
+    pub fn messages(&self) -> &[MessageSymbol] {
+        self.storage.get_symbol_slice::<MessageSymbol>()
     }
 
     #[must_use]
@@ -95,21 +95,19 @@ impl ProtocolModel {
 
 impl ProtocolModel {
     fn get_meta(
-        reserved: u8,
         //TODO: align
         max_size: Option<u8>,
         fields: &[FieldSymbol],
     ) -> Result<TypeMeta, SemanticError> {
         let mut max_align = 1u64;
-        let mut total_size = compute_layout(reserved, max_size, fields, |_, l| {
-            if u64::from(l.align) > max_align {
-                max_align = u64::from(l.align);
+        let mut total_size = compute_layout(max_size, fields, |_, l| {
+            if l.align > max_align {
+                max_align = l.align;
             }
         });
 
         let tail_padding = (max_align - (total_size % max_align)) % max_align;
         total_size += tail_padding;
-        total_size -= u64::from(reserved);
 
         if total_size > MAX_PAYLOAD as u64 {
             return Err(SemanticError::InvalidSize { actual: total_size });
@@ -117,7 +115,7 @@ impl ProtocolModel {
 
         assert!(u8::try_from(max_align).is_ok());
 
-        TypeMeta::try_new(total_size, max_align as u8)
+        TypeMeta::try_new(total_size, max_align)
     }
 
     /// Calculates [`TypeMeta`] for the given slice of fields, reserving [`HEADER_BYTES`] for the message header.
@@ -127,7 +125,7 @@ impl ProtocolModel {
     /// This function will return an error if:
     /// * calculated size > [`MAX_PAYLOAD`]
     pub fn get_message_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
-        Self::get_meta(HEADER_BYTES, Some(32), fields)
+        Self::get_meta(Some(32), fields)
     }
 
     /// Calculates [`TypeMeta`] for the given slice of fields with no bytes reservation.
@@ -137,7 +135,7 @@ impl ProtocolModel {
     /// This function will return an error if:
     /// * calculated size > [`MAX_PAYLOAD`]
     pub fn get_struct_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
-        Self::get_meta(0, None, fields)
+        Self::get_meta(None, fields)
     }
 
     pub fn replace_identifiers(&mut self, from: &StringPool, to: &mut StringPool) {
@@ -159,7 +157,7 @@ impl ProtocolModel {
 
         replace!(self.name);
 
-        for symbol in self.storage.get_symbol_slice_mut::<MessageSymbolType>() {
+        for symbol in self.storage.get_symbol_slice_mut::<MessageSymbol>() {
             replace_symbol!(symbol);
         }
 

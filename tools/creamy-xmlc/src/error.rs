@@ -129,40 +129,15 @@ pub enum ProtocolError {
 
 pub trait ProtocolErrorExt<T: Fallback> {
     fn or_recover(self, diagnostics: &mut Diagnostics) -> T;
-    fn or_recover_with(self, diagnostics: &mut Diagnostics, value: T) -> T;
-    fn or_recover_else(self, diagnostics: &mut Diagnostics, function: impl Fn() -> T) -> T;
 }
 
 impl<T: Fallback, E: Into<ProtocolError>> ProtocolErrorExt<T> for Result<T, E> {
-    #[cold]
     fn or_recover(self, diagnostics: &mut Diagnostics) -> T {
         match self {
             Ok(value) => value,
             Err(error) => {
                 diagnostics.report_err(error);
                 T::fallback()
-            }
-        }
-    }
-
-    #[cold]
-    fn or_recover_with(self, diagnostics: &mut Diagnostics, value: T) -> T {
-        match self {
-            Ok(value) => value,
-            Err(error) => {
-                diagnostics.report_err(error);
-                value
-            }
-        }
-    }
-
-    #[cold]
-    fn or_recover_else(self, diagnostics: &mut Diagnostics, function: impl Fn() -> T) -> T {
-        match self {
-            Ok(value) => value,
-            Err(error) => {
-                diagnostics.report_err(error);
-                function()
             }
         }
     }

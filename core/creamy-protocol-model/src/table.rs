@@ -54,10 +54,9 @@ impl TypeMeta {
     ///
     /// This function will return an error if
     /// * size == 0
-    /// * size > [`Size::MAX_VALUE`]
     /// * align != 2^k
     /// * align > 16
-    pub fn try_new(size: u64, align: u8) -> Result<Self, SemanticError> {
+    pub fn try_new(size: u64, align: u64) -> Result<Self, SemanticError> {
         if !align.is_power_of_two() {
             return Err(SemanticError::AlignIsNotPowerOfTwo { actual: align });
         }
@@ -71,7 +70,7 @@ impl TypeMeta {
         Ok(Self { align, size })
     }
 
-    const fn new_const(size: u64, align: u8) -> Self {
+    const fn new_const(size: u64, align: u64) -> Self {
         Self {
             align: Align::new(align).unwrap(),
             size: unsafe { Size::new_unchecked(size) },

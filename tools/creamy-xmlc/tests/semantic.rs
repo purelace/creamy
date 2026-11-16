@@ -18,7 +18,7 @@ fn semantic_errors_size_limit() {
         errors,
         vec![
             SemanticError::InvalidSize { actual: 224 }.into(),
-            SemanticError::InvalidSize { actual: 92 }.into(),
+            SemanticError::InvalidSize { actual: 96 }.into(),
         ],
         SAMPLE0,
     );

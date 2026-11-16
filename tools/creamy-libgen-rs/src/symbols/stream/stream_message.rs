@@ -6,7 +6,6 @@ use crate::Args;
 
 pub fn generate_stream_trait_impl<'s>(
     args: &Args,
-    timeout: u8,
     target: impl Into<Cow<'s, str>>,
     content_type: impl Into<Cow<'s, str>>,
     lightweight_type: &str,
@@ -21,7 +20,6 @@ pub fn generate_stream_trait_impl<'s>(
     quote! {
         impl $trait_name for $target {
             const PREPARED: Self = Self::PREPARED;
-            const TIMEOUT: u8 = $timeout;
             type Content = $content_type;
             type Lightweight = $lightweight_type;
 

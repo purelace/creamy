@@ -7,10 +7,11 @@ use creamy_binary::{
 };
 use strum::{EnumIter, IntoEnumIterator};
 
-use super::symbols::{
-    BitsetValueSymbol, FieldSymbol, MessageSymbolType, OptionSymbol, VariantSymbol,
+use super::symbols::{BitsetValueSymbol, FieldSymbol, OptionSymbol, VariantSymbol};
+use crate::{
+    symbols::MessageSymbol,
+    utils::{Range, VectorElement},
 };
-use crate::utils::{Range, VectorElement};
 
 #[repr(u8)]
 #[derive(BinRead, BinWrite, EnumIter, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -26,7 +27,7 @@ fn create_storage() -> Vec<Box<dyn UntypedStorage>> {
     let mut vec = alloc::vec![];
     for key in SymbolKey::iter() {
         let storage = match key {
-            SymbolKey::Message => TypedStorage::<MessageSymbolType>::boxed(),
+            SymbolKey::Message => TypedStorage::<MessageSymbol>::boxed(),
             SymbolKey::BitsetValue => TypedStorage::<BitsetValueSymbol>::boxed(),
             SymbolKey::Option => TypedStorage::<OptionSymbol>::boxed(),
             SymbolKey::Variant => TypedStorage::<VariantSymbol>::boxed(),
@@ -43,7 +44,7 @@ fn read_storage<R: creamy_binary::Read>(
     reader: &mut R,
 ) -> Result<Box<dyn UntypedStorage>, ReadError<R::Error>> {
     let storage = match key {
-        SymbolKey::Message => TypedStorage::<MessageSymbolType>::read_boxed(reader)?,
+        SymbolKey::Message => TypedStorage::<MessageSymbol>::read_boxed(reader)?,
         SymbolKey::BitsetValue => TypedStorage::<BitsetValueSymbol>::read_boxed(reader)?,
         SymbolKey::Option => TypedStorage::<OptionSymbol>::read_boxed(reader)?,
         SymbolKey::Variant => TypedStorage::<VariantSymbol>::read_boxed(reader)?,

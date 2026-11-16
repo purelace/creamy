@@ -3,22 +3,16 @@ use std::borrow::Cow;
 use creamy_xmlc::model::{
     FinishedSymbolTable,
     strpool::{StringPool, StringPoolResolver},
-    symbols::{FieldSymbol, FieldType, get_builtin_type_name, is_builtin_type},
+    symbols::{FieldSymbol, FieldType, SpecialType, get_builtin_type_name, is_builtin_type},
 };
 
 use crate::{Path, SymbolIterator, utils::AbsolutePath};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SpecialFieldType {
-    SubscriberId,
-    ProtocolId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EnrichedFieldType<'s> {
     Type { name: Path },
     StaticArray { kind: Cow<'s, str>, len: u64 },
-    Special(SpecialFieldType),
+    Special(SpecialType),
     HeapArray { kind: Cow<'s, str> },
 }
 
@@ -63,6 +57,7 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
                     kind: Cow::Borrowed(kind),
                 }
             }
+            FieldType::Special(s) => EnrichedFieldType::Special(s),
         }
     }
 }

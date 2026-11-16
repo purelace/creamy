@@ -55,12 +55,12 @@ pub enum SemanticError {
 
     #[error("[P201] Target align '{actual}' is not power of 2")]
     #[cfg_attr(feature = "std", diagnostic(code(semantic::align_is_not_power_of_two)))]
-    AlignIsNotPowerOfTwo { actual: u8 },
+    AlignIsNotPowerOfTwo { actual: u64 },
 
     #[error("[P202] Target align cannot be '{actual}'. Probably, this is a bug.")]
     #[cfg_attr(feature = "std", diagnostic(code(semantic::forbidden_align)))]
     #[cfg_attr(feature = "std", diagnostic(help("allowed align: [1, 2, 4, 8, 16]")))]
-    ForbiddenAlign { actual: u8 },
+    ForbiddenAlign { actual: u64 },
 
     #[error("[P203] Target raw align cannot be '{actual}'. Probably, this is a bug.")]
     #[cfg_attr(feature = "std", diagnostic(code(semantic::forbidden_raw_align)))]

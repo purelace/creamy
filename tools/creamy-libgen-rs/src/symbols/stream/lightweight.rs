@@ -1,6 +1,6 @@
 use creamy_libgen::{
     SymbolIterator,
-    proxy::{EnrichedStreamFieldSymbol, EnrichedStreamFieldType},
+    proxy::{EnrichedFieldSymbol, EnrichedFieldType},
 };
 use genco::{lang::rust::Tokens, quote};
 
@@ -8,7 +8,7 @@ use crate::{Args, path_to_string};
 
 pub fn generate_lightweight_content<'s, I>(args: &Args, target: &str, iter: I) -> Tokens
 where
-    I: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
     let content_target = &format!("{target}Content");
     let new_target = &format!("{target}Lightweight");
@@ -18,14 +18,15 @@ where
             let name = f.name;
             let mut is_pub = !f.is_padding;
             let kind = match f.kind {
-                EnrichedStreamFieldType::Type { name } => path_to_string(&name),
-                EnrichedStreamFieldType::StaticArray { kind, len } => {
+                EnrichedFieldType::Type { name } => path_to_string(&name),
+                EnrichedFieldType::StaticArray { kind, len } => {
                     format!("[{kind}; {len}]")
                 }
-                EnrichedStreamFieldType::DynamicArray { .. } => {
+                EnrichedFieldType::HeapArray { .. } => {
                     is_pub = false;
                     args.array_path()
                 }
+                EnrichedFieldType::Special(_) => unreachable!(),
             };
             let pub_ = if is_pub { quote!(pub) } else { quote!() };
             quote! {
@@ -39,7 +40,7 @@ where
     let functions = iter
         .clone()
         .filter_map(|f| {
-            let EnrichedStreamFieldType::DynamicArray { kind } = f.kind else {
+            let EnrichedFieldType::HeapArray { kind } = f.kind else {
                 return None;
             };
 
@@ -92,13 +93,13 @@ where
         .map(|f| {
             let name = &f.name;
             let value = match f.kind {
-                EnrichedStreamFieldType::Type { .. }
-                | EnrichedStreamFieldType::StaticArray { .. } => {
+                EnrichedFieldType::Type { .. } | EnrichedFieldType::StaticArray { .. } => {
                     quote!(self.$name)
                 }
-                EnrichedStreamFieldType::DynamicArray { .. } => {
+                EnrichedFieldType::HeapArray { .. } => {
                     quote!(alloc::boxed::Box::from(self.read_$name()))
                 }
+                EnrichedFieldType::Special(_) => unreachable!(),
             };
             quote! {
                 $name: $value,

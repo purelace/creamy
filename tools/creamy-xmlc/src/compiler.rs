@@ -7,18 +7,18 @@ use std::{
 use creamy_protocol_model::{
     Access, BitsetValuesRange, Direction, FieldsRange, FinishedSymbolTable, OptionsRange, Size,
     SymbolTable, TypeId, TypeMeta, VariantsRange, Version,
-    constraints::{HEADER_BYTES, MAX_PAYLOAD},
+    constraints::MAX_PAYLOAD,
     definition::ProtocolModel,
     error::{Fallback, SemanticError},
-    layout::{LayoutCalculator, LayoutItem},
+    layout::{LayoutCalculator, LayoutItem, compute_layout},
     storage::SymbolStorage,
     symbols::{
         ApiStatus, ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID,
         FieldSymbol, FieldType, FlagsSymbol, HeapArraySymbol, I8_ID, I16_ID, I32_ID, I64_ID,
         I128_ID, MessageSymbol, MessageSymbolType, Number, ObjectSymbol, OptionSymbol,
-        PrimitiveRepr, StreamSymbol, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID,
-        T_I128_ID, T_U8_ID, T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID, U32_ID,
-        U64_ID, U128_ID, VariantSymbol, get_builtin_type_name,
+        PrimitiveRepr, SpecialType, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID, T_I128_ID,
+        T_U8_ID, T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID, U32_ID, U64_ID,
+        U128_ID, VariantSymbol, get_builtin_type_name,
     },
 };
 use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern, StringPoolResolver};
@@ -477,8 +477,8 @@ fn resolve_field(
 
 fn resolve_fields(
     context: &mut Context,
+    header: &[FieldSymbol],
     nodes: &[FieldNode],
-    reserved: u8,
     max_align: Option<u8>,
     is_object: bool,
 ) -> FieldsRange {
@@ -486,11 +486,11 @@ fn resolve_fields(
     let mut len = 0u8;
 
     let calc = LayoutCalculator::new(
-        reserved,
         max_align,
-        nodes
+        header
             .iter()
-            .map(|f| {
+            .copied()
+            .chain(nodes.iter().map(|f| {
                 resolve_field(
                     &mut context.diag,
                     &mut context.pool,
@@ -498,7 +498,7 @@ fn resolve_fields(
                     f,
                     is_object,
                 )
-            })
+            }))
             .collect::<Vec<_>>()
             .into_iter(),
     );
@@ -521,7 +521,7 @@ fn resolve_fields(
 }
 
 fn resolve_struct(context: &mut Context, node: &StructNode) {
-    let range = resolve_fields(context, &node.fields, 0, None, false);
+    let range = resolve_fields(context, &[], &node.fields, None, false);
     let meta = ProtocolModel::get_struct_meta(context.storage.get_symbol_range(range))
         .or_recover(&mut context.diag);
     let s = StructSymbol::new(node.ident.value.intern(&mut context.pool), range);
@@ -529,7 +529,7 @@ fn resolve_struct(context: &mut Context, node: &StructNode) {
 }
 
 fn resolve_object(context: &mut Context, node: &ObjectNode) {
-    let range = resolve_fields(context, &node.fields, 0, None, true);
+    let range = resolve_fields(context, &[], &node.fields, None, true);
     let meta = ProtocolModel::get_struct_meta(context.storage.get_symbol_range(range))
         .or_recover(&mut context.diag);
     let s = ObjectSymbol::new(node.ident.value.intern(&mut context.pool), range);
@@ -711,40 +711,131 @@ fn resolve_attribute_list(context: &mut Context, list: &[AttributeListNode]) -> 
     attributes
 }
 
+fn dst(context: &mut Context) -> FieldSymbol {
+    FieldSymbol::new(
+        "dst".intern(&mut context.pool),
+        FieldType::Special(SpecialType::SubscriberId),
+        false,
+    )
+}
+
+fn protocol(context: &mut Context) -> FieldSymbol {
+    FieldSymbol::new(
+        "protocol".intern(&mut context.pool),
+        FieldType::Special(SpecialType::ProtocolId),
+        false,
+    )
+}
+
+fn src(context: &mut Context) -> FieldSymbol {
+    FieldSymbol::new(
+        "src".intern(&mut context.pool),
+        FieldType::Special(SpecialType::SubscriberId),
+        false,
+    )
+}
+
+fn kind(context: &mut Context) -> FieldSymbol {
+    FieldSymbol::new(
+        "kind".intern(&mut context.pool),
+        FieldType::Type(T_U8_ID),
+        false,
+    )
+}
+
+fn message_header(context: &mut Context) -> [FieldSymbol; 4] {
+    [dst(context), protocol(context), src(context), kind(context)]
+}
+
+fn stream_message_fields(context: &mut Context) -> FieldsRange {
+    let slice = [
+        dst(context),
+        protocol(context),
+        src(context),
+        kind(context),
+        FieldSymbol::new(
+            "meta".intern(&mut context.pool),
+            FieldType::Type(T_U8_ID),
+            false,
+        ),
+        FieldSymbol::new(
+            "data".intern(&mut context.pool),
+            FieldType::StaticArray(ArraySymbol::new(
+                T_U8_ID,
+                Size::try_new(MAX_PAYLOAD as u64 - 1).expect("Unreachable!"),
+            )),
+            false,
+        ),
+    ];
+
+    let (offset, length) = context.storage.add_symbol_from_iter(slice);
+    FieldsRange::new(offset as u16, length as u8)
+}
+
+fn get_meta(max_size: Option<u8>, fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
+    let mut max_align = 1u64;
+    let mut total_size = compute_layout(max_size, fields, |_, l| {
+        if l.align > max_align {
+            max_align = l.align;
+        }
+    });
+
+    let tail_padding = (max_align - (total_size % max_align)) % max_align;
+    total_size += tail_padding;
+
+    TypeMeta::try_new(total_size, max_align)
+}
+
+const MESSAGE_SIZE: u64 = 32;
+
 fn resolve_message(context: &mut Context, node: &MessageNode) {
     let attributes = resolve_attribute_list(context, &node.attributes);
     let api = attributes.get_api_status(context);
     match node.kind {
         MessageNodeType::Single => {
-            let range = resolve_fields(context, &node.fields, HEADER_BYTES, Some(32), false);
+            let header = message_header(context);
+            let range = resolve_fields(context, &header, &node.fields, Some(32), false);
             let kind = context.issue_kind();
+            let meta = get_meta(
+                Some(MESSAGE_SIZE as u8),
+                context.storage.get_symbol_range(range),
+            )
+            .or_recover(&mut context.diag);
 
-            // Check size and align
-            ProtocolModel::get_message_meta(context.storage.get_symbol_range(range))
-                .or_recover(&mut context.diag);
+            if meta.size().value() > MESSAGE_SIZE {
+                context.diag.report_err(SemanticError::InvalidSize {
+                    actual: meta.size().value(),
+                });
+            }
 
-            context
-                .storage
-                .add_symbol(MessageSymbolType::Single(MessageSymbol::new(
-                    node.ident.value.intern(&mut context.pool),
-                    range,
-                    resolve_message_modififer(&mut context.diag, &node.modifier),
-                    kind,
-                    api,
-                )));
+            let symbol = MessageSymbol::new(
+                node.ident.value.intern(&mut context.pool),
+                range,
+                resolve_message_modififer(&mut context.diag, &node.modifier),
+                kind,
+                api,
+                MessageSymbolType::Single,
+            );
+
+            context.storage.add_symbol(symbol);
         }
         MessageNodeType::Stream => {
-            let range = resolve_fields(context, &node.fields, 0, None, true);
+            let basic_range = stream_message_fields(context);
+            let range = resolve_fields(context, &[], &node.fields, None, true);
             let kind = context.issue_kind();
-            context
-                .storage
-                .add_symbol(MessageSymbolType::Stream(StreamSymbol::new(
-                    node.ident.value.intern(&mut context.pool),
-                    resolve_message_modififer(&mut context.diag, &node.modifier),
-                    kind,
-                    range,
-                    api,
-                )));
+
+            let symbol = MessageSymbol::new(
+                node.ident.value.intern(&mut context.pool),
+                basic_range,
+                resolve_message_modififer(&mut context.diag, &node.modifier),
+                kind,
+                api,
+                MessageSymbolType::Stream {
+                    lightweight_content: range,
+                },
+            );
+
+            context.storage.add_symbol(symbol);
         }
     }
 }
@@ -920,8 +1011,8 @@ impl SemanticModel {
     }
 
     #[must_use]
-    pub fn messages(&self) -> &[MessageSymbolType] {
-        self.storage.get_symbol_slice::<MessageSymbolType>()
+    pub fn messages(&self) -> &[MessageSymbol] {
+        self.storage.get_symbol_slice::<MessageSymbol>()
     }
 
     #[must_use]

@@ -1,6 +1,6 @@
 use creamy_libgen::{
     SymbolIterator,
-    proxy::{EnrichedStreamFieldSymbol, EnrichedStreamFieldType},
+    proxy::{EnrichedFieldSymbol, EnrichedFieldType},
 };
 use genco::{lang::rust::Tokens, quote};
 
@@ -10,7 +10,7 @@ use crate::{
 
 pub fn generate_stream_content<'s, I>(args: &Args, message: &str, fields_iter: I) -> Tokens
 where
-    I: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
     let name = &format!("{message}Content");
 
@@ -21,11 +21,11 @@ where
         .map(|f| {
             let name = &f.name;
             let kind = match f.kind {
-                EnrichedStreamFieldType::Type { name } => path_to_string(&name),
-                EnrichedStreamFieldType::StaticArray { kind, len } => {
+                EnrichedFieldType::Type { name } => path_to_string(&name),
+                EnrichedFieldType::StaticArray { kind, len } => {
                     format!("[{kind}; {len}]")
                 }
-                EnrichedStreamFieldType::DynamicArray { kind } => {
+                EnrichedFieldType::HeapArray { kind } => {
                     //TODO: сделать проверку на переполнение
                     additional_size_content.push(format!("self.{}.len() as u32", f.name));
 
@@ -62,11 +62,11 @@ where
             }
 
             let kind = match f.kind {
-                EnrichedStreamFieldType::Type { name } => path_to_string(&name),
-                EnrichedStreamFieldType::StaticArray { kind, len } => {
+                EnrichedFieldType::Type { name } => path_to_string(&name),
+                EnrichedFieldType::StaticArray { kind, len } => {
                     format!("[{kind}; {len}]")
                 }
-                EnrichedStreamFieldType::DynamicArray { kind } => {
+                EnrichedFieldType::HeapArray { kind } => {
                     format!("alloc::boxed::Box<[{kind}]>")
                 }
             };

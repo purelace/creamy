@@ -10,8 +10,7 @@ pub mod prelude {
     pub use creamy_plugin_package::model::symbols::{PrimitiveRepr, VariantValue};
 
     pub use crate::{
-        CodeGenerator, Codegen, EnrichedSingleMessageSymbol, EnrichedStreamMessageSymbol,
-        GenResult, Path, ProtocolLibrary, SymbolIterator, Target,
+        CodeGenerator, Codegen, GenResult, Path, ProtocolLibrary, SymbolIterator, Target,
         proxy::{
             EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
             EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStructSymbol,
@@ -22,7 +21,7 @@ pub mod prelude {
 
 pub mod proxy;
 mod utils;
-use std::{borrow::Cow, collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
 use creamy_phf::{PerfectHashTable, generate_perfect_hash_table};
 use creamy_plugin_package::manifest::Manifest;
@@ -30,19 +29,18 @@ use creamy_xmlc::{
     SemanticModel,
     model::{
         Direction,
-        constraints::MAX_PAYLOAD,
         definition::BinaryWriter,
         strpool::{StringId, StringPoolResolver},
-        symbols::{MessageSymbolType, Type},
+        symbols::{MessageSymbol, MessageSymbolType, Type},
     },
 };
 pub use utils::{AbsolutePath, Path};
 
 use self::proxy::{
     BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
-    EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedObjectSymbol,
-    EnrichedStructSymbol, EnrichedVariantSymbol, FieldList, FlagUnderlyingType, OptionList,
-    SpecialFieldType,
+    EnrichedFieldSymbol, EnrichedFlagsSymbol, EnrichedMessageSymbol, EnrichedObjectSymbol,
+    EnrichedStructSymbol, EnrichedVariantSymbol, FieldList, FlagUnderlyingType, MessageType,
+    OptionList,
 };
 
 #[derive(Clone, Copy)]
@@ -61,11 +59,7 @@ pub trait CodeGenerator<'s> {
     //TODO: start/end namespace
     fn start_protocol(&mut self, protocol: &'s str, id: Option<u8>);
 
-    fn generate_single_message<I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
-    where
-        I: SymbolIterator<EnrichedFieldSymbol<'s>>;
-
-    fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
+    fn generate_message<F, C>(&mut self, symbol: EnrichedMessageSymbol<'s, F, C>)
     where
         F: SymbolIterator<EnrichedFieldSymbol<'s>>,
         C: SymbolIterator<EnrichedFieldSymbol<'s>>;
@@ -428,132 +422,47 @@ impl Codegen {
         dispatch_value_table: &HashMap<StringId, (u8, u32)>, //protocol, value
         module_path: &AbsolutePath,
         types: &[Type],
-        messages: &[MessageSymbolType],
+        messages: &[MessageSymbol],
         generator: &mut G,
     ) {
         Self::generate_types(model, module_path, types, generator);
 
-        for message in messages {
+        for symbol in messages {
             let (protocol, dispatch_value) =
-                dispatch_value_table.get(&message.ident()).copied().unwrap();
+                dispatch_value_table.get(&symbol.ident()).copied().unwrap();
 
-            match message {
-                MessageSymbolType::Single(symbol) => {
-                    let symbol = EnrichedSingleMessageSymbol {
-                        name: symbol.ident().resolve(model.pool()),
-                        kind: symbol.kind(),
-                        protocol,
-                        dispatch_value,
-                        fields: std::iter::chain(
-                            message_header(),
-                            FieldList::new(
-                                module_path.clone(),
-                                model.pool(),
-                                model.table(),
-                                model.fields_range(symbol.fields()).iter().copied(),
-                            ),
-                        ),
-                    };
+            let message_type = match symbol.message_type() {
+                MessageSymbolType::Single => MessageType::Single,
+                MessageSymbolType::Stream {
+                    lightweight_content,
+                } => MessageType::Stream {
+                    _phantom: PhantomData,
+                    content_fields: FieldList::new(
+                        module_path.clone(),
+                        model.pool(),
+                        model.table(),
+                        model.fields_range(lightweight_content).iter().copied(),
+                    ),
+                },
+            };
 
-                    generator.generate_single_message(symbol);
-                }
-                MessageSymbolType::Stream(symbol) => {
-                    let symbol = EnrichedStreamMessageSymbol {
-                        name: symbol.ident().resolve(model.pool()),
+            let symbol = EnrichedMessageSymbol {
+                name: symbol.ident().resolve(model.pool()),
+                kind: symbol.kind(),
+                protocol,
+                dispatch_value,
+                fields: FieldList::new(
+                    module_path.clone(),
+                    model.pool(),
+                    model.table(),
+                    model.fields_range(symbol.fields()).iter().copied(),
+                ),
+                message_type,
+            };
 
-                        protocol,
-                        kind: symbol.kind(),
-                        dispatch_value,
-
-                        message_fields: std::iter::chain(message_header(), data_array()),
-                        content_fields: FieldList::new(
-                            module_path.clone(),
-                            model.pool(),
-                            model.table(),
-                            model.fields_range(symbol.content()).iter().copied(),
-                        ),
-                    };
-                    generator.generate_stream_message(symbol);
-                }
-            }
+            generator.generate_message(symbol);
         }
     }
-}
-
-pub struct EnrichedSingleMessageSymbol<'s, I>
-where
-    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
-{
-    pub name: &'s str,
-    /* Constant Values */
-    pub protocol: u8,
-    pub kind: u8,
-    pub dispatch_value: u32,
-
-    pub fields: I,
-}
-
-pub struct EnrichedStreamMessageSymbol<'s, F, C>
-where
-    F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    C: SymbolIterator<EnrichedFieldSymbol<'s>>,
-{
-    pub name: &'s str,
-
-    /* Constant values */
-    pub kind: u8,
-    pub protocol: u8,
-    pub dispatch_value: u32,
-
-    pub message_fields: F,
-    pub content_fields: C,
-}
-
-fn message_header() -> [EnrichedFieldSymbol<'static>; 4] {
-    [
-        EnrichedFieldSymbol {
-            name: Cow::Borrowed("dst"),
-            kind: EnrichedFieldType::Special(SpecialFieldType::SubscriberId),
-            is_padding: false,
-        },
-        EnrichedFieldSymbol {
-            name: Cow::Borrowed("protocol"),
-            kind: EnrichedFieldType::Special(SpecialFieldType::ProtocolId),
-            is_padding: false,
-        },
-        EnrichedFieldSymbol {
-            name: Cow::Borrowed("src"),
-            kind: EnrichedFieldType::Special(SpecialFieldType::SubscriberId),
-            is_padding: false,
-        },
-        EnrichedFieldSymbol {
-            name: Cow::Borrowed("kind"),
-            kind: EnrichedFieldType::Type {
-                name: Path::from_global("u8"),
-            },
-            is_padding: false,
-        },
-    ]
-}
-
-fn data_array() -> [EnrichedFieldSymbol<'static>; 2] {
-    [
-        EnrichedFieldSymbol {
-            name: Cow::Borrowed("meta"),
-            kind: EnrichedFieldType::Type {
-                name: Path::from_global("u8"),
-            },
-            is_padding: false,
-        },
-        EnrichedFieldSymbol {
-            name: Cow::Borrowed("data"),
-            kind: EnrichedFieldType::StaticArray {
-                kind: Cow::Borrowed("u8"),
-                len: MAX_PAYLOAD as u64 - 1,
-            },
-            is_padding: false,
-        },
-    ]
 }
 
 pub trait SymbolIterator<S>: Iterator<Item = S> + Clone {}

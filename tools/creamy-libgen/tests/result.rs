@@ -1,11 +1,13 @@
+#![allow(clippy::too_many_lines)]
+
 use std::{borrow::Cow, fs::File, io::Write};
 
 use creamy_libgen::{
     AbsolutePath,
     prelude::*,
-    proxy::{EnrichedObjectSymbol, SpecialFieldType},
+    proxy::{EnrichedMessageSymbol, EnrichedObjectSymbol, MessageType},
 };
-use creamy_xmlc::model::symbols::Number;
+use creamy_xmlc::model::symbols::{Number, SpecialType};
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
@@ -20,159 +22,171 @@ fn header_field<'s>(
     }
 }
 
+fn assert_message<'s, F, C>(symbol: EnrichedMessageSymbol<'s, F, C>)
+where
+    F: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedFieldSymbol<'s>>,
+{
+    let fields = symbol.fields.collect::<Vec<_>>();
+    assert_eq!(symbol.name, "SetPermissions");
+    assert_eq!(symbol.protocol, 2);
+    assert_eq!(symbol.kind, 0);
+    assert_eq!(symbol.dispatch_value, 2u32 << 16);
+    assert_eq!(
+        fields,
+        [
+            header_field("dst", EnrichedFieldType::Special(SpecialType::SubscriberId)),
+            header_field(
+                "protocol",
+                EnrichedFieldType::Special(SpecialType::ProtocolId)
+            ),
+            header_field("src", EnrichedFieldType::Special(SpecialType::SubscriberId)),
+            header_field(
+                "kind",
+                EnrichedFieldType::Type {
+                    name: Path::Global { name: "u8".into() }
+                }
+            ),
+            EnrichedFieldSymbol {
+                name: "permissions".into(),
+                kind: EnrichedFieldType::Type {
+                    name: Path::from_absolute(AbsolutePath::from_iter(["system", "Permissions"]))
+                },
+                is_padding: false
+            },
+            EnrichedFieldSymbol {
+                name: "__padding0".into(),
+                kind: EnrichedFieldType::StaticArray {
+                    kind: "u8".into(),
+                    len: 1,
+                },
+                is_padding: true,
+            },
+            EnrichedFieldSymbol {
+                name: "class".into(),
+                kind: EnrichedFieldType::Type {
+                    name: Path::from_global("u16"),
+                },
+                is_padding: false
+            },
+            EnrichedFieldSymbol {
+                name: "__padding1".into(),
+                kind: EnrichedFieldType::StaticArray {
+                    kind: "u8".into(),
+                    len: 24,
+                },
+                is_padding: true,
+            },
+        ]
+    );
+}
+
+fn assert_stream<'s, F, C>(symbol: EnrichedMessageSymbol<'s, F, C>)
+where
+    F: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedFieldSymbol<'s>>,
+{
+    let MessageType::Stream {
+        _phantom,
+        content_fields,
+    } = symbol.message_type
+    else {
+        unreachable!();
+    };
+
+    assert_eq!(symbol.name, "Log");
+    assert_eq!(symbol.protocol, 2);
+    assert_eq!(symbol.kind, 1);
+    assert_eq!(symbol.dispatch_value, 2u32 << 16 | 1u32);
+    let message_fields = symbol.fields.collect::<Vec<_>>();
+    assert_eq!(
+        message_fields,
+        [
+            header_field("dst", EnrichedFieldType::Special(SpecialType::SubscriberId)),
+            header_field(
+                "protocol",
+                EnrichedFieldType::Special(SpecialType::ProtocolId)
+            ),
+            header_field("src", EnrichedFieldType::Special(SpecialType::SubscriberId)),
+            header_field(
+                "kind",
+                EnrichedFieldType::Type {
+                    name: Path::Global { name: "u8".into() }
+                }
+            ),
+            EnrichedFieldSymbol {
+                name: "meta".into(),
+                kind: EnrichedFieldType::Type {
+                    name: Path::from_global("u8")
+                },
+                is_padding: false
+            },
+            EnrichedFieldSymbol {
+                name: "data".into(),
+                kind: EnrichedFieldType::StaticArray {
+                    kind: "u8".into(),
+                    len: 27
+                },
+                is_padding: false
+            }
+        ]
+    );
+
+    let content_fields = content_fields.collect::<Vec<_>>();
+    assert_eq!(
+        content_fields,
+        [
+            EnrichedFieldSymbol {
+                name: "level".into(),
+                kind: EnrichedFieldType::Type {
+                    name: Path::from_absolute(AbsolutePath::from_iter(["system", "Level"])),
+                },
+                is_padding: false,
+            },
+            EnrichedFieldSymbol {
+                name: "__padding0".into(),
+                kind: EnrichedFieldType::StaticArray {
+                    kind: "u8".into(),
+                    len: 3
+                },
+                is_padding: true
+            },
+            EnrichedFieldSymbol {
+                name: "content".into(),
+                kind: EnrichedFieldType::Type {
+                    name: Path::from_absolute(AbsolutePath::from_iter(["system", "String"]))
+                },
+                is_padding: false
+            }
+        ]
+    );
+}
+
 struct Mock;
 impl<'s> CodeGenerator<'s> for Mock {
     fn start_protocol(&mut self, _: &'s str, _: Option<u8>) {}
 
-    #[allow(clippy::too_many_lines)]
-    fn generate_single_message<I>(&mut self, symbol: EnrichedSingleMessageSymbol<'s, I>)
-    where
-        I: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    {
-        let fields = symbol.fields.collect::<Vec<_>>();
-        assert_eq!(symbol.name, "SetPermissions");
-        assert_eq!(symbol.protocol, 2);
-        assert_eq!(symbol.kind, 0);
-        assert_eq!(symbol.dispatch_value, 2u32 << 16);
-        assert_eq!(
-            fields,
-            [
-                header_field(
-                    "dst",
-                    EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
-                ),
-                header_field(
-                    "protocol",
-                    EnrichedFieldType::Special(SpecialFieldType::ProtocolId)
-                ),
-                header_field(
-                    "src",
-                    EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
-                ),
-                header_field(
-                    "kind",
-                    EnrichedFieldType::Type {
-                        name: Path::Global { name: "u8".into() }
-                    }
-                ),
-                EnrichedFieldSymbol {
-                    name: "permissions".into(),
-                    kind: EnrichedFieldType::Type {
-                        name: Path::from_absolute(AbsolutePath::from_iter([
-                            "system",
-                            "Permissions"
-                        ]))
-                    },
-                    is_padding: false
-                },
-                EnrichedFieldSymbol {
-                    name: "__padding0".into(),
-                    kind: EnrichedFieldType::StaticArray {
-                        kind: "u8".into(),
-                        len: 1,
-                    },
-                    is_padding: true,
-                },
-                EnrichedFieldSymbol {
-                    name: "class".into(),
-                    kind: EnrichedFieldType::Type {
-                        name: Path::from_global("u16"),
-                    },
-                    is_padding: false
-                },
-                EnrichedFieldSymbol {
-                    name: "__padding1".into(),
-                    kind: EnrichedFieldType::StaticArray {
-                        kind: "u8".into(),
-                        len: 24,
-                    },
-                    is_padding: true,
-                },
-            ]
-        );
-    }
-
-    #[allow(clippy::too_many_lines)]
-    fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
+    fn generate_message<F, C>(&mut self, symbol: EnrichedMessageSymbol<'s, F, C>)
     where
         F: SymbolIterator<EnrichedFieldSymbol<'s>>,
         C: SymbolIterator<EnrichedFieldSymbol<'s>>,
     {
-        assert_eq!(symbol.name, "Log");
-        assert_eq!(symbol.protocol, 2);
-        assert_eq!(symbol.kind, 1);
-        assert_eq!(symbol.dispatch_value, 2u32 << 16 | 1u32);
-        let message_fields = symbol.message_fields.collect::<Vec<_>>();
-        assert_eq!(
-            message_fields,
-            [
-                header_field(
-                    "dst",
-                    EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
-                ),
-                header_field(
-                    "protocol",
-                    EnrichedFieldType::Special(SpecialFieldType::ProtocolId)
-                ),
-                header_field(
-                    "src",
-                    EnrichedFieldType::Special(SpecialFieldType::SubscriberId)
-                ),
-                header_field(
-                    "kind",
-                    EnrichedFieldType::Type {
-                        name: Path::Global { name: "u8".into() }
-                    }
-                ),
-                EnrichedFieldSymbol {
-                    name: "meta".into(),
-                    kind: EnrichedFieldType::Type {
-                        name: Path::from_global("u8")
-                    },
-                    is_padding: false
-                },
-                EnrichedFieldSymbol {
-                    name: "data".into(),
-                    kind: EnrichedFieldType::StaticArray {
-                        kind: "u8".into(),
-                        len: 27
-                    },
-                    is_padding: false
-                }
-            ]
-        );
-
-        let content_fields = symbol.content_fields.collect::<Vec<_>>();
-        assert_eq!(
-            content_fields,
-            [
-                EnrichedFieldSymbol {
-                    name: "level".into(),
-                    kind: EnrichedFieldType::Type {
-                        name: Path::from_absolute(AbsolutePath::from_iter(["system", "Level"])),
-                    },
-                    is_padding: false,
-                },
-                //EnrichedFieldSymbol {
-                //    name: "__padding0".into(),
-                //    kind: EnrichedFieldType::StaticArray {
-                //        kind: "u8".into(),
-                //        len: 3
-                //    },
-                //    is_padding: true
-                //},
-                EnrichedFieldSymbol {
-                    name: "content".into(),
-                    kind: EnrichedFieldType::Type {
-                        name: Path::from_absolute(AbsolutePath::from_iter(["system", "String"]))
-                    },
-                    is_padding: false
-                }
-            ]
-        );
+        if symbol.name == "Log" {
+            assert_stream(symbol);
+        } else {
+            assert_message(symbol);
+        }
     }
 
-    #[allow(clippy::too_many_lines)]
+    /*
+        fn generate_stream_message<F, C>(&mut self, symbol: EnrichedStreamMessageSymbol<'s, F, C>)
+        where
+            F: SymbolIterator<EnrichedFieldSymbol<'s>>,
+            C: SymbolIterator<EnrichedFieldSymbol<'s>>,
+        {
+
+        }
+    */
     fn generate_bitset<I>(&mut self, bitset: EnrichedBitsetSymbol<'s, I>)
     where
         I: SymbolIterator<EnrichedBitsetValueSymbol<'s>>,

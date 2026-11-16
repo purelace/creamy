@@ -9,10 +9,18 @@ use crate::{constraints::MAX_FIELDS, storage::SymbolKey, table::TypeId, utils::F
 
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
+pub enum SpecialType {
+    SubscriberId = 0,
+    ProtocolId = 1,
+}
+
+#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum FieldType {
     Type(TypeId) = 0,
     StaticArray(ArraySymbol) = 1,
     HeapArray(HeapArraySymbol) = 2,
+    Special(SpecialType) = 3,
 }
 
 #[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -27,20 +35,22 @@ pub struct FieldSymbol {
 
 impl FieldSymbol {
     #[must_use]
-    pub const fn type_id(&self) -> TypeId {
+    pub fn align(&self) -> u64 {
         match self.kind {
-            FieldType::Type(s) => s,
-            FieldType::StaticArray(s) => s.kind(),
-            FieldType::HeapArray(s) => s.kind(),
+            FieldType::Type(s) => s.align().size(),
+            FieldType::StaticArray(s) => s.kind.align().size(),
+            FieldType::HeapArray(s) => s.align(),
+            FieldType::Special(_) => 1,
         }
     }
 
     #[must_use]
     pub fn size(&self) -> u64 {
-        match self.kind() {
+        match self.kind {
             FieldType::Type(s) => s.size().value(),
             FieldType::StaticArray(s) => s.total_size(),
             FieldType::HeapArray(s) => s.size(),
+            FieldType::Special(_) => 1,
         }
     }
 }

@@ -1,6 +1,6 @@
 use creamy_libgen::{
     SymbolIterator,
-    proxy::{EnrichedStreamFieldSymbol, EnrichedStreamFieldType},
+    proxy::{EnrichedFieldSymbol, EnrichedFieldType},
 };
 use genco::{lang::rust::Tokens, quote};
 
@@ -59,7 +59,7 @@ pub fn generate_binary_writer_trait_impl(args: &Args, target: &str) -> Tokens {
 
 fn generate_writer_body<'s, I>(fields: I) -> Option<Tokens>
 where
-    I: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
     let mut array_write = vec![];
     let mut tokens = vec![];
@@ -69,13 +69,13 @@ where
     for f in fields {
         let name = &f.name;
         match f.kind {
-            EnrichedStreamFieldType::Type { .. } => {
+            EnrichedFieldType::Type { .. } => {
                 to += f.type_id.size().value() as usize;
             }
-            EnrichedStreamFieldType::StaticArray { len, .. } => {
+            EnrichedFieldType::StaticArray { len, .. } => {
                 to += f.type_id.size().value() as usize * len as usize;
             }
-            EnrichedStreamFieldType::DynamicArray { kind } => {
+            EnrichedFieldType::HeapArray { kind } => {
                 if to != from {
                     tokens.push(quote! {
                         //
@@ -129,7 +129,7 @@ pub fn generate_binary_writer_trait_impl_with_partial_slices<'s, I>(
     fields: I,
 ) -> Tokens
 where
-    I: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
     let body = match generate_writer_body(fields) {
         Some(tokens) => {

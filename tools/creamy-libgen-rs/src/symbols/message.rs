@@ -1,6 +1,7 @@
 use creamy_libgen::{
-    EnrichedSingleMessageSymbol, SymbolIterator,
-    proxy::{EnrichedFieldSymbol, EnrichedFieldType, SpecialFieldType},
+    SymbolIterator,
+    package::model::symbols::SpecialType,
+    proxy::{EnrichedFieldSymbol, EnrichedFieldType, EnrichedMessageSymbol},
 };
 use genco::{lang::rust::Tokens, quote};
 
@@ -8,12 +9,13 @@ use crate::{
     args::Args, derive::generate_derive, path_to_string, utils::generate_message_const_block,
 };
 
-pub fn generate_builder_pattern<'s, I>(
+pub fn generate_builder_pattern<'s, I, C>(
     args: &Args,
-    symbol: &EnrichedSingleMessageSymbol<'s, I>,
+    symbol: &EnrichedMessageSymbol<'s, I, C>,
 ) -> Tokens
 where
     I: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
     let functions = symbol
         .fields
@@ -28,9 +30,12 @@ where
                 EnrichedFieldType::Type { name } => path_to_string(&name),
                 EnrichedFieldType::StaticArray { kind, len } => format!("[{kind}; {len}]"),
                 EnrichedFieldType::Special(s) => match s {
-                    SpecialFieldType::SubscriberId => args.subscriber_id_path(),
-                    SpecialFieldType::ProtocolId => args.protocol_id_path(),
+                    SpecialType::SubscriberId => args.subscriber_id_path(),
+                    SpecialType::ProtocolId => args.protocol_id_path(),
                 },
+                EnrichedFieldType::HeapArray { .. } => {
+                    unreachable!()
+                }
             };
 
             Some(quote! {
@@ -110,33 +115,46 @@ pub fn generate_typed_message_trait_impl(args: &Args, message: &str) -> Tokens {
     }
 }
 
-pub fn generate_single_message<'s, I>(
+pub fn generate_basic_field_list<'s, I>(
     args: &Args,
-    symbol: &EnrichedSingleMessageSymbol<'s, I>,
-) -> Tokens
-where
-    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
-{
-    let name = symbol.name;
-    let derive = generate_derive(args, &[]);
-    let fields = symbol
-        .fields
-        .clone()
+    fields: impl Iterator<Item = EnrichedFieldSymbol<'s>>,
+) -> Vec<Tokens> {
+    fields
         .map(|f| {
             let n = f.name;
             let t = match f.kind {
                 EnrichedFieldType::Type { name } => path_to_string(&name),
                 EnrichedFieldType::StaticArray { kind, len } => format!("[{kind}; {len}]"),
                 EnrichedFieldType::Special(s) => match s {
-                    SpecialFieldType::SubscriberId => args.subscriber_id_path(),
-                    SpecialFieldType::ProtocolId => args.protocol_id_path(),
+                    SpecialType::SubscriberId => args.subscriber_id_path(),
+                    SpecialType::ProtocolId => args.protocol_id_path(),
                 },
+                EnrichedFieldType::HeapArray { .. } => unreachable!(),
             };
-            quote! {
-                pub $n: $t,
+            if f.is_padding {
+                quote! {
+                    /* $n: $t, */
+                }
+            } else {
+                quote! {
+                    pub $n: $t,
+                }
             }
         })
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>()
+}
+
+pub fn generate_single_message<'s, I, C>(
+    args: &Args,
+    symbol: &EnrichedMessageSymbol<'s, I, C>,
+) -> Tokens
+where
+    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedFieldSymbol<'s>>,
+{
+    let name = symbol.name;
+    let derive = generate_derive(args, &[]);
+    let fields = generate_basic_field_list::<I>(args, symbol.fields.clone());
 
     let typed_message_impl = generate_typed_message_trait_impl(args, name);
     let message_impl = generate_message_trait_impl(args, name, symbol.protocol, symbol.kind);

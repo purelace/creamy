@@ -1,0 +1,9 @@
+#name    "state_machine"
+#version "0.1.0+example"
+#access  "Private"
+#schema  1
+
+
+machine shell(key: i32) {
+...
+}

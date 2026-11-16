@@ -223,7 +223,7 @@ impl ComplexType<'_> {
         }
     }
 
-    pub const fn fields(&self) -> &[FieldNode] {
+    pub const fn fields(&self) -> &[FieldNode<'_>] {
         match self {
             ComplexType::Struct(n) => n.fields.as_slice(),
             ComplexType::Object(n) => n.fields.as_slice(),
@@ -313,12 +313,11 @@ impl<'src> SyntaxTreeBuilder<'src> {
 
                 Token::Unknown(_) => todo!(),
                 u => {
-                    diag.report_err(SyntaxError::UnexpectedToken {
-                        expected: "keyword, documentation or attribute",
-                        span: u.span().into(),
-                    });
-                    return tree;
-                    //todo!("unexpected token: {u:#?}")
+                    //diag.report_err(SyntaxError::UnexpectedToken {
+                    //    expected: "keyword, documentation or attribute",
+                    //    span: u.span().into(),
+                    //});
+                    todo!("unexpected token: {u:#?}")
                 }
             }
         }

@@ -21,7 +21,7 @@ pub enum Align {
 
 impl Align {
     #[must_use]
-    pub const fn size(self) -> u8 {
+    pub const fn size(self) -> u64 {
         match self {
             Align::B1 => 1,
             Align::B2 => 2,
@@ -32,7 +32,7 @@ impl Align {
     }
 
     #[must_use]
-    pub const fn new(value: u8) -> Option<Self> {
+    pub const fn new(value: u64) -> Option<Self> {
         match value {
             1 => Some(B1),
             2 => Some(B2),
@@ -43,8 +43,9 @@ impl Align {
         }
     }
 
-    #[must_use]
-    pub const fn discriminant(self) -> u8 {
-        unsafe { core::mem::transmute(self) }
-    }
+    //#[m
+    // ust_use]
+    //pub const fn discriminant(self) -> u8 {
+    //    unsafe { core::mem::transmute(self) }
+    //}
 }

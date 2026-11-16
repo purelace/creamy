@@ -3,8 +3,8 @@ mod lightweight;
 mod stream_message;
 
 use creamy_libgen::{
-    EnrichedStreamMessageSymbol, SymbolIterator,
-    proxy::{EnrichedFieldSymbol, EnrichedStreamFieldSymbol},
+    SymbolIterator,
+    proxy::{EnrichedFieldSymbol, EnrichedMessageSymbol, MessageType},
 };
 use genco::{lang::rust::Tokens, quote};
 use heck::ToSnakeCase;
@@ -16,25 +16,27 @@ use self::{
 use crate::{
     Args,
     derive::generate_derive,
-    symbols::message::{generate_message_trait_impl, generate_typed_message_trait_impl},
+    symbols::message::{
+        generate_basic_field_list, generate_message_trait_impl, generate_typed_message_trait_impl,
+    },
     utils::generate_message_const_block,
 };
 
-fn generate_stream_module<'s, F, C>(
-    args: &Args,
-    symbol: &EnrichedStreamMessageSymbol<'s, F, C>,
-) -> Tokens
+fn generate_stream_module<'s, F, C>(args: &Args, symbol: &EnrichedMessageSymbol<'s, F, C>) -> Tokens
 where
     F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
+    let MessageType::Stream { content_fields, .. } = &symbol.message_type else {
+        unreachable!();
+    };
+
     let n = symbol.name;
     let mn = symbol.name.to_snake_case();
-    let content = generate_stream_content(args, n, symbol.content_fields.clone());
-    let lightweight = generate_lightweight_content(args, n, symbol.content_fields.clone());
+    let content = generate_stream_content(args, n, content_fields.clone());
+    let lightweight = generate_lightweight_content(args, n, content_fields.clone());
     let stream_trait = generate_stream_trait_impl(
         args,
-        symbol.timeout,
         symbol.name,
         format!("{mn}::{n}Content"),
         &format!("{mn}::{n}Lightweight"),
@@ -52,30 +54,18 @@ where
     }
 }
 
-fn message_header(args: &Args) -> Tokens {
-    let sub_id = &args.subscriber_id_path();
-    let protocol_id = args.protocol_id_path();
-    quote! {
-        /* -------- HEADER -------- */
-        pub dst: $sub_id,
-        pub protocol: $protocol_id,
-        pub src: $sub_id,
-        pub kind: u8,
-    }
-}
-
 pub fn generate_stream_message<'s, F, C>(
-    symbol: &EnrichedStreamMessageSymbol<'s, F, C>,
+    symbol: &EnrichedMessageSymbol<'s, F, C>,
     args: &Args,
 ) -> Tokens
 where
     F: SymbolIterator<EnrichedFieldSymbol<'s>>,
-    C: SymbolIterator<EnrichedStreamFieldSymbol<'s>>,
+    C: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
     let name = symbol.name;
+    let fields = generate_basic_field_list::<F>(args, symbol.fields.clone());
     let derive = generate_derive(args, &[]);
     //TODO: iterate over fields
-    let header = message_header(args);
     let const_block = generate_message_const_block(
         args,
         name,
@@ -92,10 +82,7 @@ where
         $derive
         #[repr(C, align(32))]
         pub struct $name {
-            $header
-            /* -------- STREAM -------- */
-            pub meta: u8,
-            pub data: [u8; 27],
+            $fields
         }
 
         $typed_message_impl

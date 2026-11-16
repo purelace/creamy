@@ -38,14 +38,3 @@ impl Path {
         }
     }
 }
-
-//impl Path {
-//    #[must_use]
-//    pub const fn components(&self) -> &[String] {
-//        match self {
-//            Path::Global { name } => todo!(),
-//            Path::Absolute { components } => todo!(),
-//        }
-//        self.components.as_slice()
-//    }
-//}
