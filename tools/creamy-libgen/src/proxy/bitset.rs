@@ -104,7 +104,7 @@ impl<'s> Iterator for BitsetValueList<'s> {
         let end_pos = self.bits.div_ceil(8);
         let start_pos = end_pos - read_window_bytes;
 
-        let repr = match symbol.repr() {
+        let repr = match *symbol.repr() {
             T_I8_ID => PrimitiveRepr::I8,
             T_I16_ID => PrimitiveRepr::I16,
             T_I32_ID => PrimitiveRepr::I32,
@@ -116,7 +116,7 @@ impl<'s> Iterator for BitsetValueList<'s> {
             _ => unreachable!(),
         };
 
-        let backing_type = get_backing_type(symbol.repr(), read_window_bytes);
+        let backing_type = get_backing_type(*symbol.repr(), read_window_bytes);
 
         let backend_width = read_window_bytes * 8;
         let left_pad = (prev_bits - start_pos * 8) + symbol.bits();
@@ -126,7 +126,7 @@ impl<'s> Iterator for BitsetValueList<'s> {
         Some(EnrichedBitsetValueSymbol {
             bytes,
             read_window_bytes,
-            bits: symbol.bits(),
+            bits: *symbol.bits(),
             shift,
             start_pos,
             end_pos,

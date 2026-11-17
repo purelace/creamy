@@ -31,16 +31,16 @@ use creamy_xmlc::{
         Direction,
         definition::BinaryWriter,
         strpool::{StringId, StringPoolResolver},
-        symbols::{MessageSymbol, MessageSymbolType, Type},
+        symbols::{LayoutEntry, MessageSymbol, MessageSymbolType, Type},
     },
 };
 pub use utils::{AbsolutePath, Path};
 
 use self::proxy::{
     BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
-    EnrichedFieldSymbol, EnrichedFlagsSymbol, EnrichedMessageSymbol, EnrichedObjectSymbol,
-    EnrichedStructSymbol, EnrichedVariantSymbol, FieldList, FlagUnderlyingType, MessageType,
-    OptionList,
+    EnrichedFieldSymbol, EnrichedFlagsSymbol, EnrichedLayoutEntry, EnrichedMessageSymbol,
+    EnrichedObjectSymbol, EnrichedSerializationLayout, EnrichedStructSymbol, EnrichedVariantSymbol,
+    FieldList, FlagUnderlyingType, MessageType, OptionList,
 };
 
 #[derive(Clone, Copy)]
@@ -258,10 +258,10 @@ impl Codegen {
             for message_symbol in model.messages() {
                 // Valid form of the dispatch value: [0x_00_FF_00_FF]
                 let dispatch_value =
-                    u32::from(protocol_id) << 16 | u32::from(message_symbol.kind());
-                dispatch_values.insert(message_symbol.ident(), (protocol_id, dispatch_value));
+                    u32::from(protocol_id) << 16 | u32::from(*message_symbol.kind());
+                dispatch_values.insert(*message_symbol.ident(), (protocol_id, dispatch_value));
 
-                let dir = message_symbol.direction();
+                let dir = *message_symbol.direction();
 
                 // Условие включения:
                 // 1. Это Duplex (нужен всегда)
@@ -350,11 +350,11 @@ impl Codegen {
                 Type::Enum(s) => {
                     let symbol = EnrichedEnumSymbol {
                         name: s.ident().resolve(model.pool()),
-                        repr: s.repr(),
-                        variants: model.variants_slice(s.variants()).iter().map(|v| {
+                        repr: *s.repr(),
+                        variants: model.variants_slice(*s.variants()).iter().map(|v| {
                             EnrichedVariantSymbol {
                                 name: v.ident().resolve(model.pool()),
-                                value: v.value(),
+                                value: *v.value(),
                             }
                         }),
                     };
@@ -372,13 +372,13 @@ impl Codegen {
                             65..=128 => FlagUnderlyingType::U128,
                             other => unreachable!("Unreachable length: {other}"),
                         },
-                        options: OptionList::new(model.pool(), model.options_slice(s.values())),
+                        options: OptionList::new(model.pool(), model.options_slice(*s.values())),
                     };
 
                     generator.generate_flags(symbol);
                 }
                 Type::Bitset(s) => {
-                    let slice = model.bvalues_slice(s.values());
+                    let slice = model.bvalues_slice(*s.values());
                     let symbol = EnrichedBitsetSymbol {
                         name: s.ident().resolve(model.pool()),
                         values: BitsetValueList::new(model.pool(), slice),
@@ -387,7 +387,7 @@ impl Codegen {
                     generator.generate_bitset(symbol);
                 }
                 Type::Struct(s) => {
-                    let fields = model.fields_range(s.fields());
+                    let fields = model.fields_range(*s.fields());
                     let symbol = EnrichedStructSymbol {
                         name: s.ident().resolve(model.pool()),
                         fields: FieldList::new(
@@ -400,7 +400,7 @@ impl Codegen {
                     generator.generate_struct(symbol);
                 }
                 Type::Object(s) => {
-                    let slice = model.fields_range(s.fields());
+                    let slice = model.fields_range(*s.fields());
                     let symbol = EnrichedObjectSymbol {
                         name: s.ident().resolve(model.pool()),
                         fields: FieldList::new(
@@ -429,33 +429,57 @@ impl Codegen {
 
         for symbol in messages {
             let (protocol, dispatch_value) =
-                dispatch_value_table.get(&symbol.ident()).copied().unwrap();
+                dispatch_value_table.get(symbol.ident()).copied().unwrap();
 
             let message_type = match symbol.message_type() {
                 MessageSymbolType::Single => MessageType::Single,
                 MessageSymbolType::Stream {
+                    serialization_layout,
                     lightweight_content,
-                } => MessageType::Stream {
-                    _phantom: PhantomData,
-                    content_fields: FieldList::new(
-                        module_path.clone(),
-                        model.pool(),
-                        model.table(),
-                        model.fields_range(lightweight_content).iter().copied(),
-                    ),
-                },
+                } => {
+                    let items = serialization_layout
+                        .items()
+                        .iter()
+                        .map(|e| match e {
+                            LayoutEntry::ArrayLength { name } => EnrichedLayoutEntry::ArrayLength {
+                                name: name.resolve(model.pool()),
+                            },
+                            LayoutEntry::ArrayWrite { name } => EnrichedLayoutEntry::ArrayWrite {
+                                name: name.resolve(model.pool()),
+                            },
+                            LayoutEntry::Slice { to, kind } => EnrichedLayoutEntry::Slice {
+                                to: *to,
+                                kind: model.table().get_type(*kind).ident().resolve(model.pool()),
+                            },
+                            LayoutEntry::LastSlice { to } => {
+                                EnrichedLayoutEntry::LastSlice { to: *to }
+                            }
+                        })
+                        .collect::<Vec<_>>();
+
+                    MessageType::Stream {
+                        _phantom: PhantomData,
+                        serialization_layout: EnrichedSerializationLayout { items },
+                        content_fields: FieldList::new(
+                            module_path.clone(),
+                            model.pool(),
+                            model.table(),
+                            model.fields_range(*lightweight_content).iter().copied(),
+                        ),
+                    }
+                }
             };
 
             let symbol = EnrichedMessageSymbol {
                 name: symbol.ident().resolve(model.pool()),
-                kind: symbol.kind(),
+                kind: *symbol.kind(),
                 protocol,
                 dispatch_value,
                 fields: FieldList::new(
                     module_path.clone(),
                     model.pool(),
                     model.table(),
-                    model.fields_range(symbol.fields()).iter().copied(),
+                    model.fields_range(*symbol.fields()).iter().copied(),
                 ),
                 message_type,
             };

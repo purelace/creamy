@@ -15,10 +15,10 @@ use creamy_protocol_model::{
     symbols::{
         ApiStatus, ArraySymbol, BitsetSymbol, BitsetValueSymbol, EnumSymbol, F32_ID, F64_ID,
         FieldSymbol, FieldType, FlagsSymbol, HeapArraySymbol, I8_ID, I16_ID, I32_ID, I64_ID,
-        I128_ID, MessageSymbol, MessageSymbolType, Number, ObjectSymbol, OptionSymbol,
-        PrimitiveRepr, SpecialType, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID, T_I64_ID, T_I128_ID,
-        T_U8_ID, T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID, U32_ID, U64_ID,
-        U128_ID, VariantSymbol, get_builtin_type_name,
+        I128_ID, LayoutEntry, MessageSymbol, MessageSymbolType, Number, ObjectSymbol, OptionSymbol,
+        PrimitiveRepr, SerializationLayout, SpecialType, StructSymbol, T_I8_ID, T_I16_ID, T_I32_ID,
+        T_I64_ID, T_I128_ID, T_U8_ID, T_U16_ID, T_U32_ID, T_U64_ID, T_U128_ID, Type, U8_ID, U16_ID,
+        U32_ID, U64_ID, U128_ID, VariantSymbol, get_builtin_type_name,
     },
 };
 use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern, StringPoolResolver};
@@ -788,6 +788,49 @@ fn get_meta(max_size: Option<u8>, fields: &[FieldSymbol]) -> Result<TypeMeta, Se
 
 const MESSAGE_SIZE: u64 = 32;
 
+fn calculate_layout_range(context: &mut Context, fields: FieldsRange) -> SerializationLayout {
+    let mut layout = SerializationLayout::default();
+    let mut array_write = vec![];
+
+    let mut to = 0;
+
+    for field in context.storage.get_symbol_range::<FieldSymbol>(fields) {
+        match field.kind() {
+            FieldType::Type(s) => {
+                to += s.size().value();
+            }
+            FieldType::StaticArray(s) => {
+                to += s.total_size();
+            }
+            FieldType::HeapArray(s) => {
+                if to != 0 {
+                    layout.push(LayoutEntry::Slice { to, kind: s.kind() });
+                }
+
+                layout.push(LayoutEntry::ArrayLength {
+                    name: *field.ident(),
+                });
+                array_write.push(LayoutEntry::ArrayWrite {
+                    name: *field.ident(),
+                });
+
+                to = 0;
+            }
+            FieldType::Special(_) => unreachable!(),
+        }
+    }
+
+    if to != 0 {
+        layout.push(LayoutEntry::LastSlice { to });
+    }
+
+    for entry in array_write {
+        layout.push(entry);
+    }
+
+    layout
+}
+
 fn resolve_message(context: &mut Context, node: &MessageNode) {
     let attributes = resolve_attribute_list(context, &node.attributes);
     let api = attributes.get_api_status(context);
@@ -822,6 +865,7 @@ fn resolve_message(context: &mut Context, node: &MessageNode) {
         MessageNodeType::Stream => {
             let basic_range = stream_message_fields(context);
             let range = resolve_fields(context, &[], &node.fields, None, true);
+            let layout = calculate_layout_range(context, range);
             let kind = context.issue_kind();
 
             let symbol = MessageSymbol::new(
@@ -831,6 +875,7 @@ fn resolve_message(context: &mut Context, node: &MessageNode) {
                 kind,
                 api,
                 MessageSymbolType::Stream {
+                    serialization_layout: layout,
                     lightweight_content: range,
                 },
             );

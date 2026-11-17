@@ -3,6 +3,19 @@ use std::marker::PhantomData;
 use super::EnrichedFieldSymbol;
 use crate::SymbolIterator;
 
+#[derive(Clone)]
+pub enum EnrichedLayoutEntry<'s> {
+    ArrayLength { name: &'s str },
+    ArrayWrite { name: &'s str },
+    Slice { to: u64, kind: &'s str },
+    LastSlice { to: u64 },
+}
+
+#[derive(Default, Clone)]
+pub struct EnrichedSerializationLayout<'s> {
+    pub items: Vec<EnrichedLayoutEntry<'s>>,
+}
+
 pub enum MessageType<'s, C>
 where
     C: SymbolIterator<EnrichedFieldSymbol<'s>>,
@@ -10,6 +23,7 @@ where
     Single,
     Stream {
         _phantom: PhantomData<&'s str>,
+        serialization_layout: EnrichedSerializationLayout<'s>,
         content_fields: C,
     },
 }

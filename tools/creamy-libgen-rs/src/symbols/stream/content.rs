@@ -1,6 +1,6 @@
 use creamy_libgen::{
     SymbolIterator,
-    proxy::{EnrichedFieldSymbol, EnrichedFieldType},
+    proxy::{EnrichedFieldSymbol, EnrichedFieldType, EnrichedSerializationLayout},
 };
 use genco::{lang::rust::Tokens, quote};
 
@@ -8,7 +8,12 @@ use crate::{
     Args, binary_utils::generate_binary_writer_trait_impl_with_partial_slices, path_to_string,
 };
 
-pub fn generate_stream_content<'s, I>(args: &Args, message: &str, fields_iter: I) -> Tokens
+pub fn generate_stream_content<'s, I>(
+    args: &Args,
+    message: &str,
+    layout: EnrichedSerializationLayout,
+    fields_iter: I,
+) -> Tokens
 where
     I: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
@@ -31,6 +36,7 @@ where
 
                     format!("alloc::boxed::Box<[{kind}]>")
                 }
+                EnrichedFieldType::Special(_) => unreachable!(),
             };
             let pub_ = if f.is_padding { quote!() } else { quote!(pub) };
             quote! {
@@ -39,8 +45,7 @@ where
         })
         .collect::<Vec<_>>();
 
-    let writer_impl =
-        generate_binary_writer_trait_impl_with_partial_slices(args, name, fields_iter.clone());
+    let writer_impl = generate_binary_writer_trait_impl_with_partial_slices(args, name, layout);
 
     let mut additional_data = additional_size_content.join("+").clone();
     if additional_data.is_empty() {
@@ -69,6 +74,7 @@ where
                 EnrichedFieldType::HeapArray { kind } => {
                     format!("alloc::boxed::Box<[{kind}]>")
                 }
+                EnrichedFieldType::Special(_) => unreachable!(),
             };
 
             params.push(quote!($name,));

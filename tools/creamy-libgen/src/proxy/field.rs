@@ -86,8 +86,8 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
         if let Some(field) = self.fields.next() {
             Some(EnrichedFieldSymbol {
                 name: Cow::Borrowed(field.ident().resolve(self.pool)),
-                kind: self.get_field_kind(field.kind()),
-                is_padding: field.is_padding(),
+                kind: self.get_field_kind(*field.kind()),
+                is_padding: *field.is_padding(),
             })
         } else {
             None

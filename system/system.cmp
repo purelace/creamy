@@ -4,16 +4,16 @@
 #schema  1
 
 // Reference: cbus-core
-[Builtin]
-struct SubscriberId {
-    value: u8,
-}
+//[Builtin]
+//struct SubscriberId {
+//    value: u8,
+//}
 
 // Reference: cbus-core
-[Builtin]
-struct ProtocolId {
-    value: u8,
-}
+//[Builtin]
+//struct ProtocolId {
+//    value: u8,
+//}
 
 // Reference: Rust strings
 [Builtin]
@@ -43,6 +43,11 @@ message[O] ConsumerDisappeared {
 }
 
 message[D] StreamKeepAlive {
+    stream_kind: u8,
+    stream_id: u8,
+}
+
+message[D] StreamCancel {
     stream_kind: u8,
     stream_id: u8,
 }

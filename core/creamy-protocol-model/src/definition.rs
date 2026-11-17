@@ -1,6 +1,6 @@
 use creamy_binary::{BinRead, BinWrite};
 pub use creamy_binary::{BinaryReader, BinaryWriter};
-use creamy_utils::strpool::{StringId, StringPool};
+use creamy_utils::strpool::StringId;
 use semver::Version;
 
 use super::storage::SymbolStorage;
@@ -136,47 +136,5 @@ impl ProtocolModel {
     /// * calculated size > [`MAX_PAYLOAD`]
     pub fn get_struct_meta(fields: &[FieldSymbol]) -> Result<TypeMeta, SemanticError> {
         Self::get_meta(None, fields)
-    }
-
-    pub fn replace_identifiers(&mut self, from: &StringPool, to: &mut StringPool) {
-        macro_rules! replace {
-            ($field:expr) => {
-                let value = from.get_string($field);
-                let id = to.get_id_or_add(value);
-                $field = id;
-            };
-        }
-
-        macro_rules! replace_symbol {
-            ($symbol:expr) => {
-                let value = from.get_string($symbol.ident());
-                let id = to.get_id_or_add(value);
-                *$symbol = $symbol.with_ident(id);
-            };
-        }
-
-        replace!(self.name);
-
-        for symbol in self.storage.get_symbol_slice_mut::<MessageSymbol>() {
-            replace_symbol!(symbol);
-        }
-
-        for symbol in self.storage.get_symbol_slice_mut::<BitsetValueSymbol>() {
-            replace_symbol!(symbol);
-        }
-
-        for symbol in self.storage.get_symbol_slice_mut::<OptionSymbol>() {
-            replace_symbol!(symbol);
-        }
-
-        for symbol in self.storage.get_symbol_slice_mut::<VariantSymbol>() {
-            replace_symbol!(symbol);
-        }
-
-        for symbol in self.storage.get_symbol_slice_mut::<FieldSymbol>() {
-            replace_symbol!(symbol);
-        }
-
-        self.table.replace_identifiers(from, to);
     }
 }

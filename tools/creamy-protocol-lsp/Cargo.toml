@@ -1,0 +1,19 @@
+[package]
+name = "creamy-protocol-lsp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+creamy-xmlc.workspace = true
+tower-lsp = "0.20.0"
+tokio = { version = "1.54.1", features=["io-util", "io-std", "macros", "rt-multi-thread"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+dashmap = "6.2.1"
+
+[[bin]]
+name = "cmp-lsp"
+path = "src/main.rs"

@@ -42,12 +42,13 @@ members = [
     "tools/creamy-libgen-rs",
     "tools/creamy-template",
     "tools/creamy-xmlc",
+    "tools/zed-extensions",
 
     "engine/creamy",
     "engine/creamy-engine-core",
     "engine/creamy-wasmtime",
 
-    "xtask",
+    "xtask", "tools/creamy-protocol-lsp",
 ]
 
 [workspace.dependencies]

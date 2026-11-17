@@ -4,7 +4,7 @@ use creamy_binary::{BinRead, BinWrite};
 use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
-use super::{ArraySymbol, HeapArraySymbol};
+use super::{ArraySymbol, HeapArraySymbol, T_U8_ID};
 use crate::{constraints::MAX_FIELDS, storage::SymbolKey, table::TypeId, utils::FieldsRange};
 
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,6 +34,16 @@ pub struct FieldSymbol {
 }
 
 impl FieldSymbol {
+    #[must_use]
+    pub fn type_id(&self) -> TypeId {
+        match self.kind {
+            FieldType::Type(s) => s,
+            FieldType::StaticArray(s) => s.kind,
+            FieldType::HeapArray(s) => s.kind(),
+            FieldType::Special(_) => T_U8_ID,
+        }
+    }
+
     #[must_use]
     pub fn align(&self) -> u64 {
         match self.kind {

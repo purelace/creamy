@@ -221,9 +221,9 @@ impl<P: Plugin> MessageHandler for PluginState<P> {
         self.table.remove(message.protocol_id, message.consumer_id);
     }
 
-    fn handle_stream_keep_alive(&mut self, message: StreamKeepAlive) {}
+    fn handle_stream_keep_alive(&mut self, _: StreamKeepAlive) {}
 
-    fn handle_stream_cancel(&mut self, message: StreamCancel) {}
+    fn handle_stream_cancel(&mut self, _: StreamCancel) {}
 
     fn handle_unknown_message(&mut self, dispatch_value: u32, message: UntypedMessage) {
         P::Delegate::dispatch_message(dispatch_value, message, &mut self.plugin);

@@ -1,7 +1,4 @@
-use creamy_libgen::{
-    SymbolIterator,
-    proxy::{EnrichedFieldSymbol, EnrichedFieldType},
-};
+use creamy_libgen::proxy::{EnrichedLayoutEntry, EnrichedSerializationLayout};
 use genco::{lang::rust::Tokens, quote};
 
 use crate::Args;
@@ -57,58 +54,42 @@ pub fn generate_binary_writer_trait_impl(args: &Args, target: &str) -> Tokens {
     generate_write_trait_impl(args, target, content)
 }
 
-fn generate_writer_body<'s, I>(fields: I) -> Option<Tokens>
-where
-    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
-{
-    let mut array_write = vec![];
+fn generate_writer_body(layout: EnrichedSerializationLayout) -> Option<Tokens> {
     let mut tokens = vec![];
-    let mut from = 0;
-    let mut to = 0;
 
-    for f in fields {
-        let name = &f.name;
-        match f.kind {
-            EnrichedFieldType::Type { .. } => {
-                to += f.type_id.size().value() as usize;
-            }
-            EnrichedFieldType::StaticArray { len, .. } => {
-                to += f.type_id.size().value() as usize * len as usize;
-            }
-            EnrichedFieldType::HeapArray { kind } => {
-                if to != from {
-                    tokens.push(quote! {
-                        //
-                        let sub_slice = &slice[offset..$to + offset];
-                        let sub_slice = unsafe {
-                            &*(&sub_slice[0] as *const u8 as *const [u8; $to])
-                        };
-                        sub_slice.write::<W, E>(writer)?;
-                        offset += size_of::<alloc::boxed::Box<[$kind]>>() + $to;
-                    });
-                }
+    for entry in layout.items {
+        match entry {
+            EnrichedLayoutEntry::ArrayLength { name } => {
                 tokens.push(quote! {
                     (self.$name.len() as u32).write::<W, E>(writer)?;
                 });
-                array_write.push(quote! {
+            }
+            EnrichedLayoutEntry::ArrayWrite { name } => {
+                tokens.push(quote! {
                     for byte in &self.$name {
                         byte.write::<W, E>(writer)?;
                     }
                 });
-                from = 0;
-                to = 0;
             }
+            EnrichedLayoutEntry::Slice { to, kind } => {
+                tokens.push(quote! {
+                    //
+                    let sub_slice = &slice[offset..$to + offset];
+                    let sub_slice = unsafe {
+                        &*(&sub_slice[0] as *const u8 as *const [u8; $to])
+                    };
+                    sub_slice.write::<W, E>(writer)?;
+                    offset += size_of::<alloc::boxed::Box<[$kind]>>() + $to;
+                });
+            }
+            EnrichedLayoutEntry::LastSlice { to } => tokens.push(quote! {
+                let sub_slice = &slice[offset..$to + offset];
+                let sub_slice = unsafe {
+                    &*(&sub_slice[0] as *const u8 as *const [u8; $to])
+                };
+                sub_slice.write::<W, E>(writer)?;
+            }),
         }
-    }
-
-    if to != 0 {
-        tokens.push(quote! {
-            let sub_slice = &slice[offset..$to + offset];
-            let sub_slice = unsafe {
-                &*(&sub_slice[0] as *const u8 as *const [u8; $to])
-            };
-            sub_slice.write::<W, E>(writer)?;
-        });
     }
 
     if tokens.is_empty() {
@@ -117,21 +98,16 @@ where
         Some(quote! {
             let mut offset = 0;
             $tokens
-
-            $array_write
         })
     }
 }
 
-pub fn generate_binary_writer_trait_impl_with_partial_slices<'s, I>(
+pub fn generate_binary_writer_trait_impl_with_partial_slices(
     args: &Args,
     target: &str,
-    fields: I,
-) -> Tokens
-where
-    I: SymbolIterator<EnrichedFieldSymbol<'s>>,
-{
-    let body = match generate_writer_body(fields) {
+    layout: EnrichedSerializationLayout,
+) -> Tokens {
+    let body = match generate_writer_body(layout) {
         Some(tokens) => {
             quote! {
                 let slice = unsafe {

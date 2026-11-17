@@ -27,13 +27,23 @@ where
     F: SymbolIterator<EnrichedFieldSymbol<'s>>,
     C: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
-    let MessageType::Stream { content_fields, .. } = &symbol.message_type else {
+    let MessageType::Stream {
+        serialization_layout,
+        content_fields,
+        ..
+    } = &symbol.message_type
+    else {
         unreachable!();
     };
 
     let n = symbol.name;
     let mn = symbol.name.to_snake_case();
-    let content = generate_stream_content(args, n, content_fields.clone());
+    let content = generate_stream_content(
+        args,
+        n,
+        serialization_layout.clone(),
+        content_fields.clone(),
+    );
     let lightweight = generate_lightweight_content(args, n, content_fields.clone());
     let stream_trait = generate_stream_trait_impl(
         args,
@@ -63,7 +73,7 @@ where
     C: SymbolIterator<EnrichedFieldSymbol<'s>>,
 {
     let name = symbol.name;
-    let fields = generate_basic_field_list::<F>(args, symbol.fields.clone());
+    let fields = generate_basic_field_list(args, symbol.fields.clone());
     let derive = generate_derive(args, &[]);
     //TODO: iterate over fields
     let const_block = generate_message_const_block(

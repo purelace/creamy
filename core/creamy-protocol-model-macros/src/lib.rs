@@ -31,7 +31,6 @@ pub fn derive_token(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     };
 
     proc_macro::TokenStream::from_iter([
-        token::generate_with_ident_impl(&ast),
         token::generate_vector_element_trait_impl(&ast),
         token::generate_impl_block(name, fields),
     ])

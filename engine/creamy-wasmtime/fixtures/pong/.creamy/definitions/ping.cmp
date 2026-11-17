@@ -1,0 +1,12 @@
+#name    "ping"
+#version "1.0.0"
+#access  "Public"
+#schema  1
+
+message[D] Ping {
+    serial: u32,
+}
+
+message[D] Pong {
+    serial: u32,
+}

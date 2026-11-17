@@ -44,24 +44,11 @@ impl Type {
         match self {
             Type::Numeric(s) => s.name(),
             Type::Array(_) => unreachable!(),
-            Type::Struct(s) => s.ident(),
-            Type::Enum(s) => s.ident(),
-            Type::Flags(s) => s.ident(),
-            Type::Bitset(s) => s.ident(),
-            Type::Object(s) => s.ident(),
-        }
-    }
-
-    #[must_use]
-    pub const fn with_ident(&self, id: StringId) -> Self {
-        match self {
-            Type::Numeric(s) => Type::Numeric(*s),
-            Type::Array(s) => Type::Array(*s),
-            Type::Struct(s) => Type::Struct(s.with_ident(id)),
-            Type::Enum(s) => Type::Enum(s.with_ident(id)),
-            Type::Flags(s) => Type::Flags(s.with_ident(id)),
-            Type::Bitset(s) => Type::Bitset(s.with_ident(id)),
-            Type::Object(s) => Type::Object(s.with_ident(id)),
+            Type::Flags(s) => *s.ident(),
+            Type::Enum(s) => *s.ident(),
+            Type::Bitset(s) => *s.ident(),
+            Type::Struct(s) => *s.ident(),
+            Type::Object(s) => *s.ident(),
         }
     }
 }

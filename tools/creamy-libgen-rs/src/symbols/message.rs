@@ -115,7 +115,7 @@ pub fn generate_typed_message_trait_impl(args: &Args, message: &str) -> Tokens {
     }
 }
 
-pub fn generate_basic_field_list<'s, I>(
+pub fn generate_basic_field_list<'s>(
     args: &Args,
     fields: impl Iterator<Item = EnrichedFieldSymbol<'s>>,
 ) -> Vec<Tokens> {
@@ -154,7 +154,7 @@ where
 {
     let name = symbol.name;
     let derive = generate_derive(args, &[]);
-    let fields = generate_basic_field_list::<I>(args, symbol.fields.clone());
+    let fields = generate_basic_field_list(args, symbol.fields.clone());
 
     let typed_message_impl = generate_typed_message_trait_impl(args, name);
     let message_impl = generate_message_trait_impl(args, name, symbol.protocol, symbol.kind);

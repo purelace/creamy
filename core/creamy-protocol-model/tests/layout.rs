@@ -17,7 +17,7 @@ fn single_field() {
         false,
     )];
 
-    let steps = LayoutCalculator::new(0, None, vec.iter().copied()).collect::<Vec<_>>();
+    let steps = LayoutCalculator::new(None, vec.iter().copied()).collect::<Vec<_>>();
 
     assert_eq!(
         steps,

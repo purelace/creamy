@@ -34,7 +34,7 @@ fn get_message_index(model: &SemanticModel, key: StringOrNumber) -> Option<u8> {
                 .messages()
                 .iter()
                 .enumerate()
-                .find(|(_, m)| m.ident() == name_id)
+                .find(|(_, m)| *m.ident() == name_id)
                 .map(|(i, _)| i as u8)
         }
         StringOrNumber::Number(value) => Some(value),

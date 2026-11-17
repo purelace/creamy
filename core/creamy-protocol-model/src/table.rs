@@ -1,7 +1,7 @@
 use core::{fmt::Debug, mem::MaybeUninit, ops::Index};
 
 use creamy_binary::{BinRead, BinWrite};
-use creamy_utils::strpool::{StringId, StringPool};
+use creamy_utils::strpool::StringId;
 use hashbrown::HashMap;
 use strum::EnumCount;
 
@@ -212,20 +212,6 @@ impl FinishedSymbolTable {
     #[must_use]
     pub fn name_of_type(&self, id: TypeId) -> StringId {
         self.get_type(id).ident()
-    }
-
-    pub fn replace_identifiers(&mut self, from: &StringPool, to: &mut StringPool) {
-        macro_rules! replace_symbol {
-            ($symbol:expr) => {
-                let value = from.get_string($symbol.ident());
-                let id = to.get_id_or_add(value);
-                *$symbol = $symbol.with_ident(id);
-            };
-        }
-
-        for ty in self.types.iter_mut() {
-            replace_symbol!(ty);
-        }
     }
 }
 

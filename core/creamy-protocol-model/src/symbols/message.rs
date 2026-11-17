@@ -48,7 +48,7 @@ pub enum ApiStatus {
     Experimental = 2,
 }
 
-#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, PartialEq, Eq, Hash)]
 #[element(MAX_MESSAGES, MessagesRange)]
 #[key(SymbolKey::Message)]
 pub struct MessageSymbol {
@@ -63,7 +63,35 @@ pub struct MessageSymbol {
 
 #[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
+pub enum LayoutEntry {
+    ArrayLength { name: StringId } = 0,
+    ArrayWrite { name: StringId } = 1,
+    Slice { to: u64, kind: TypeId } = 2,
+    LastSlice { to: u64 } = 3,
+}
+
+#[derive(Default, BinRead, BinWrite, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SerializationLayout {
+    items: Vec<LayoutEntry>,
+}
+
+impl SerializationLayout {
+    #[must_use]
+    pub const fn items(&self) -> &[LayoutEntry] {
+        self.items.as_slice()
+    }
+
+    pub fn push(&mut self, layout: LayoutEntry) {
+        self.items.push(layout);
+    }
+}
+
+#[derive(BinRead, BinWrite, Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum MessageSymbolType {
     Single = 0,
-    Stream { lightweight_content: FieldsRange } = 1,
+    Stream {
+        serialization_layout: SerializationLayout,
+        lightweight_content: FieldsRange,
+    } = 1,
 }
