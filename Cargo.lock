@@ -1003,7 +1003,6 @@ dependencies = [
 name = "creamy-xmlc"
 version = "0.1.0"
 dependencies = [
- "as-guard",
  "blake3",
  "hashbrown 0.17.1",
  "miette",

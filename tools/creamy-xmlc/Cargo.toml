@@ -9,7 +9,6 @@ workspace = true
 
 [dependencies]
 thiserror.workspace = true
-as-guard.workspace = true
 strum.workspace = true
 smol_str.workspace = true
 semver.workspace = true
