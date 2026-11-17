@@ -404,7 +404,7 @@ fn resolve_bitsets(context: &mut Context, nodes: &[BitsetNode<'_>]) {
 
         let (bytes, values) = resolve_bitset_values(context, &root.values);
         let meta = TypeMeta::try_new(bytes, 1).or_recover(&mut context.diag);
-        let meta = if meta.size().value() > MAX_PAYLOAD as u64 {
+        let meta = if meta.size().value() > MAX_PAYLOAD {
             context.diag.report_err(SemanticError::InvalidSize {
                 actual: meta.size().value(),
             });
