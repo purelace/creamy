@@ -21,8 +21,9 @@ where
             let t = match s.kind {
                 EnrichedFieldType::Type { name } => path_to_string(&name),
                 EnrichedFieldType::StaticArray { kind, len } => format!("[{kind}; {len}]"),
-                EnrichedFieldType::Special(_) => unreachable!(),
-                EnrichedFieldType::HeapArray { .. } => unreachable!(),
+                EnrichedFieldType::Special(_) | EnrichedFieldType::HeapArray { .. } => {
+                    unreachable!()
+                }
             };
             quote! {
                 pub $n: $t,
