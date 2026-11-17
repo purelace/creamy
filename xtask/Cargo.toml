@@ -8,7 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-clap = { version = "4.6.7", features = ["derive"] }
+clap.workspace = true
 xshell = "0.2.7"
 cargo_metadata = "0.23.1"
 anyhow.workspace = true

@@ -29,7 +29,7 @@ predicates = "3.1.4"
 
 [build-dependencies]
 clap.workspace = true
-clap_complete = "4.6.11"
+clap_complete = "4.6.12"
 
 [[bin]]
 name = "creamy"
