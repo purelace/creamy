@@ -82,16 +82,23 @@ impl<T: Fallback, E: Into<ProtocolError>> ProtocolErrorExt<T> for Result<T, E> {
     fn or_recover(self, diagnostics: &mut Diagnostics) -> T {
         match self {
             Ok(value) => value,
-            Err(error) => {
-                diagnostics.report_err(error);
-                T::fallback()
-            }
+            Err(error) => diagnostics.report_err(error),
         }
     }
 }
 
 pub trait Fallback {
     fn fallback() -> Self;
+}
+
+impl Fallback for () {
+    fn fallback() -> Self {}
+}
+
+impl Fallback for bool {
+    fn fallback() -> Self {
+        false
+    }
 }
 
 const ERROR_IDENT: &str = "Error";
@@ -117,10 +124,6 @@ impl Fallback for usize {
 #[derive(Debug, Error, Clone, PartialEq, Eq, Diagnostic)]
 #[diagnostic(severity(Error))]
 pub enum SemanticError {
-    // --- Global Limits ---
-    #[error("[P101] Too many unique strings. Max 65535")]
-    TooManyUniqueStrings,
-
     #[error("[P200] Invalid size {actual}")]
     #[diagnostic(code(semantic::invalid_size))]
     #[diagnostic(help("actual size must be between 1 and 28 bytes"))]
@@ -143,23 +146,10 @@ pub enum SemanticError {
     #[diagnostic(help("allowed align: [1, 2, 4, 8, 16]"))]
     ForbiddenAlign { actual: u64 },
 
-    #[error("[P203] Target raw align cannot be '{actual}'. Probably, this is a bug.")]
-    #[diagnostic(code(semantic::forbidden_raw_align))]
-    #[diagnostic(help("allowed align: [0, 1, 2, 3, 4]"))]
-    ForbiddenRawAlign { actual: u8 },
-
     #[error("[P204] Invalid enum underlying type")]
     #[diagnostic(code(semantic::invalid_enum_underlying_type))]
     #[diagnostic(help("supported types: u8, u16, u32, u64, i8, i16, i32, i64"))]
     InvalidEnumUnderlyingType,
-
-    #[error("[P205] Too many fields in '{0}'")]
-    #[diagnostic(code(semantic::field_limit_exceeded))]
-    #[diagnostic(help("max 28 fields per struct/message is allowed"))]
-    FieldLimitExceeded(String),
-
-    #[error("[P206] Not enough free space in '{0}' struct. Max 28 reserved bytes")]
-    FreeBytesLimitExceeded(String),
 
     #[error("[P207] Enum variant value out of range: {value}")]
     #[diagnostic(code(semantic::enum_variant_value_out_of_range))]

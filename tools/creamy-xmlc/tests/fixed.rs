@@ -31,14 +31,14 @@ fn invalid_field_range() {
         panic!("'SpanId' is not a struct ");
     };
 
-    let fields = s.fields().to_vec();
+    let fields = s.fields.to_vec();
 
     assert_eq!(
         fields,
-        [FieldSymbol::new(
-            protocol.pool().get_id("value"),
-            FieldType::Type(T_U64_ID),
-            false,
-        )],
+        [FieldSymbol {
+            ident: protocol.pool().get_id("value"),
+            kind: FieldType::Type(T_U64_ID),
+            is_padding: false,
+        }],
     );
 }

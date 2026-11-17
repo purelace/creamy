@@ -1,5 +1,4 @@
-use creamy_utils::strpool::StringPoolResolver;
-use creamy_xmlc::SemanticModel;
+use creamy_xmlc::{SemanticModel, utils::strpool::StringPoolResolver};
 use semver::Version;
 
 const SAMPLE: &str = include_str!("samples/success.cmp");

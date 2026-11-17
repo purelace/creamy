@@ -1,7 +1,8 @@
+use creamy_binary::BinWrite;
 use hashbrown::HashMap;
 use smol_str::SmolStr;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StringId(u16);
 
 impl StringId {
@@ -31,7 +32,7 @@ impl StringPool {
     /// # Examples
     ///
     /// ```
-    /// use creamy_utils::strpool::{StringPool, StringId};
+    /// use creamy_xmlc::utils::strpool::{StringPool, StringId};
     ///
     /// let mut pool = StringPool::default();
     ///
@@ -44,7 +45,7 @@ impl StringPool {
     /// # Panic example
     ///
     /// ```should_panic
-    /// use creamy_utils::strpool::StringPool;
+    /// use creamy_xmlc::utils::strpool::StringPool;
     ///
     /// let mut pool = StringPool::default();
     /// pool.get_id("Foo");
@@ -71,7 +72,7 @@ impl StringPool {
     ///
     /// # Examples
     /// ```
-    /// use creamy_utils::strpool::StringPool;
+    /// use creamy_xmlc::utils::strpool::StringPool;
     ///
     /// let mut pool = StringPool::default();
     /// assert!(pool.try_get_id("Foo").is_none());
@@ -82,7 +83,7 @@ impl StringPool {
     ///
     /// # Panic example
     /// ```should_panic
-    /// use creamy_utils::strpool::{StringPool, StringId};
+    /// use creamy_xmlc::utils::strpool::{StringPool, StringId};
     ///
     /// let mut pool = StringPool::default();
     /// for i in 0..=u16::MAX {
@@ -108,7 +109,7 @@ impl StringPool {
     /// # Examples
     ///
     /// ```
-    /// use creamy_utils::strpool::{StringPool, StringId};
+    /// use creamy_xmlc::utils::strpool::{StringPool, StringId};
     ///
     /// let mut pool = StringPool::default();
     ///
@@ -121,7 +122,7 @@ impl StringPool {
     /// # Panic example
     ///
     /// ```should_panic
-    /// use creamy_utils::strpool::{StringPool, StringId};
+    /// use creamy_xmlc::utils::strpool::{StringPool, StringId};
     ///
     /// let mut pool = StringPool::default();
     /// pool.get_string(StringId::new(10));

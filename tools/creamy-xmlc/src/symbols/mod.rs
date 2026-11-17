@@ -9,6 +9,7 @@ mod numeric;
 mod repr;
 
 pub use bitset::*;
+use creamy_binary::BinWrite;
 pub use enumeration::{EnumSymbol, Number, VariantSymbol};
 pub use field::{FieldSymbol, FieldType, SpecialType};
 pub use flags::*;
@@ -36,37 +37,22 @@ impl Type {
     pub const fn ident(&self) -> StringId {
         match self {
             Type::Numeric(s) => s.name(),
-            Type::Flags(s) => s.ident(),
-            Type::Enum(s) => s.ident(),
-            Type::Bitset(s) => s.ident(),
-            Type::Struct(s) => s.ident(),
-            Type::Object(s) => s.ident(),
+            Type::Flags(s) => s.ident,
+            Type::Enum(s) => s.ident,
+            Type::Bitset(s) => s.ident,
+            Type::Struct(s) => s.ident,
+            Type::Object(s) => s.ident,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ArraySymbol {
-    pub(crate) kind: TypeId,
-    pub(crate) len: Size,
+    pub kind: TypeId,
+    pub len: Size,
 }
 
 impl ArraySymbol {
-    #[must_use]
-    pub const fn new(kind: TypeId, len: Size) -> Self {
-        Self { kind, len }
-    }
-
-    #[must_use]
-    pub const fn kind(&self) -> TypeId {
-        self.kind
-    }
-
-    #[must_use]
-    pub const fn len(&self) -> Size {
-        self.len
-    }
-
     #[must_use]
     pub fn total_size(&self) -> u64 {
         let kind_size = self.kind.size().value();
@@ -77,43 +63,21 @@ impl ArraySymbol {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ObjectSymbol {
-    pub(crate) ident: StringId,
-    pub(crate) fields: Box<[FieldSymbol]>,
-}
-
-impl ObjectSymbol {
-    #[must_use]
-    pub const fn ident(&self) -> StringId {
-        self.ident
-    }
-
-    #[must_use]
-    pub const fn fields(&self) -> &[FieldSymbol] {
-        &self.fields
-    }
+    pub ident: StringId,
+    pub fields: Box<[FieldSymbol]>,
+    pub builtin: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StructSymbol {
-    pub(crate) ident: StringId,
-    pub(crate) fields: Box<[FieldSymbol]>,
-}
-
-impl StructSymbol {
-    #[must_use]
-    pub const fn ident(&self) -> StringId {
-        self.ident
-    }
-
-    #[must_use]
-    pub const fn fields(&self) -> &[FieldSymbol] {
-        &self.fields
-    }
+    pub ident: StringId,
+    pub fields: Box<[FieldSymbol]>,
+    pub builtin: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ArrayFieldSymbol {
-    pub(crate) ident: StringId,
-    pub(crate) kind: TypeId,
-    pub(crate) len: StringId,
+    pub ident: StringId,
+    pub kind: TypeId,
+    pub len: StringId,
 }

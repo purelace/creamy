@@ -27,7 +27,7 @@ use creamy_phf::{PerfectHashTable, generate_perfect_hash_table};
 use creamy_plugin_package::manifest::Manifest;
 use creamy_xmlc::{
     SemanticModel,
-    symbols::{LayoutEntry, MessageSymbol, MessageSymbolType, Type},
+    symbols::{LayoutEntry, MessageSymbolType, Type},
     utils::{
         Direction,
         strpool::{StringId, StringPoolResolver},
@@ -254,18 +254,18 @@ impl Codegen {
             ])));
 
             let mut dispatch_values: HashMap<StringId, (u8, u32)> = HashMap::new();
-            for message_symbol in model.messages() {
+            for message_symbol in model
+                .stable()
+                .iter()
+                .chain(model.extension())
+                .chain(model.experimental())
+            {
                 // Valid form of the dispatch value: [0x_00_FF_00_FF]
-                let dispatch_value =
-                    u32::from(protocol_id) << 16 | u32::from(message_symbol.kind());
-                dispatch_values.insert(message_symbol.ident(), (protocol_id, dispatch_value));
+                let dispatch_value = u32::from(protocol_id) << 16 | u32::from(message_symbol.kind);
+                dispatch_values.insert(message_symbol.ident, (protocol_id, dispatch_value));
 
-                let dir = message_symbol.direction();
+                let dir = message_symbol.direction;
 
-                // Условие включения:
-                // 1. Это Duplex (нужен всегда)
-                // 2. Или группа поставляется И направление Outgoing
-                // 3. Или группа НЕ поставляется И направление Incoming
                 let should_add = dir == Direction::Duplex
                     || (protocol.provide() && dir == Direction::Incoming)
                     || (!protocol.provide() && dir == Direction::Outgoing);
@@ -273,7 +273,7 @@ impl Codegen {
                 if should_add {
                     message_paths.push(Path::from_absolute(AbsolutePath::from_iter([
                         name.as_str(),
-                        message_symbol.ident().resolve(model.pool()),
+                        message_symbol.ident.resolve(model.pool()),
                     ])));
                 }
             }
@@ -282,8 +282,6 @@ impl Codegen {
                 model,
                 &dispatch_values,
                 &AbsolutePath::from_iter([name.as_str()]),
-                model.types(),
-                model.messages(),
                 generator,
             );
 
@@ -340,28 +338,26 @@ impl Codegen {
     fn generate_types<'s, G: CodeGenerator<'s>>(
         model: &'s SemanticModel,
         module_path: &AbsolutePath,
-        types: &'s [Type],
         generator: &mut G,
     ) {
-        for ty in types {
+        for ty in model.types() {
             match ty {
                 Type::Numeric(_) => {}
                 Type::Enum(s) => {
                     let symbol = EnrichedEnumSymbol {
-                        name: s.ident().resolve(model.pool()),
-                        repr: s.repr(),
-                        variants: s.variants().iter().map(|v| EnrichedVariantSymbol {
-                            name: v.ident().resolve(model.pool()),
-                            value: v.value(),
+                        name: s.ident.resolve(model.pool()),
+                        repr: s.repr,
+                        variants: s.variants.iter().map(|v| EnrichedVariantSymbol {
+                            name: v.ident.resolve(model.pool()),
+                            value: v.value,
                         }),
                     };
-
                     generator.generate_enum(symbol);
                 }
                 Type::Flags(s) => {
                     let symbol = EnrichedFlagsSymbol {
-                        name: s.ident().resolve(model.pool()),
-                        underlying_type: match s.options().len() {
+                        name: s.ident.resolve(model.pool()),
+                        underlying_type: match s.options.len() {
                             1..=8 => FlagUnderlyingType::U8,
                             9..=16 => FlagUnderlyingType::U16,
                             17..=32 => FlagUnderlyingType::U32,
@@ -369,39 +365,37 @@ impl Codegen {
                             65..=128 => FlagUnderlyingType::U128,
                             other => unreachable!("Unreachable length: {other}"),
                         },
-                        options: OptionList::new(model.pool(), s.options()),
+                        options: OptionList::new(model.pool(), &s.options),
                     };
-
                     generator.generate_flags(symbol);
                 }
                 Type::Bitset(s) => {
                     let symbol = EnrichedBitsetSymbol {
-                        name: s.ident().resolve(model.pool()),
-                        values: BitsetValueList::new(model.pool(), s.values()),
+                        name: s.ident.resolve(model.pool()),
+                        values: BitsetValueList::new(model.pool(), &s.values),
                     };
-
                     generator.generate_bitset(symbol);
                 }
                 Type::Struct(s) => {
                     let symbol = EnrichedStructSymbol {
-                        name: s.ident().resolve(model.pool()),
+                        name: s.ident.resolve(model.pool()),
                         fields: FieldList::new(
                             module_path.clone(),
                             model.pool(),
                             model.table(),
-                            s.fields().iter().copied(),
+                            s.fields.iter().copied(),
                         ),
                     };
                     generator.generate_struct(symbol);
                 }
                 Type::Object(s) => {
                     let symbol = EnrichedObjectSymbol {
-                        name: s.ident().resolve(model.pool()),
+                        name: s.ident.resolve(model.pool()),
                         fields: FieldList::new(
                             module_path.clone(),
                             model.pool(),
                             model.table(),
-                            s.fields().iter().copied(),
+                            s.fields.iter().copied(),
                         ),
                     };
                     generator.generate_object(symbol);
@@ -415,17 +409,20 @@ impl Codegen {
         model: &'s SemanticModel,
         dispatch_value_table: &HashMap<StringId, (u8, u32)>, //protocol, value
         module_path: &AbsolutePath,
-        types: &'s [Type],
-        messages: &[MessageSymbol],
         generator: &mut G,
     ) {
-        Self::generate_types(model, module_path, types, generator);
+        Self::generate_types(model, module_path, generator);
 
-        for symbol in messages {
+        for symbol in model
+            .stable()
+            .iter()
+            .chain(model.extension())
+            .chain(model.experimental())
+        {
             let (protocol, dispatch_value) =
-                dispatch_value_table.get(&symbol.ident()).copied().unwrap();
+                dispatch_value_table.get(&symbol.ident).copied().unwrap();
 
-            let message_type = match symbol.message_type() {
+            let message_type = match &symbol.message_type {
                 MessageSymbolType::Single => MessageType::Single,
                 MessageSymbolType::Stream {
                     serialization_layout,
@@ -463,15 +460,15 @@ impl Codegen {
             };
 
             let symbol = EnrichedMessageSymbol {
-                name: symbol.ident().resolve(model.pool()),
-                kind: symbol.kind(),
+                name: symbol.ident.resolve(model.pool()),
+                kind: symbol.kind,
                 protocol,
                 dispatch_value,
                 fields: FieldList::new(
                     module_path.clone(),
                     model.pool(),
                     model.table(),
-                    symbol.fields().iter().copied(),
+                    symbol.fields.iter().copied(),
                 ),
                 message_type,
             };

@@ -1,28 +1,21 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 
+use creamy_binary::BinWrite;
+
 use super::FieldSymbol;
 use crate::{
+    error::Fallback,
     table::TypeId,
     utils::{Direction, strpool::StringId},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HeapArraySymbol {
-    pub(crate) kind: TypeId,
+    pub kind: TypeId,
 }
 
 impl HeapArraySymbol {
     const ARRAY_LENGTH_FIELD: u64 = 4;
-
-    #[must_use]
-    pub const fn new(kind: TypeId) -> Self {
-        Self { kind }
-    }
-
-    #[must_use]
-    pub const fn kind(&self) -> TypeId {
-        self.kind
-    }
 
     #[must_use]
     pub const fn align(&self) -> u64 {
@@ -35,59 +28,40 @@ impl HeapArraySymbol {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(u8)]
 pub enum ApiStatus {
-    Stable,
-    Extension,
-    Experimental,
+    Stable = 0,
+    Extension = 1,
+    Experimental = 2,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+impl Fallback for ApiStatus {
+    fn fallback() -> Self {
+        ApiStatus::Stable
+    }
+}
+
+#[derive(BinWrite, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MessageSymbol {
-    pub(crate) ident: StringId,
-    pub(crate) fields: Box<[FieldSymbol]>,
-    pub(crate) direction: Direction,
-    pub(crate) kind: u8,
-    pub(crate) api: ApiStatus,
-    pub(crate) message_type: MessageSymbolType,
+    pub ident: StringId,
+    pub fields: Box<[FieldSymbol]>,
+    pub direction: Direction,
+    pub kind: u8,
+    pub api: ApiStatus,
+    pub message_type: MessageSymbolType,
 }
 
-impl MessageSymbol {
-    #[must_use]
-    pub const fn ident(&self) -> StringId {
-        self.ident
-    }
-
-    #[must_use]
-    pub const fn fields(&self) -> &[FieldSymbol] {
-        &self.fields
-    }
-
-    #[must_use]
-    pub const fn direction(&self) -> Direction {
-        self.direction
-    }
-
-    #[must_use]
-    pub const fn kind(&self) -> u8 {
-        self.kind
-    }
-
-    #[must_use]
-    pub const fn message_type(&self) -> &MessageSymbolType {
-        &self.message_type
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum LayoutEntry {
-    ArrayLength { name: StringId },
-    ArrayWrite { name: StringId },
-    Slice { to: u64, kind: TypeId },
-    LastSlice { to: u64 },
+    ArrayLength { name: StringId } = 0,
+    ArrayWrite { name: StringId } = 1,
+    Slice { to: u64, kind: TypeId } = 2,
+    LastSlice { to: u64 } = 3,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Default, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SerializationLayout {
     items: Vec<LayoutEntry>,
 }
@@ -103,11 +77,12 @@ impl SerializationLayout {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum MessageSymbolType {
-    Single,
+    Single = 0,
     Stream {
         serialization_layout: SerializationLayout,
         lightweight_content: Box<[FieldSymbol]>,
-    },
+    } = 1,
 }

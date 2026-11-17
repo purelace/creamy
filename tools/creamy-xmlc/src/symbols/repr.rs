@@ -2,7 +2,7 @@
 use core::fmt::Display;
 
 use super::{Number, NumericSymbol};
-use crate::error::SemanticError;
+use crate::error::{Fallback, SemanticError};
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PrimitiveRepr {
@@ -15,6 +15,12 @@ pub enum PrimitiveRepr {
     I16,
     I32,
     I64,
+}
+
+impl Fallback for PrimitiveRepr {
+    fn fallback() -> Self {
+        PrimitiveRepr::U32
+    }
 }
 
 impl PrimitiveRepr {

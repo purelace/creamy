@@ -1004,6 +1004,7 @@ name = "creamy-xmlc"
 version = "0.1.0"
 dependencies = [
  "blake3",
+ "creamy-binary",
  "hashbrown 0.17.1",
  "miette",
  "owo-colors",

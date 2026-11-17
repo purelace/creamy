@@ -123,10 +123,10 @@ pub fn collect_read_variants(repr: Repr, s: &DataEnum) -> Vec<proc_macro2::Token
             .map(|f| {
                 let ty = &f.ty;
                 if let Some(ident) = f.ident.as_ref() {
-                    quote! { #ident: #ty::read::<R, E>(reader)?, }
+                    quote! { #ident: <#ty>::read::<R, E>(reader)?, }
                 } else {
                     is_fields_unnamed = true;
-                    quote! { #ty::read::<R, E>(reader)?, }
+                    quote! { <#ty>::read::<R, E>(reader)?, }
                 }
             })
             .collect::<Vec<_>>();

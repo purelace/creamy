@@ -57,9 +57,9 @@ impl<W: StreamMessage> StreamWriter<W> {
         self.frame = self.frame.saturating_add(1);
     }
 
-    pub const fn is_timed_out(&self) -> bool {
-        self.frame >= W::TIMEOUT
-    }
+    //pub const fn is_timed_out(&self) -> bool {
+    //    self.frame >= W::TIMEOUT
+    //}
 
     pub const fn reset_frame_timer(&mut self) {
         self.frame = 0;

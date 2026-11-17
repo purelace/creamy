@@ -1,6 +1,6 @@
 use miette::NamedSource;
 
-use crate::error::ProtocolError;
+use crate::error::{Fallback, ProtocolError};
 
 #[derive(Default, Debug)]
 pub struct Diagnostics {
@@ -8,8 +8,9 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
-    pub fn report_err(&mut self, error: impl Into<ProtocolError>) {
+    pub fn report_err<F: Fallback>(&mut self, error: impl Into<ProtocolError>) -> F {
         self.errors.push(error.into());
+        F::fallback()
     }
 
     #[must_use]

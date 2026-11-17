@@ -42,7 +42,6 @@ pub trait StreamLightweightContent: Sized {
 
 pub trait StreamMessage: Message {
     const PREPARED: Self;
-    const TIMEOUT: u8;
     type Content: StreamContent;
     type Lightweight: StreamLightweightContent;
 

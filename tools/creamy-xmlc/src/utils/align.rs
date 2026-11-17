@@ -1,3 +1,5 @@
+use creamy_binary::BinWrite;
+
 use self::Align::{B1, B2, B4, B8, B16};
 
 /// # Available values:
@@ -6,7 +8,8 @@ use self::Align::{B1, B2, B4, B8, B16};
 /// * 2 `[010]` - 4 bytes,
 /// * 3 `[011]` - 8 bytes,
 /// * 4 `[100]` - 16 bytes,
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum Align {
     B1 = 0,
     B2 = 1,

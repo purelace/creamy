@@ -63,7 +63,7 @@ pub enum Token {
     Comma(Span),
     /// =
     Equals(Span),
-    Unknown((char, Span)),
+    Unknown(Span),
 }
 
 impl core::fmt::Debug for Token {
@@ -135,7 +135,7 @@ impl Token {
             | Token::Semicolon(span)
             | Token::Comma(span)
             | Token::Equals(span)
-            | Token::Unknown((_, span)) => *span,
+            | Token::Unknown(span) => *span,
         }
     }
 }
@@ -241,7 +241,7 @@ impl<'src> Tokenizer<'src> {
                 }
                 None => None,
             },
-            Some(o) => Some(Token::Unknown((o, self.create_span_with_length(1)))),
+            Some(_) => Some(Token::Unknown(self.create_span_with_length(1))),
             None => None,
         }
     }
@@ -280,7 +280,7 @@ impl Iterator for Tokenizer<'_> {
                 }
                 c if c.is_alphabetic() => self.parse_ident(),
                 c if c.is_numeric() || c == '-' => self.parse_number(),
-                o => Token::Unknown((o, self.create_span_with_length(1))),
+                _ => Token::Unknown(self.create_span_with_length(1)),
             });
         }
 

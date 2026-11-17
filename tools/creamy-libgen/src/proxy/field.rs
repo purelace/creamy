@@ -45,14 +45,14 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> FieldList<'s, I> {
                 EnrichedFieldType::Type { name: path }
             }
             FieldType::StaticArray(s) => {
-                let kind = self.tt.get_type(s.kind()).ident().resolve(self.pool);
+                let kind = self.tt.get_type(s.kind).ident().resolve(self.pool);
                 EnrichedFieldType::StaticArray {
                     kind: Cow::Borrowed(kind),
-                    len: s.len().value(),
+                    len: s.len.value(),
                 }
             }
             FieldType::HeapArray(s) => {
-                let kind = self.tt.get_type(s.kind()).ident().resolve(self.pool);
+                let kind = self.tt.get_type(s.kind).ident().resolve(self.pool);
                 EnrichedFieldType::HeapArray {
                     kind: Cow::Borrowed(kind),
                 }
@@ -85,9 +85,9 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(field) = self.fields.next() {
             Some(EnrichedFieldSymbol {
-                name: Cow::Borrowed(field.ident().resolve(self.pool)),
-                kind: self.get_field_kind(field.kind()),
-                is_padding: field.is_padding(),
+                name: Cow::Borrowed(field.ident.resolve(self.pool)),
+                kind: self.get_field_kind(field.kind),
+                is_padding: field.is_padding,
             })
         } else {
             None

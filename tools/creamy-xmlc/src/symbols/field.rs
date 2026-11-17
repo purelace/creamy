@@ -1,60 +1,40 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 
+use creamy_binary::BinWrite;
+
 use super::{ArraySymbol, HeapArraySymbol, T_U8_ID};
 use crate::{table::TypeId, utils::strpool::StringId};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum SpecialType {
-    SubscriberId,
-    ProtocolId,
+    SubscriberId = 0,
+    ProtocolId = 1,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum FieldType {
-    Type(TypeId),
-    StaticArray(ArraySymbol),
-    HeapArray(HeapArraySymbol),
-    Special(SpecialType),
+    Type(TypeId) = 0,
+    StaticArray(ArraySymbol) = 1,
+    HeapArray(HeapArraySymbol) = 2,
+    Special(SpecialType) = 3,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FieldSymbol {
-    pub(crate) ident: StringId,
-    pub(crate) kind: FieldType,
-    pub(crate) is_padding: bool,
+    pub ident: StringId,
+    pub kind: FieldType,
+    pub is_padding: bool,
 }
 
 impl FieldSymbol {
-    #[must_use]
-    pub const fn new(ident: StringId, kind: FieldType, is_padding: bool) -> Self {
-        Self {
-            ident,
-            kind,
-            is_padding,
-        }
-    }
-
-    #[must_use]
-    pub const fn ident(&self) -> StringId {
-        self.ident
-    }
-
-    #[must_use]
-    pub const fn kind(&self) -> FieldType {
-        self.kind
-    }
-
-    #[must_use]
-    pub const fn is_padding(&self) -> bool {
-        self.is_padding
-    }
-
     #[must_use]
     pub fn type_id(&self) -> TypeId {
         match self.kind {
             FieldType::Type(s) => s,
             FieldType::StaticArray(s) => s.kind,
-            FieldType::HeapArray(s) => s.kind(),
+            FieldType::HeapArray(s) => s.kind,
             FieldType::Special(_) => T_U8_ID,
         }
     }

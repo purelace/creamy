@@ -1,12 +1,14 @@
 use core::num::NonZeroU64;
 
+use creamy_binary::BinWrite;
+
 use crate::{
     MAX_PAYLOAD,
     error::{Fallback, SemanticError},
 };
 
 /// This struct is guaranteed that size is non-zero and equal to or less than [`Self::MAX_VALUE`];
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // TODO: validate struct after deserialization
 pub struct Size(NonZeroU64);
 impl Size {

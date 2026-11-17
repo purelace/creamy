@@ -12,11 +12,11 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn single_field() {
-    let vec = [FieldSymbol::new(
-        StringId::new(1),
-        FieldType::Type(T_U64_ID),
-        false,
-    )];
+    let vec = [FieldSymbol {
+        ident: StringId::new(1),
+        kind: FieldType::Type(T_U64_ID),
+        is_padding: false,
+    }];
 
     let steps = LayoutCalculator::new(None, vec.iter().copied()).collect::<Vec<_>>();
 
@@ -51,25 +51,55 @@ struct Test {
 #[allow(clippy::too_many_lines)]
 fn validate() -> Result<(), Box<dyn core::error::Error>> {
     let vec = [
-        FieldSymbol::new(
-            StringId::new(1),
-            FieldType::StaticArray(ArraySymbol::new(T_I16_ID, Size::try_new(2)?)),
-            false,
-        ),
-        FieldSymbol::new(StringId::new(2), FieldType::Type(T_U8_ID), false),
-        FieldSymbol::new(StringId::new(3), FieldType::Type(T_U32_ID), false),
-        FieldSymbol::new(StringId::new(4), FieldType::Type(T_I128_ID), false),
-        FieldSymbol::new(StringId::new(5), FieldType::Type(T_U8_ID), false),
+        /* HEADER */
+        FieldSymbol {
+            ident: StringId::new(10),
+            kind: FieldType::StaticArray(ArraySymbol {
+                kind: T_U8_ID,
+                len: Size::try_new(4)?,
+            }),
+            is_padding: false,
+        },
+        FieldSymbol {
+            ident: StringId::new(1),
+            kind: FieldType::StaticArray(ArraySymbol {
+                kind: T_I16_ID,
+                len: Size::try_new(2)?,
+            }),
+            is_padding: false,
+        },
+        FieldSymbol {
+            ident: StringId::new(2),
+            kind: FieldType::Type(T_U8_ID),
+            is_padding: false,
+        },
+        FieldSymbol {
+            ident: StringId::new(3),
+            kind: FieldType::Type(T_U32_ID),
+            is_padding: false,
+        },
+        FieldSymbol {
+            ident: StringId::new(4),
+            kind: FieldType::Type(T_I128_ID),
+            is_padding: false,
+        },
+        FieldSymbol {
+            ident: StringId::new(5),
+            kind: FieldType::Type(T_U8_ID),
+            is_padding: false,
+        },
     ];
 
-    let steps = LayoutCalculator::new(None, vec.iter().copied()).collect::<Vec<_>>();
+    let steps = LayoutCalculator::new(None, vec.iter().copied())
+        .skip(1)
+        .collect::<Vec<_>>();
 
     assert_eq!(
         steps,
         [
             (
                 // a: [i16; 2],
-                LayoutItem::Field(vec[0]),
+                LayoutItem::Field(vec[1]),
                 LayoutStep {
                     size: 4,
                     align: 2,
@@ -79,7 +109,7 @@ fn validate() -> Result<(), Box<dyn core::error::Error>> {
             ),
             (
                 // b: u8,
-                LayoutItem::Field(vec[1]),
+                LayoutItem::Field(vec[2]),
                 LayoutStep {
                     size: 1,
                     align: 1,
@@ -102,7 +132,7 @@ fn validate() -> Result<(), Box<dyn core::error::Error>> {
             ),
             (
                 // c: u32,
-                LayoutItem::Field(vec[2]),
+                LayoutItem::Field(vec[3]),
                 LayoutStep {
                     size: 4,
                     align: 4,
@@ -112,7 +142,7 @@ fn validate() -> Result<(), Box<dyn core::error::Error>> {
             ),
             (
                 // d: i128,
-                LayoutItem::Field(vec[3]),
+                LayoutItem::Field(vec[4]),
                 LayoutStep {
                     size: 16,
                     align: 16,
@@ -122,7 +152,7 @@ fn validate() -> Result<(), Box<dyn core::error::Error>> {
             ),
             (
                 // e: u8,
-                LayoutItem::Field(vec[4]),
+                LayoutItem::Field(vec[5]),
                 LayoutStep {
                     size: 1,
                     align: 1,

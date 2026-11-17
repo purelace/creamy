@@ -1,7 +1,4 @@
-use creamy_xmlc::{
-    symbols::OptionSymbol,
-    utils::strpool::{StringPool, StringPoolResolver},
-};
+use creamy_xmlc::utils::strpool::{StringId, StringPool, StringPoolResolver};
 
 use crate::SymbolIterator;
 
@@ -26,13 +23,13 @@ where
 #[derive(Clone)]
 pub struct OptionList<'s> {
     pool: &'s StringPool,
-    slice: &'s [OptionSymbol],
+    slice: &'s [StringId],
     index: usize,
 }
 
 impl<'s> OptionList<'s> {
     #[must_use]
-    pub const fn new(pool: &'s StringPool, slice: &'s [OptionSymbol]) -> Self {
+    pub const fn new(pool: &'s StringPool, slice: &'s [StringId]) -> Self {
         Self {
             pool,
             slice,
@@ -52,7 +49,7 @@ impl<'s> Iterator for OptionList<'s> {
         let item = self.slice[self.index];
         self.index += 1;
 
-        Some(item.ident().resolve(self.pool))
+        Some(item.resolve(self.pool))
     }
 }
 

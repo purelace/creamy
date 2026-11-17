@@ -7,7 +7,6 @@
 //#![deny(clippy::panic)]
 //#![deny(clippy::as_conversions)]
 
-mod api;
 mod ast;
 mod compiler;
 pub mod symbols;
@@ -31,8 +30,6 @@ pub use diagnostics::Diagnostics;
 //TODO: name duplicate
 //TODO: self reference
 //TODO: missing type reference
-//TODO: если токенайзер заменит токен на его fallback версию,
-// то есть вероятность что поиск дубликатов имен и self reference выдаст ложно-положительный результат
 
 pub const MAX_PAYLOAD: u64 = 28;
 pub const HEADER_BYTES: u64 = 4;

@@ -93,11 +93,6 @@ pub struct StaticArrayNode<'src> {
 }
 
 #[derive(Debug)]
-pub struct DynamicArrayNode<'src> {
-    pub kind: IdentifierNode<'src>,
-}
-
-#[derive(Debug)]
 pub enum TypeRefNode<'src> {
     Identifier(IdentifierNode<'src>),
     StaticArray(StaticArrayNode<'src>),
@@ -297,7 +292,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
                         diag,
                     )),
                     other => {
-                        diag.report_err(SyntaxError::UnknownKeyword {
+                        diag.report_err::<()>(SyntaxError::UnknownKeyword {
                             actual: other.to_string(),
                             span: span.into(),
                         });
@@ -378,17 +373,11 @@ impl<'src> SyntaxTreeBuilder<'src> {
     fn consume_equals(&mut self, diag: &mut Diagnostics) -> bool {
         match self.tokenizer.next() {
             Some(Token::Equals(_)) => true,
-            Some(other) => {
-                diag.report_err(SyntaxError::UnexpectedToken {
-                    expected: "=",
-                    span: other.span().into(),
-                });
-                false
-            }
-            None => {
-                diag.report_err(SyntaxError::UnexpectedEOF);
-                false
-            }
+            Some(other) => diag.report_err(SyntaxError::UnexpectedToken {
+                expected: "=",
+                span: other.span().into(),
+            }),
+            None => diag.report_err(SyntaxError::UnexpectedEOF),
         }
     }
 
@@ -645,7 +634,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
         }
 
         self.eof_reported = true;
-        diag.report_err(SyntaxError::UnexpectedEOF);
+        diag.report_err::<()>(SyntaxError::UnexpectedEOF);
     }
 
     fn consume_equals_or_skip(&mut self, diag: &mut Diagnostics) -> ControlFlow {
@@ -803,10 +792,7 @@ impl<'src> SyntaxTreeBuilder<'src> {
             Some(other) => {
                 todo!("other: {other:#?}");
             }
-            None => {
-                diag.report_err(SyntaxError::UnexpectedEOF);
-                false
-            }
+            None => diag.report_err(SyntaxError::UnexpectedEOF),
         }
     }
 

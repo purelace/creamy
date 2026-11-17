@@ -1,5 +1,6 @@
 use core::{fmt::Debug, mem::MaybeUninit};
 
+use creamy_binary::BinWrite;
 use hashbrown::HashMap;
 use strum::EnumCount;
 
@@ -9,7 +10,7 @@ use crate::{
     utils::{Align, Array, Size, strpool::StringId},
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(BinWrite, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct TypeMeta {
     align: Align,
     size: Size,
@@ -90,7 +91,7 @@ impl TypeMeta {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TypeId {
     index: u16,
     meta: TypeMeta,
