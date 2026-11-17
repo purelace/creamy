@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
 use creamy_xmlc::{
-    StringPool, StringPoolResolver,
     symbols::{FieldSymbol, FieldType, SpecialType, get_builtin_type_name, is_builtin_type},
     table::FinishedSymbolTable,
+    utils::strpool::{StringPool, StringPoolResolver},
 };
 
 use crate::{Path, SymbolIterator, utils::AbsolutePath};

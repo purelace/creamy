@@ -7,7 +7,6 @@ use creamy_libgen::{
     prelude::*,
     proxy::{EnrichedMessageSymbol, EnrichedObjectSymbol, MessageType},
 };
-use creamy_xmlc::model::symbols::{Number, SpecialType};
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 

@@ -1,9 +1,7 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 
-use creamy_utils::strpool::StringId;
-
 use super::{ArraySymbol, HeapArraySymbol, T_U8_ID};
-use crate::table::TypeId;
+use crate::{table::TypeId, utils::strpool::StringId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SpecialType {
@@ -27,6 +25,15 @@ pub struct FieldSymbol {
 }
 
 impl FieldSymbol {
+    #[must_use]
+    pub const fn new(ident: StringId, kind: FieldType, is_padding: bool) -> Self {
+        Self {
+            ident,
+            kind,
+            is_padding,
+        }
+    }
+
     #[must_use]
     pub const fn ident(&self) -> StringId {
         self.ident

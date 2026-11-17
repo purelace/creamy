@@ -1,13 +1,12 @@
 use core::{fmt::Debug, mem::MaybeUninit};
 
-use creamy_utils::strpool::StringId;
 use hashbrown::HashMap;
 use strum::EnumCount;
 
 use crate::{
     error::{Fallback, SemanticError},
     symbols::{NumericSymbol, T_U8_ID, Type, U8_META, U16_META, U32_META, U64_META, U128_META},
-    utils::{Align, Array, Size},
+    utils::{Align, Array, Size, strpool::StringId},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

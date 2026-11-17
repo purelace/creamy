@@ -1,6 +1,4 @@
-use creamy_utils::strpool::StringId;
-
-use crate::table::TypeId;
+use crate::{table::TypeId, utils::strpool::StringId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BitsetValueSymbol {

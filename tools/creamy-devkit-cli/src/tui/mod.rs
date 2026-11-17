@@ -2,9 +2,9 @@ mod memory;
 
 use console::style;
 use creamy_xmlc::{
-    HEADER_BYTES, SemanticModel, StringPoolResolver, get_meta,
+    HEADER_BYTES, SemanticModel, get_meta,
     symbols::{FieldSymbol, FieldType, Type},
-    utils::layout::compute_layout,
+    utils::{layout::compute_layout, strpool::StringPoolResolver},
 };
 
 use crate::tui::memory::{ArrayField, MemoryReport, SimpleField};

@@ -1,5 +1,7 @@
-use creamy_protocol_model::symbols::{FieldSymbol, FieldType, T_U64_ID, Type};
-use creamy_xmlc::SemanticModel;
+use creamy_xmlc::{
+    SemanticModel,
+    symbols::{FieldSymbol, FieldType, T_U64_ID, Type},
+};
 use pretty_assertions::assert_eq;
 
 const CONTENT: &str = include_str!("samples/fixed/invalid_field_range.cmp");
@@ -29,7 +31,7 @@ fn invalid_field_range() {
         panic!("'SpanId' is not a struct ");
     };
 
-    let fields = protocol.fields_range(s.fields()).to_vec();
+    let fields = s.fields().to_vec();
 
     assert_eq!(
         fields,

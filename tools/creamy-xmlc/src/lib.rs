@@ -20,7 +20,6 @@ mod diagnostics;
 pub mod error;
 
 pub use compiler::{SemanticModel, get_meta};
-pub use creamy_utils::strpool::*;
 pub use diagnostics::Diagnostics;
 //TODO: bool type
 //TODO: validate size

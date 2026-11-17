@@ -9,7 +9,6 @@ mod numeric;
 mod repr;
 
 pub use bitset::*;
-use creamy_utils::strpool::StringId;
 pub use enumeration::{EnumSymbol, Number, VariantSymbol};
 pub use field::{FieldSymbol, FieldType, SpecialType};
 pub use flags::*;
@@ -17,7 +16,10 @@ pub use message::*;
 pub use numeric::*;
 pub use repr::PrimitiveRepr;
 
-use crate::{table::TypeId, utils::Size};
+use crate::{
+    table::TypeId,
+    utils::{Size, strpool::StringId},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {

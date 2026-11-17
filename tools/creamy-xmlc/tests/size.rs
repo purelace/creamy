@@ -1,4 +1,4 @@
-use creamy_protocol_model::{Size, error::SemanticError};
+use creamy_xmlc::{error::SemanticError, utils::Size};
 
 #[test]
 fn validate() {

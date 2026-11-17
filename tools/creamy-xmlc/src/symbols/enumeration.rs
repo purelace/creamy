@@ -1,9 +1,7 @@
 use core::fmt::Display;
 
-use creamy_utils::strpool::StringId;
-
 use super::PrimitiveRepr;
-use crate::{error::SemanticError, table::TypeMeta};
+use crate::{error::SemanticError, table::TypeMeta, utils::strpool::StringId};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Number {

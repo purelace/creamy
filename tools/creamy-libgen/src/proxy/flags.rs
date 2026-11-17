@@ -1,5 +1,7 @@
-use creamy_plugin_package::pool::StringPool;
-use creamy_xmlc::{StringPoolResolver, symbols::OptionSymbol};
+use creamy_xmlc::{
+    symbols::OptionSymbol,
+    utils::strpool::{StringPool, StringPoolResolver},
+};
 
 use crate::SymbolIterator;
 

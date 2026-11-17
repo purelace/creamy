@@ -26,9 +26,12 @@ use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 use creamy_phf::{PerfectHashTable, generate_perfect_hash_table};
 use creamy_plugin_package::manifest::Manifest;
 use creamy_xmlc::{
-    SemanticModel, StringId, StringPoolResolver,
+    SemanticModel,
     symbols::{LayoutEntry, MessageSymbol, MessageSymbolType, Type},
-    utils::Direction,
+    utils::{
+        Direction,
+        strpool::{StringId, StringPoolResolver},
+    },
 };
 pub use utils::{AbsolutePath, Path};
 
@@ -291,13 +294,13 @@ impl Codegen {
     }
 
     fn generate_host_package<'s, G: CodeGenerator<'s>>(creamy_dir: PathBuf, generator: &mut G) {
-        let binary =
-            creamy_plugin_package::compilation::compile_to_binary(creamy_dir, Box::default())
-                .unwrap();
-        let mut vec = vec![];
+        //let binary =
+        //    creamy_plugin_package::compilation::compile_to_binary(creamy_dir, Box::default())
+        //        .unwrap();
+        //let mut vec = vec![];
         //binary.write_ne(&mut vec).unwrap();
 
-        generator.generate_host_package(vec);
+        //generator.generate_host_package(vec);
     }
 
     fn generate_host_protocol_table<'s, G: CodeGenerator<'s>>(

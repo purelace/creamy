@@ -1,4 +1,4 @@
-use creamy_utils::strpool::StringId;
+use crate::utils::strpool::StringId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FlagsSymbol {

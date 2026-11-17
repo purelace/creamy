@@ -1,6 +1,6 @@
 mod common;
 
-use creamy_protocol_model::error::SemanticError;
+use creamy_xmlc::error::SemanticError;
 
 use crate::common::compile;
 

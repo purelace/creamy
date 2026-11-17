@@ -10,30 +10,10 @@ workspace = true
 [dependencies]
 # no_std
 creamy-binary = { path = "../creamy-binary", features = ["semver"] }
-creamy-utils.workspace = true
 creamy-manifest.workspace = true
 thiserror.workspace = true
 semver.workspace = true
 
-# std only
-fs-err = { version = "3.3.2", optional = true,  features = ["debug"] }
-creamy-xmlc = { workspace = true, optional = true }
-
-[features]
-compile = ["fs-err", "creamy-xmlc"]
-
 [dev-dependencies]
 creamy-template.workspace = true
 tempfile.workspace = true
-
-[[test]]
-name = "compile"
-required-features = ["compile"]
-
-[[test]]
-name = "edge_cases"
-required-features = ["compile"]
-
-[[test]]
-name = "errors"
-required-features = ["compile"]

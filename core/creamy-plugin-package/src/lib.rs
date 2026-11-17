@@ -1,12 +1,9 @@
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
-#![cfg_attr(not(feature = "compile"), no_std)]
+#![no_std]
 
 extern crate alloc;
 
 mod error;
-
-#[cfg(feature = "compile")]
-pub mod compilation;
 
 pub mod manifest {
     pub use creamy_manifest::*;
@@ -14,10 +11,6 @@ pub mod manifest {
 
 pub mod version {
     pub use semver::*;
-}
-
-pub mod pool {
-    pub use creamy_utils::strpool::*;
 }
 
 use alloc::boxed::Box;

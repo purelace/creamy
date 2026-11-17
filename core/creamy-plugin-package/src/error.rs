@@ -8,12 +8,4 @@ pub enum Error {
 
     #[error("{0}")]
     Binary(alloc::boxed::Box<dyn core::error::Error + Send + Sync + 'static>),
-
-    #[cfg(feature = "compile")]
-    #[error("Too many files")]
-    TooManyFiles,
-
-    #[cfg(feature = "compile")]
-    #[error("{0}")]
-    IO(#[from] std::io::Error),
 }

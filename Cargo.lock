@@ -912,7 +912,6 @@ name = "creamy-manifest"
 version = "0.1.0"
 dependencies = [
  "creamy-binary",
- "creamy-utils",
  "hashbrown 0.17.1",
  "semver",
  "serde",
@@ -934,9 +933,6 @@ dependencies = [
  "creamy-binary",
  "creamy-manifest",
  "creamy-template",
- "creamy-utils",
- "creamy-xmlc",
- "fs-err",
  "semver",
  "tempfile",
  "thiserror 2.0.21",
@@ -984,16 +980,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "creamy-utils"
-version = "0.1.0"
-dependencies = [
- "creamy-binary",
- "hashbrown 0.17.1",
- "serde",
- "smol_str",
-]
-
-[[package]]
 name = "creamy-wasmtime"
 version = "0.1.0"
 dependencies = [
@@ -1019,7 +1005,6 @@ version = "0.1.0"
 dependencies = [
  "as-guard",
  "blake3",
- "creamy-utils",
  "hashbrown 0.17.1",
  "miette",
  "owo-colors",

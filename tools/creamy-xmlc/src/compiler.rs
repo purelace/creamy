@@ -4,7 +4,6 @@ use std::{
     str::FromStr,
 };
 
-use creamy_utils::strpool::{StringId, StringPool, StringPoolIntern, StringPoolResolver};
 use petgraph::{
     algo::toposort,
     graph::{DiGraph, NodeIndex},
@@ -34,6 +33,7 @@ use crate::{
     utils::{
         Access, Direction, Size,
         layout::{LayoutCalculator, LayoutItem, compute_layout},
+        strpool::{StringId, StringPool, StringPoolIntern, StringPoolResolver},
     },
 };
 

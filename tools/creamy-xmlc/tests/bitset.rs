@@ -1,4 +1,4 @@
-use creamy_protocol_model::error::SemanticError;
+use creamy_xmlc::error::SemanticError;
 
 use self::common::zero_span;
 

@@ -1,7 +1,6 @@
 use std::assert_matches;
 
 use creamy_binary::{BinaryReader, BinaryWriter};
-use creamy_utils::strpool::{StringPool, StringPoolIntern, StringPoolResolver};
 
 #[test]
 #[allow(

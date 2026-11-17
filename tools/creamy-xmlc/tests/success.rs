@@ -1,6 +1,6 @@
-use creamy_protocol_model::Version;
 use creamy_utils::strpool::StringPoolResolver;
 use creamy_xmlc::SemanticModel;
+use semver::Version;
 
 const SAMPLE: &str = include_str!("samples/success.cmp");
 const SAMPLE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/samples/success.cmp");
@@ -24,29 +24,3 @@ fn success_path() {
     let second = &protocol.table().types()[13];
     assert_eq!(second.ident().resolve(protocol.pool()), "LogType");
 }
-
-/*
-#[test]
-fn serialize_and_deserialize() {
-    let mut pool = StringPool::default();
-
-    match compile(&mut pool, SAMPLE) {
-        Ok(original) => {
-            let mut buffer = Vec::new();
-            original.write_ne(&mut buffer).expect("Failed to serialize");
-
-            let deserialized = ProtocolModel::read_ne(&mut buffer.as_slice())
-                .expect("Failed to deserialize from binary");
-
-            assert_eq!(
-                original, deserialized,
-                "Protocol changed after round-trip serialization"
-            );
-        }
-        Err(diag) => {
-            diag.print(SAMPLE);
-            panic!();
-        }
-    }
-}
-*/

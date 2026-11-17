@@ -1,8 +1,7 @@
 mod common;
 mod generator;
 
-use creamy_protocol_model::{constraints::MAX_MESSAGES_PER_PROTOCOL, error::SemanticError};
-use creamy_xmlc::error::SyntaxError;
+use creamy_xmlc::error::{SemanticError, SyntaxError};
 
 use crate::{
     common::{compile, zero_span},
@@ -51,10 +50,12 @@ fn assert_constraint(generator: Generator, err: SemanticError) {
     );
 }
 
+const MAX_MESSAGES: usize = 256;
+
 #[test]
 fn too_many_messages() {
     let generator = CMPGeneratorBuilder::default()
-        .messages(MAX_MESSAGES_PER_PROTOCOL + 1)
+        .messages(MAX_MESSAGES + 1)
         .fields_per_message(1)
         .build();
 

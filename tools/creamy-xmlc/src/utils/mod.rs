@@ -4,6 +4,7 @@ mod array;
 mod direction;
 pub mod layout;
 mod size;
+pub mod strpool;
 
 pub use access::Access;
 pub use align::Align;

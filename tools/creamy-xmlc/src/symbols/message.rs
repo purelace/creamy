@@ -1,9 +1,10 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 
-use creamy_utils::strpool::StringId;
-
 use super::FieldSymbol;
-use crate::{table::TypeId, utils::Direction};
+use crate::{
+    table::TypeId,
+    utils::{Direction, strpool::StringId},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HeapArraySymbol {

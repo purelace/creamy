@@ -1,12 +1,7 @@
+/*
 use std::path::Path;
 
-use anyhow::Context;
-use creamy_binary::BinaryWriter;
-use creamy_plugin_package::compilation::compile_to_binary;
-use fs_err as fs;
 use serde::Deserialize;
-
-use crate::utils::get_workdir;
 
 #[derive(Deserialize)]
 struct BuildConfiguration {
@@ -76,3 +71,4 @@ pub fn build(workdir: Option<String>) -> anyhow::Result<()> {
 
     Ok(())
 }
+*/

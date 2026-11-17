@@ -1,12 +1,11 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 use core::num::NonZeroU8;
 
-use creamy_utils::strpool::StringId;
 use strum::EnumCount;
 
 use crate::{
     table::{TypeId, TypeMeta},
-    utils::{Align, Size},
+    utils::{Align, Size, strpool::StringId},
 };
 
 pub const U8_ID: StringId = StringId::new(0);

@@ -1,24 +1,7 @@
-use alloc::string::String;
-
-use creamy_binary::{BinRead, BinWrite};
 use hashbrown::HashMap;
-use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
-#[derive(
-    BinRead,
-    BinWrite,
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StringId(u16);
 
 impl StringId {
@@ -33,7 +16,7 @@ impl StringId {
     }
 }
 
-#[derive(BinRead, BinWrite, Default, Debug, PartialEq, Eq)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct StringPool {
     map: HashMap<SmolStr, StringId>,
 }

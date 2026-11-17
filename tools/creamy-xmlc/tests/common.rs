@@ -1,9 +1,8 @@
 #![allow(clippy::missing_errors_doc)]
 
-use creamy_protocol_model::error::SemanticError;
 use creamy_xmlc::{
     SemanticModel,
-    error::{AstError, ProtocolError, SyntaxError},
+    error::{ProtocolError, SemanticError, SyntaxError},
 };
 use miette::SourceSpan;
 
@@ -22,24 +21,15 @@ pub const fn zero_span() -> SourceSpan {
 pub fn zeroize_span(err: &mut ProtocolError) {
     match err {
         ProtocolError::SyntaxError(syntax) => match syntax {
-            SyntaxError::MissingAttribute { span, .. }
-            | SyntaxError::InvalidVersionFormat { span }
+            SyntaxError::InvalidVersionFormat { span }
             | SyntaxError::InvalidAccess { span }
             | SyntaxError::InvalidDirection { span }
-            | SyntaxError::InvalidArraySyntax { span }
             | SyntaxError::IntParse { span, .. }
-            | SyntaxError::EmptyIdentifier { span }
-            | SyntaxError::InvalidIdentifier { span }
             | SyntaxError::UnknownKeyword { span, .. }
             | SyntaxError::UnexpectedToken { span, .. }
             | SyntaxError::NotANumber { span } => *span = zero_span(),
             SyntaxError::UnexpectedEOF => (),
         },
-        ProtocolError::AstError(ast) => {
-            if let AstError::UnexpectedToken { span } = ast {
-                *span = zero_span();
-            }
-        }
         ProtocolError::SemanticError(e) => match e {
             SemanticError::ForbiddenType { span }
             | SemanticError::ZeroBitsetValueWidth { span }

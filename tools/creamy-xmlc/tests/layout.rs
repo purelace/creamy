@@ -1,12 +1,13 @@
-use creamy_protocol_model::{
-    Size,
-    constraints::HEADER_BYTES,
-    layout::{LayoutCalculator, LayoutItem, LayoutStep},
+use creamy_xmlc::{
     symbols::{
         ArraySymbol, FieldSymbol, FieldType, T_I16_ID, T_I128_ID, T_U8_ID, T_U32_ID, T_U64_ID,
     },
+    utils::{
+        Size,
+        layout::{LayoutCalculator, LayoutItem, LayoutStep},
+        strpool::StringId,
+    },
 };
-use creamy_utils::strpool::StringId;
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -61,7 +62,7 @@ fn validate() -> Result<(), Box<dyn core::error::Error>> {
         FieldSymbol::new(StringId::new(5), FieldType::Type(T_U8_ID), false),
     ];
 
-    let steps = LayoutCalculator::new(HEADER_BYTES, None, vec.iter().copied()).collect::<Vec<_>>();
+    let steps = LayoutCalculator::new(None, vec.iter().copied()).collect::<Vec<_>>();
 
     assert_eq!(
         steps,
