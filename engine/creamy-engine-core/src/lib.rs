@@ -3,15 +3,10 @@
 extern crate alloc;
 
 mod table;
-use alloc::vec::Vec;
 use core::ptr::NonNull;
 
 use cbus::core::Subscriber;
-use creamy_plugin_package::{
-    manifest::Manifest,
-    model::{Version, definition::ProtocolModel},
-    pool::StringPool,
-};
+use creamy_plugin_package::{manifest::Manifest, version::Version};
 pub use table::ProtocolTable;
 
 pub mod bus {
@@ -27,8 +22,6 @@ pub const PACKAGE_FILE_EXTENSION: &str = "cmy";
 pub struct Metadata {
     pub version: Version,
     pub manifest: Manifest,
-    pub pool: StringPool,
-    pub models: Vec<ProtocolModel>,
 }
 
 pub trait Module<const M: usize>: Subscriber {

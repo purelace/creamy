@@ -1,6 +1,5 @@
-use core::{fmt::Debug, mem::MaybeUninit, ops::Index};
+use core::{fmt::Debug, mem::MaybeUninit};
 
-use creamy_binary::{BinRead, BinWrite};
 use creamy_utils::strpool::StringId;
 use hashbrown::HashMap;
 use strum::EnumCount;
@@ -8,10 +7,10 @@ use strum::EnumCount;
 use crate::{
     error::{Fallback, SemanticError},
     symbols::{NumericSymbol, T_U8_ID, Type, U8_META, U16_META, U32_META, U64_META, U128_META},
-    utils::{Align, Array, Range, Size, TypesRange},
+    utils::{Align, Array, Size},
 };
 
-#[derive(BinRead, BinWrite, Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct TypeMeta {
     align: Align,
     size: Size,
@@ -92,7 +91,7 @@ impl TypeMeta {
     }
 }
 
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TypeId {
     index: u16,
     meta: TypeMeta,
@@ -167,8 +166,9 @@ impl SymbolTable {
 
     pub fn register_type(&mut self, meta: TypeMeta, symbol: Type) {
         let index = self.index;
+        let ident = symbol.ident();
         self.types[index as usize] = MaybeUninit::new(symbol);
-        self.inner.insert(symbol.ident(), TypeId { index, meta });
+        self.inner.insert(ident, TypeId { index, meta });
 
         self.index += 1;
     }
@@ -187,7 +187,7 @@ impl SymbolTable {
     }
 }
 
-#[derive(BinRead, BinWrite, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FinishedSymbolTable {
     types: Array<Type>,
 }
@@ -212,13 +212,5 @@ impl FinishedSymbolTable {
     #[must_use]
     pub fn name_of_type(&self, id: TypeId) -> StringId {
         self.get_type(id).ident()
-    }
-}
-
-impl Index<TypesRange> for FinishedSymbolTable {
-    type Output = [Type];
-
-    fn index(&self, index: TypesRange) -> &Self::Output {
-        &self.types[index.as_range()]
     }
 }

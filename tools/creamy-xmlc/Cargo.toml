@@ -13,9 +13,10 @@ thiserror.workspace = true
 as-guard.workspace = true
 strum.workspace = true
 smol_str.workspace = true
-creamy-protocol-model-macros.workspace = true
-creamy-protocol-model = { path = "../../core/creamy-protocol-model", features = ["std"] }
+semver.workspace = true
+hashbrown.workspace = true
 petgraph = { version = "0.8.3", features=["dot_parser"] }
+blake3 = "1.8.7"
 
 owo-colors = { version = "4.4.0" }
 miette = { version = "7.6.0", features = [ "fancy", "syntect-highlighter" ] }

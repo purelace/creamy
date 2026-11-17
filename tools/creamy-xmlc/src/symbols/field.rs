@@ -1,39 +1,47 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 
-use creamy_binary::{BinRead, BinWrite};
-use creamy_protocol_model_macros::{Symbol, Token};
 use creamy_utils::strpool::StringId;
 
 use super::{ArraySymbol, HeapArraySymbol, T_U8_ID};
-use crate::{constraints::MAX_FIELDS, storage::SymbolKey, table::TypeId, utils::FieldsRange};
+use crate::table::TypeId;
 
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SpecialType {
-    SubscriberId = 0,
-    ProtocolId = 1,
+    SubscriberId,
+    ProtocolId,
 }
 
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FieldType {
-    Type(TypeId) = 0,
-    StaticArray(ArraySymbol) = 1,
-    HeapArray(HeapArraySymbol) = 2,
-    Special(SpecialType) = 3,
+    Type(TypeId),
+    StaticArray(ArraySymbol),
+    HeapArray(HeapArraySymbol),
+    Special(SpecialType),
 }
 
-#[derive(BinRead, BinWrite, Token, Symbol, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[element(MAX_FIELDS, FieldsRange)]
-#[key(SymbolKey::Field)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FieldSymbol {
-    #[token(ident)]
-    ident: StringId,
-    kind: FieldType,
-    is_padding: bool,
+    pub(crate) ident: StringId,
+    pub(crate) kind: FieldType,
+    pub(crate) is_padding: bool,
 }
 
 impl FieldSymbol {
+    #[must_use]
+    pub const fn ident(&self) -> StringId {
+        self.ident
+    }
+
+    #[must_use]
+    pub const fn kind(&self) -> FieldType {
+        self.kind
+    }
+
+    #[must_use]
+    pub const fn is_padding(&self) -> bool {
+        self.is_padding
+    }
+
     #[must_use]
     pub fn type_id(&self) -> TypeId {
         match self.kind {

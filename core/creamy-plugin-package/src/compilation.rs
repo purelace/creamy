@@ -1,8 +1,6 @@
 use std::{path::Path, str::FromStr};
 
 use creamy_manifest::Manifest;
-use creamy_protocol_model::definition::ProtocolModel;
-use creamy_utils::strpool::StringPool;
 use creamy_xmlc::SemanticModel;
 use fs_err as fs;
 use semver::Version;
@@ -44,9 +42,6 @@ pub fn compile_to_binary(
         #[allow(clippy::missing_panics_doc)]
         version: Version::from_str(env!("CARGO_PKG_VERSION")).expect("Unreachable"),
         manifest,
-        //TODO: remove string pool from binary package
-        pool: StringPool::default(),
-        models,
         core,
     })
 }
@@ -56,7 +51,7 @@ fn get_files_len(files_count: usize) -> Result<u32, Error> {
     u32::try_from(files_count).map_err(|_| Error::TooManyFiles)
 }
 
-fn compile_protocols(dir: fs::ReadDir) -> Result<Vec<ProtocolModel>, Error> {
+fn compile_protocols(dir: fs::ReadDir) -> Result<Vec<SemanticModel>, Error> {
     let files = dir
         .flatten()
         .filter(|e| e.path().extension().is_some_and(|p| p == "xml"))
@@ -68,11 +63,7 @@ fn compile_protocols(dir: fs::ReadDir) -> Result<Vec<ProtocolModel>, Error> {
     let mut protocols = Vec::with_capacity(len as usize);
     for path in files {
         let content = fs::read_to_string(path)?;
-        protocols.push(
-            SemanticModel::compile(&content)
-                .unwrap()
-                .to_protocol_model(),
-        );
+        protocols.push(SemanticModel::compile(&content).unwrap());
     }
 
     Ok(protocols)

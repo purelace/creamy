@@ -1,4 +1,4 @@
-use creamy_xmlc::model::symbols::{Number, PrimitiveRepr};
+use creamy_xmlc::symbols::{Number, PrimitiveRepr};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnrichedVariantSymbol<'s> {

@@ -1,6 +1,6 @@
 use creamy_libgen::{
     SymbolIterator,
-    package::model::symbols::SpecialType,
+    prelude::SpecialType,
     proxy::{EnrichedFieldSymbol, EnrichedFieldType, EnrichedMessageSymbol},
 };
 use genco::{lang::rust::Tokens, quote};

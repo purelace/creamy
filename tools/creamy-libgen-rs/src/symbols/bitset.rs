@@ -1,6 +1,6 @@
 use creamy_libgen::{
     SymbolIterator,
-    package::model::symbols::PrimitiveRepr,
+    prelude::PrimitiveRepr,
     proxy::{EnrichedBitsetSymbol, EnrichedBitsetValueSymbol},
 };
 use genco::{lang::rust::Tokens, quote};

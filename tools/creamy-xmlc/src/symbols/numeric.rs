@@ -1,7 +1,6 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 use core::num::NonZeroU8;
 
-use creamy_binary::{BinRead, BinWrite};
 use creamy_utils::strpool::StringId;
 use strum::EnumCount;
 
@@ -84,21 +83,20 @@ pub const fn get_builtin_type_name(ty: TypeId) -> StringId {
     }
 }
 
-#[derive(BinRead, BinWrite, EnumCount, Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
+#[derive(EnumCount, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NumericSymbol {
-    U8 = 0,
-    U16 = 1,
-    U32 = 2,
-    U64 = 3,
-    U128 = 4,
-    I8 = 5,
-    I16 = 6,
-    I32 = 7,
-    I64 = 8,
-    I128 = 9,
-    F32 = 10,
-    F64 = 11,
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+    I8,
+    I16,
+    I32,
+    I64,
+    I128,
+    F32,
+    F64,
 }
 
 impl NumericSymbol {

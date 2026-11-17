@@ -7,45 +7,22 @@
 //#![deny(clippy::panic)]
 //#![deny(clippy::as_conversions)]
 
-mod compiler;
-pub use compiler::SemanticModel;
+mod api;
 mod ast;
+mod compiler;
+pub mod symbols;
+pub mod table;
 mod tokenizer;
+pub mod utils;
+mod version;
 
 mod diagnostics;
 pub mod error;
 
+pub use compiler::{SemanticModel, get_meta};
+pub use creamy_utils::strpool::*;
 pub use diagnostics::Diagnostics;
-
-pub mod model {
-    pub use creamy_protocol_model::*;
-}
-
-/*
- * TODO: bool type
- * TODO: C Header generation
- *
- * Pipeline:
- *     Tokenizer -> AST
- *     Resolve:
- *         Errors:
- *             Name duplicates
- *             Empty structs, fields, enums, messages, flags, arrays,
- *             Invalid size
- *             Field, variant, option count
- *
- *         Cache size and align
- *
- *
- *
- * Ограничения на протокол:
- *     i8/i16/u8/u16 - enum types
- *     28 полей на структуру
- *     28 свободных байт
- *     255 групп
- *     255 сообщений
- */
-
+//TODO: bool type
 //TODO: validate size
 //TODO: remove unused
 //TODO: errors
@@ -57,3 +34,6 @@ pub mod model {
 //TODO: missing type reference
 //TODO: если токенайзер заменит токен на его fallback версию,
 // то есть вероятность что поиск дубликатов имен и self reference выдаст ложно-положительный результат
+
+pub const MAX_PAYLOAD: u64 = 28;
+pub const HEADER_BYTES: u64 = 4;

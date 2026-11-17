@@ -102,8 +102,6 @@ impl<const M: usize> Runtime<M> for WTRuntime {
             Metadata {
                 version: package.version,
                 manifest: package.manifest,
-                pool: package.pool,
-                models: package.models,
             },
             WasmPlugin {
                 incoming_ptr: NonNull::new(host_inc_ptr)

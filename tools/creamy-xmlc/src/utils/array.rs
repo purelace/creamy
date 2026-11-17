@@ -1,10 +1,7 @@
-use alloc::boxed::Box;
 use core::{
     mem::MaybeUninit,
     ops::{Deref, DerefMut},
 };
-
-use creamy_binary::{BinaryReader, BinaryWriter};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Array<T> {
@@ -51,36 +48,6 @@ impl<T> Array<MaybeUninit<T>> {
 impl<T> From<Box<[T]>> for Array<T> {
     fn from(value: Box<[T]>) -> Self {
         Self { inner: value }
-    }
-}
-
-impl<T: BinaryReader> BinaryReader for Array<T> {
-    fn read<R: creamy_binary::Read, E: creamy_binary::Endianness>(
-        reader: &mut R,
-    ) -> Result<Self, creamy_binary::ReadError<R::Error>> {
-        let len = u32::read::<R, E>(reader)? as usize;
-        let mut array = Array::<MaybeUninit<T>>::zeroed(len);
-        for index in 0..len {
-            array.inner[index] = MaybeUninit::new(T::read::<R, E>(reader)?);
-        }
-
-        unsafe { Ok(array.assume_init()) }
-    }
-}
-
-impl<T: BinaryWriter> BinaryWriter for Array<T> {
-    fn write<
-        W: creamy_binary::Write<Error: Send + Sync + 'static>,
-        E: creamy_binary::Endianness,
-    >(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), creamy_binary::WriteError<W::Error>> {
-        (self.inner.len() as u32).write::<W, E>(writer)?;
-        for s in &self.inner[..self.inner.len()] {
-            s.write::<W, E>(writer)?;
-        }
-        Ok(())
     }
 }
 

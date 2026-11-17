@@ -1,23 +1,20 @@
 #![cfg_attr(coverage_nightly, coverage(off))]
 use core::fmt::Display;
 
-use creamy_binary::{BinRead, BinWrite};
-
-use super::{NumericSymbol, enumeration::VariantValue};
+use super::{Number, NumericSymbol};
 use crate::error::SemanticError;
 
-#[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u8)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PrimitiveRepr {
     #[default]
-    U8 = 0,
-    U16 = 1,
-    U32 = 2,
-    U64 = 3,
-    I8 = 4,
-    I16 = 5,
-    I32 = 6,
-    I64 = 7,
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
+    I32,
+    I64,
 }
 
 impl PrimitiveRepr {
@@ -61,9 +58,9 @@ impl PrimitiveRepr {
     }
 
     #[must_use]
-    pub fn is_valid_value(self, value: VariantValue) -> bool {
+    pub fn is_valid_value(self, value: Number) -> bool {
         match value {
-            VariantValue::Singed(s) => match self {
+            Number::Signed(s) => match self {
                 PrimitiveRepr::U8
                 | PrimitiveRepr::U16
                 | PrimitiveRepr::U32
@@ -73,7 +70,7 @@ impl PrimitiveRepr {
                 PrimitiveRepr::I32 => (i64::from(i32::MIN)..=i64::from(i32::MAX)).contains(&s),
                 PrimitiveRepr::I64 => (i64::MIN..=i64::MAX).contains(&s),
             },
-            VariantValue::Unsigned(u) => match self {
+            Number::Unsigned(u) => match self {
                 PrimitiveRepr::U8 => (0..=u64::from(u8::MAX)).contains(&u),
                 PrimitiveRepr::U16 => (0..=u64::from(u16::MAX)).contains(&u),
                 PrimitiveRepr::U32 => (0..=u64::from(u32::MAX)).contains(&u),

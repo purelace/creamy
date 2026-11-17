@@ -1,5 +1,3 @@
-use creamy_binary::{BinRead, BinWrite};
-
 use self::Align::{B1, B2, B4, B8, B16};
 
 /// # Available values:
@@ -8,9 +6,7 @@ use self::Align::{B1, B2, B4, B8, B16};
 /// * 2 `[010]` - 4 bytes,
 /// * 3 `[011]` - 8 bytes,
 /// * 4 `[100]` - 16 bytes,
-#[non_exhaustive]
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Align {
     B1 = 0,
     B2 = 1,
@@ -42,10 +38,4 @@ impl Align {
             _ => None,
         }
     }
-
-    //#[m
-    // ust_use]
-    //pub const fn discriminant(self) -> u8 {
-    //    unsafe { core::mem::transmute(self) }
-    //}
 }

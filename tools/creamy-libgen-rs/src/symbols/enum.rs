@@ -1,5 +1,5 @@
 use creamy_libgen::{
-    package::model::symbols::PrimitiveRepr,
+    prelude::PrimitiveRepr,
     proxy::{EnrichedEnumSymbol, EnrichedVariantSymbol},
 };
 use genco::{lang::rust::Tokens, quote};

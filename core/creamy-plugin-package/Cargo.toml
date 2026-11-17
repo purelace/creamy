@@ -10,7 +10,6 @@ workspace = true
 [dependencies]
 # no_std
 creamy-binary = { path = "../creamy-binary", features = ["semver"] }
-creamy-protocol-model.workspace = true
 creamy-utils.workspace = true
 creamy-manifest.workspace = true
 thiserror.workspace = true

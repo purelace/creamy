@@ -7,7 +7,7 @@ pub mod package {
 
 pub mod prelude {
     pub use creamy_phf::PerfectHashTable;
-    pub use creamy_plugin_package::model::symbols::{PrimitiveRepr, VariantValue};
+    pub use creamy_xmlc::symbols::{PrimitiveRepr, SpecialType};
 
     pub use crate::{
         CodeGenerator, Codegen, GenResult, Path, ProtocolLibrary, SymbolIterator, Target,
@@ -26,13 +26,9 @@ use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 use creamy_phf::{PerfectHashTable, generate_perfect_hash_table};
 use creamy_plugin_package::manifest::Manifest;
 use creamy_xmlc::{
-    SemanticModel,
-    model::{
-        Direction,
-        definition::BinaryWriter,
-        strpool::{StringId, StringPoolResolver},
-        symbols::{LayoutEntry, MessageSymbol, MessageSymbolType, Type},
-    },
+    SemanticModel, StringId, StringPoolResolver,
+    symbols::{LayoutEntry, MessageSymbol, MessageSymbolType, Type},
+    utils::Direction,
 };
 pub use utils::{AbsolutePath, Path};
 
@@ -258,10 +254,10 @@ impl Codegen {
             for message_symbol in model.messages() {
                 // Valid form of the dispatch value: [0x_00_FF_00_FF]
                 let dispatch_value =
-                    u32::from(protocol_id) << 16 | u32::from(*message_symbol.kind());
-                dispatch_values.insert(*message_symbol.ident(), (protocol_id, dispatch_value));
+                    u32::from(protocol_id) << 16 | u32::from(message_symbol.kind());
+                dispatch_values.insert(message_symbol.ident(), (protocol_id, dispatch_value));
 
-                let dir = *message_symbol.direction();
+                let dir = message_symbol.direction();
 
                 // Условие включения:
                 // 1. Это Duplex (нужен всегда)
@@ -299,7 +295,7 @@ impl Codegen {
             creamy_plugin_package::compilation::compile_to_binary(creamy_dir, Box::default())
                 .unwrap();
         let mut vec = vec![];
-        binary.write_ne(&mut vec).unwrap();
+        //binary.write_ne(&mut vec).unwrap();
 
         generator.generate_host_package(vec);
     }
@@ -341,21 +337,19 @@ impl Codegen {
     fn generate_types<'s, G: CodeGenerator<'s>>(
         model: &'s SemanticModel,
         module_path: &AbsolutePath,
-        types: &[Type],
+        types: &'s [Type],
         generator: &mut G,
     ) {
         for ty in types {
             match ty {
-                Type::Numeric(_) | Type::Array(_) => {}
+                Type::Numeric(_) => {}
                 Type::Enum(s) => {
                     let symbol = EnrichedEnumSymbol {
                         name: s.ident().resolve(model.pool()),
-                        repr: *s.repr(),
-                        variants: model.variants_slice(*s.variants()).iter().map(|v| {
-                            EnrichedVariantSymbol {
-                                name: v.ident().resolve(model.pool()),
-                                value: *v.value(),
-                            }
+                        repr: s.repr(),
+                        variants: s.variants().iter().map(|v| EnrichedVariantSymbol {
+                            name: v.ident().resolve(model.pool()),
+                            value: v.value(),
                         }),
                     };
 
@@ -364,7 +358,7 @@ impl Codegen {
                 Type::Flags(s) => {
                     let symbol = EnrichedFlagsSymbol {
                         name: s.ident().resolve(model.pool()),
-                        underlying_type: match s.values().len() {
+                        underlying_type: match s.options().len() {
                             1..=8 => FlagUnderlyingType::U8,
                             9..=16 => FlagUnderlyingType::U16,
                             17..=32 => FlagUnderlyingType::U32,
@@ -372,42 +366,39 @@ impl Codegen {
                             65..=128 => FlagUnderlyingType::U128,
                             other => unreachable!("Unreachable length: {other}"),
                         },
-                        options: OptionList::new(model.pool(), model.options_slice(*s.values())),
+                        options: OptionList::new(model.pool(), s.options()),
                     };
 
                     generator.generate_flags(symbol);
                 }
                 Type::Bitset(s) => {
-                    let slice = model.bvalues_slice(*s.values());
                     let symbol = EnrichedBitsetSymbol {
                         name: s.ident().resolve(model.pool()),
-                        values: BitsetValueList::new(model.pool(), slice),
+                        values: BitsetValueList::new(model.pool(), s.values()),
                     };
 
                     generator.generate_bitset(symbol);
                 }
                 Type::Struct(s) => {
-                    let fields = model.fields_range(*s.fields());
                     let symbol = EnrichedStructSymbol {
                         name: s.ident().resolve(model.pool()),
                         fields: FieldList::new(
                             module_path.clone(),
                             model.pool(),
                             model.table(),
-                            fields.iter().copied(),
+                            s.fields().iter().copied(),
                         ),
                     };
                     generator.generate_struct(symbol);
                 }
                 Type::Object(s) => {
-                    let slice = model.fields_range(*s.fields());
                     let symbol = EnrichedObjectSymbol {
                         name: s.ident().resolve(model.pool()),
                         fields: FieldList::new(
                             module_path.clone(),
                             model.pool(),
                             model.table(),
-                            slice.iter().copied(),
+                            s.fields().iter().copied(),
                         ),
                     };
                     generator.generate_object(symbol);
@@ -421,7 +412,7 @@ impl Codegen {
         model: &'s SemanticModel,
         dispatch_value_table: &HashMap<StringId, (u8, u32)>, //protocol, value
         module_path: &AbsolutePath,
-        types: &[Type],
+        types: &'s [Type],
         messages: &[MessageSymbol],
         generator: &mut G,
     ) {
@@ -429,7 +420,7 @@ impl Codegen {
 
         for symbol in messages {
             let (protocol, dispatch_value) =
-                dispatch_value_table.get(symbol.ident()).copied().unwrap();
+                dispatch_value_table.get(&symbol.ident()).copied().unwrap();
 
             let message_type = match symbol.message_type() {
                 MessageSymbolType::Single => MessageType::Single,
@@ -447,13 +438,11 @@ impl Codegen {
                             LayoutEntry::ArrayWrite { name } => EnrichedLayoutEntry::ArrayWrite {
                                 name: name.resolve(model.pool()),
                             },
-                            LayoutEntry::Slice { to, kind } => EnrichedLayoutEntry::Slice {
-                                to: *to,
-                                kind: model.table().get_type(*kind).ident().resolve(model.pool()),
+                            &LayoutEntry::Slice { to, kind } => EnrichedLayoutEntry::Slice {
+                                to,
+                                kind: model.table().get_type(kind).ident().resolve(model.pool()),
                             },
-                            LayoutEntry::LastSlice { to } => {
-                                EnrichedLayoutEntry::LastSlice { to: *to }
-                            }
+                            &LayoutEntry::LastSlice { to } => EnrichedLayoutEntry::LastSlice { to },
                         })
                         .collect::<Vec<_>>();
 
@@ -464,7 +453,7 @@ impl Codegen {
                             module_path.clone(),
                             model.pool(),
                             model.table(),
-                            model.fields_range(*lightweight_content).iter().copied(),
+                            lightweight_content.iter().copied(),
                         ),
                     }
                 }
@@ -472,14 +461,14 @@ impl Codegen {
 
             let symbol = EnrichedMessageSymbol {
                 name: symbol.ident().resolve(model.pool()),
-                kind: *symbol.kind(),
+                kind: symbol.kind(),
                 protocol,
                 dispatch_value,
                 fields: FieldList::new(
                     module_path.clone(),
                     model.pool(),
                     model.table(),
-                    model.fields_range(*symbol.fields()).iter().copied(),
+                    symbol.fields().iter().copied(),
                 ),
                 message_type,
             };

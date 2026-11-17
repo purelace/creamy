@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
-use creamy_xmlc::model::{
-    FinishedSymbolTable,
-    strpool::{StringPool, StringPoolResolver},
+use creamy_xmlc::{
+    StringPool, StringPoolResolver,
     symbols::{FieldSymbol, FieldType, SpecialType, get_builtin_type_name, is_builtin_type},
+    table::FinishedSymbolTable,
 };
 
 use crate::{Path, SymbolIterator, utils::AbsolutePath};
@@ -86,8 +86,8 @@ impl<'s, I: Iterator<Item = FieldSymbol> + Clone> Iterator for FieldList<'s, I> 
         if let Some(field) = self.fields.next() {
             Some(EnrichedFieldSymbol {
                 name: Cow::Borrowed(field.ident().resolve(self.pool)),
-                kind: self.get_field_kind(*field.kind()),
-                is_padding: *field.is_padding(),
+                kind: self.get_field_kind(field.kind()),
+                is_padding: field.is_padding(),
             })
         } else {
             None

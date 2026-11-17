@@ -2,14 +2,9 @@ mod memory;
 
 use console::style;
 use creamy_xmlc::{
-    SemanticModel,
-    model::{
-        constraints::HEADER_BYTES,
-        definition::ProtocolModel,
-        layout::compute_layout,
-        strpool::StringPoolResolver,
-        symbols::{FieldSymbol, FieldType, Type},
-    },
+    HEADER_BYTES, SemanticModel, StringPoolResolver, get_meta,
+    symbols::{FieldSymbol, FieldType, Type},
+    utils::layout::compute_layout,
 };
 
 use crate::tui::memory::{ArrayField, MemoryReport, SimpleField};
@@ -35,7 +30,7 @@ pub fn show_all_messages(model: &SemanticModel) {
 
     for message in model.messages() {
         let name_id = message.ident();
-        print_item(*message.kind(), name_id.resolve(model.pool()), STRUCT_COLOR);
+        print_item(message.kind(), name_id.resolve(model.pool()), STRUCT_COLOR);
     }
 }
 
@@ -50,7 +45,7 @@ fn get_struct_paddings(fields: &[FieldSymbol]) -> u64 {
 pub fn show_memory_layout(model: &SemanticModel, flat: bool, msg: u8) {
     let messages = model.messages();
     let message = &messages[msg as usize];
-    let fields = model.fields_range(*message.fields());
+    let fields = message.fields();
 
     let mut report = MemoryReport::new(message.ident().resolve(model.pool()));
     if flat {
@@ -58,7 +53,7 @@ pub fn show_memory_layout(model: &SemanticModel, flat: bool, msg: u8) {
     } else {
         make_report(model, &mut report, fields);
     }
-    let meta = ProtocolModel::get_struct_meta(fields).unwrap();
+    let meta = get_meta(None, fields).unwrap();
     let finished_report = report.finish(
         meta.size().value() as usize,
         meta.align().size() as usize,
@@ -68,7 +63,7 @@ pub fn show_memory_layout(model: &SemanticModel, flat: bool, msg: u8) {
 }
 
 fn make_flat_report(model: &SemanticModel, report: &mut MemoryReport, fields: &[FieldSymbol]) {
-    let mut total_size = u64::from(HEADER_BYTES);
+    let mut total_size = HEADER_BYTES;
     let mut paddings = 0u64;
 
     let tt = model.table();
@@ -90,12 +85,10 @@ fn make_flat_report(model: &SemanticModel, report: &mut MemoryReport, fields: &[
             paddings += 1;
         }
 
-        match *field.kind() {
+        match field.kind() {
             FieldType::Type(tid) => match tt.get_type(tid) {
-                Type::Array(_) => unreachable!(),
                 Type::Struct(symbol) => {
-                    let fields = model.fields_range(*symbol.fields());
-                    make_flat_report(model, report, fields);
+                    make_flat_report(model, report, symbol.fields());
                 }
                 Type::Numeric(_) | Type::Enum(_) => {
                     report.add_field(SimpleField {
@@ -128,7 +121,7 @@ fn make_flat_report(model: &SemanticModel, report: &mut MemoryReport, fields: &[
 }
 
 fn make_report(model: &SemanticModel, report: &mut MemoryReport, fields: &[FieldSymbol]) {
-    let mut total_size = u64::from(HEADER_BYTES);
+    let mut total_size = HEADER_BYTES;
     let mut paddings = 0u64;
 
     let tt = model.table();
@@ -152,11 +145,9 @@ fn make_report(model: &SemanticModel, report: &mut MemoryReport, fields: &[Field
 
         let tid = field.type_id();
         match tt.get_type(tid) {
-            Type::Array(_) => unreachable!(),
             Type::Struct(sym) => {
                 report.start_report();
-                let fields = model.fields_range(*sym.fields());
-                make_report(model, report, fields);
+                make_report(model, report, sym.fields());
                 report.end_report(SimpleField {
                     name: field.ident().resolve(model.pool()).to_string(),
                     kind: tt.name_of_type(tid).resolve(model.pool()).to_string(),

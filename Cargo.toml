@@ -25,8 +25,6 @@ members = [
     "bus/cbus/fuzz",
     "bus/cbus-core",
 
-    "core/creamy-protocol-model-macros",
-    "core/creamy-protocol-model",
     "core/creamy-binary",
     "core/creamy-binary-derive",
     "core/creamy-plugin-package",
@@ -67,8 +65,6 @@ creamy-manifest = { path = "core/creamy-manifest" }
 creamy-utils = { path = "core/creamy-utils" }
 creamy-phf = { path = "core/creamy-phf" }
 creamy-sdk = { path = "core/creamy-sdk" }
-creamy-protocol-model = { path = "core/creamy-protocol-model" }
-creamy-protocol-model-macros = { path = "core/creamy-protocol-model-macros"}
 
 # Engine
 creamy = { path = "engine/creamy" }

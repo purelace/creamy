@@ -2,15 +2,12 @@
 
 use core::str::FromStr;
 
-use creamy_binary::{BinRead, BinWrite};
-
-#[derive(BinRead, BinWrite, Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(u8)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Direction {
     #[default]
-    Incoming = 0,
-    Outgoing = 1,
-    Duplex = 2,
+    Incoming,
+    Outgoing,
+    Duplex,
 }
 
 impl FromStr for Direction {

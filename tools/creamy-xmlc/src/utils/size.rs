@@ -1,14 +1,12 @@
 use core::num::NonZeroU64;
 
-use creamy_binary::{BinRead, BinWrite};
-
 use crate::{
-    constraints::MAX_PAYLOAD,
+    MAX_PAYLOAD,
     error::{Fallback, SemanticError},
 };
 
 /// This struct is guaranteed that size is non-zero and equal to or less than [`Self::MAX_VALUE`];
-#[derive(BinRead, BinWrite, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 // TODO: validate struct after deserialization
 pub struct Size(NonZeroU64);
 impl Size {
@@ -25,13 +23,8 @@ impl Size {
     ///
     /// # Errors
     ///
-    /// This function will return an error if:
-    /// - size == 0
-    /// - size > [`Self::MAX_VALUE`]
+    /// This function will return an error if `size == 0`
     pub const fn try_new(size: u64) -> Result<Self, SemanticError> {
-        //if size > Self::MAX_VALUE {
-        //    return Err(SemanticError::InvalidSize { actual: size });
-        //}
         let Some(value) = NonZeroU64::new(size) else {
             return Err(SemanticError::InvalidSize { actual: 0 });
         };
