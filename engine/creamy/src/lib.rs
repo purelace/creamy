@@ -7,9 +7,9 @@ include!(concat!(env!("OUT_DIR"), "/system.rs"));
 mod driver;
 pub mod engine;
 pub mod error;
-mod package;
 mod plugin;
 mod registry;
+mod scanner;
 mod system;
 mod utils;
 
@@ -37,3 +37,7 @@ macro_rules! define_engine {
         pub type PluginEngine<R, H> = $crate::engine::PluginEngine<R, H, $mm, $mg, $ms>;
     };
 }
+
+#[repr(transparent)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct GlobalProtocolId(pub creamy_sdk::ProtocolId);

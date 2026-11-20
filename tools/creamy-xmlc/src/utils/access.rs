@@ -7,11 +7,21 @@ use crate::error::Fallback;
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Access {
     /// Single provider - many consumers
-    Public,
+    Public = 0,
 
     #[default]
     /// Single provider - single consumer
-    Private,
+    Private = 1,
+}
+
+impl Access {
+    #[must_use]
+    pub const fn as_byte(self) -> u8 {
+        match self {
+            Access::Public => 0,
+            Access::Private => 1,
+        }
+    }
 }
 
 impl FromStr for Access {

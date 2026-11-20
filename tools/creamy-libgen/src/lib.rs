@@ -1,16 +1,22 @@
 //#![deny(clippy::unwrap_used)]
 #![allow(clippy::missing_errors_doc)]
 
-pub mod package {
-    pub use creamy_plugin_package::*;
+mod api;
+
+pub mod manifest {
+    pub use creamy_manifest::*;
 }
 
 pub mod prelude {
     pub use creamy_phf::PerfectHashTable;
-    pub use creamy_xmlc::symbols::{PrimitiveRepr, SpecialType};
+    pub use creamy_xmlc::{
+        Api,
+        symbols::{PrimitiveRepr, SpecialType},
+    };
 
     pub use crate::{
         CodeGenerator, Codegen, GenResult, Path, ProtocolLibrary, SymbolIterator, Target,
+        api::{LinkSectionEntry, LinkSections, ManifestData, ProtocolEntry},
         proxy::{
             EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
             EnrichedFieldSymbol, EnrichedFieldType, EnrichedFlagsSymbol, EnrichedStructSymbol,
@@ -21,10 +27,10 @@ pub mod prelude {
 
 pub mod proxy;
 mod utils;
-use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
+use std::{collections::HashMap, marker::PhantomData};
 
+use creamy_manifest::Manifest;
 use creamy_phf::{PerfectHashTable, generate_perfect_hash_table};
-use creamy_plugin_package::manifest::Manifest;
 use creamy_xmlc::{
     SemanticModel,
     symbols::{LayoutEntry, MessageSymbolType, Type},
@@ -35,11 +41,14 @@ use creamy_xmlc::{
 };
 pub use utils::{AbsolutePath, Path};
 
-use self::proxy::{
-    BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
-    EnrichedFieldSymbol, EnrichedFlagsSymbol, EnrichedLayoutEntry, EnrichedMessageSymbol,
-    EnrichedObjectSymbol, EnrichedSerializationLayout, EnrichedStructSymbol, EnrichedVariantSymbol,
-    FieldList, FlagUnderlyingType, MessageType, OptionList,
+use self::{
+    api::LinkSections,
+    proxy::{
+        BitsetValueList, EnrichedBitsetSymbol, EnrichedBitsetValueSymbol, EnrichedEnumSymbol,
+        EnrichedFieldSymbol, EnrichedFlagsSymbol, EnrichedLayoutEntry, EnrichedMessageSymbol,
+        EnrichedObjectSymbol, EnrichedSerializationLayout, EnrichedStructSymbol,
+        EnrichedVariantSymbol, FieldList, FlagUnderlyingType, MessageType, OptionList,
+    },
 };
 
 #[derive(Clone, Copy)]
@@ -94,7 +103,9 @@ pub trait CodeGenerator<'s> {
 
     fn generate_host_protocol_table(&mut self, pht: PerfectHashTable);
 
-    fn generate_host_package(&mut self, binary: Vec<u8>);
+    fn generate_link_section(&mut self, data: LinkSections);
+
+    //fn generate_host_package(&mut self, binary: Vec<u8>);
 
     fn flush(&mut self) -> anyhow::Result<()>;
 }
@@ -102,7 +113,6 @@ pub trait CodeGenerator<'s> {
 pub struct ProtocolLibrary {
     manifest: Manifest,
     inner: HashMap<String, SemanticModel>,
-    creamy_dir: PathBuf,
 }
 
 impl ProtocolLibrary {
@@ -112,11 +122,10 @@ impl ProtocolLibrary {
     ///
     /// Panics if manifest deserialization is failed
     #[must_use]
-    pub fn new(manifest: &str, creamy_dir: PathBuf) -> Self {
+    pub fn new(manifest: &str) -> Self {
         Self {
             manifest: Manifest::read_manifest(manifest).expect("Cannot read manifest"),
             inner: HashMap::new(),
-            creamy_dir,
         }
     }
 
@@ -189,11 +198,7 @@ impl Codegen {
         let mut message_paths = vec![];
         let mut protocol_paths = vec![];
 
-        let ProtocolLibrary {
-            manifest,
-            inner,
-            creamy_dir,
-        } = &mut self.library;
+        let ProtocolLibrary { manifest, inner } = &mut self.library;
 
         generator.start_protocol("generated", None);
 
@@ -216,11 +221,11 @@ impl Codegen {
 
         match self.target {
             Target::Plugin => {
-                Self::generate_plugin_protocol_table(manifest, generator);
+                Self::generate_link_section(manifest, inner, generator);
             }
             Target::Host => {
                 Self::generate_host_protocol_table(manifest, generator);
-                Self::generate_host_package(creamy_dir.clone(), generator);
+                //Self::generate_link_section(manifest, inner, generator);
             }
             Target::Engine | Target::Sdk => {}
         }
@@ -236,7 +241,7 @@ impl Codegen {
     #[allow(clippy::explicit_counter_loop)]
     fn generate_protocols<'s, G: CodeGenerator<'s>>(
         manifest: &'s Manifest,
-        library: &'s mut HashMap<String, SemanticModel>,
+        library: &'s HashMap<String, SemanticModel>,
         target: Target,
         message_paths: &mut Vec<Path>,
         protocol_paths: &mut Vec<Path>,
@@ -291,7 +296,14 @@ impl Codegen {
         }
     }
 
-    fn generate_host_package<'s, G: CodeGenerator<'s>>(creamy_dir: PathBuf, generator: &mut G) {
+    fn generate_link_section_<'s, G: CodeGenerator<'s>>(
+        manifest: &'s Manifest,
+        models: &HashMap<String, SemanticModel>,
+        generator: &mut G,
+    ) {
+        let data = LinkSections::new(manifest, models);
+        generator.generate_link_section(data);
+
         //let binary =
         //    creamy_plugin_package::compilation::compile_to_binary(creamy_dir, Box::default())
         //        .unwrap();
@@ -308,11 +320,14 @@ impl Codegen {
         generator.generate_host_protocol_table(Self::generate_hash_table(manifest));
     }
 
-    fn generate_plugin_protocol_table<'s, G: CodeGenerator<'s>>(
+    fn generate_link_section<'s, G: CodeGenerator<'s>>(
         manifest: &Manifest,
+        models: &HashMap<String, SemanticModel>,
         generator: &mut G,
     ) {
-        generator.generate_plugin_protocol_table(Self::generate_hash_table(manifest));
+        let data = LinkSections::new(manifest, models);
+        generator.generate_link_section(data);
+        //generator.generate_plugin_protocol_table(Self::generate_hash_table(manifest));
     }
 
     fn generate_hash_table(manifest: &Manifest) -> PerfectHashTable {

@@ -427,9 +427,11 @@ fn resolve_field(
     is_object: bool,
 ) -> FieldSymbol {
     let kind = match &node.kind {
-        TypeRefNode::Identifier(n) => {
-            FieldType::Type(table.get_type_by_name(n.value.intern(pool)).unwrap())
-        }
+        TypeRefNode::Identifier(n) => FieldType::Type(
+            table
+                .get_type_by_name(n.value.intern(pool))
+                .unwrap_or_else(|| panic!("type {} not found", n.value)),
+        ),
         TypeRefNode::StaticArray(n) => {
             let kind = table.get_type_by_name(n.kind.value.intern(pool)).unwrap();
             let size = n.size.value.parse::<u64>().unwrap();
@@ -868,21 +870,29 @@ impl SemanticModel {
         hasher.reset();
         buffer.clear();
 
-        self.extension().write_ne(&mut buffer).unwrap();
-        hasher.update(&buffer);
-        let extension_hash = hasher.finalize();
+        let extension_hash = if self.extension().is_empty() {
+            [0; 32]
+        } else {
+            self.extension().write_ne(&mut buffer).unwrap();
+            hasher.update(&buffer);
+            *hasher.finalize().as_bytes()
+        };
 
         hasher.reset();
         buffer.clear();
 
-        self.experimental().write_ne(&mut buffer).unwrap();
-        hasher.update(&buffer);
-        let experimental_hash = hasher.finalize();
+        let experimental_hash = if self.experimental().is_empty() {
+            [0; 32]
+        } else {
+            self.experimental().write_ne(&mut buffer).unwrap();
+            hasher.update(&buffer);
+            *hasher.finalize().as_bytes()
+        };
 
         Api {
             stable: *stable_hash.as_bytes(),
-            extension: *extension_hash.as_bytes(),
-            experimental: *experimental_hash.as_bytes(),
+            extension: extension_hash,
+            experimental: experimental_hash,
         }
     }
 }

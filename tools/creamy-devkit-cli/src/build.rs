@@ -1,7 +1,10 @@
-/*
 use std::path::Path;
 
+use anyhow::Context;
+use fs_err as fs;
 use serde::Deserialize;
+
+use crate::utils::get_workdir;
 
 #[derive(Deserialize)]
 struct BuildConfiguration {
@@ -57,18 +60,19 @@ pub fn build(workdir: Option<String>) -> anyhow::Result<()> {
 
     build_wasm_module(&configuration)?;
 
-    let output_file = workdir.join(&output_path).join("module.optimized.wasm");
+    let output_file = workdir
+        .join(&output_path)
+        .join(&configuration.input)
+        .with_extension("cmy");
     optimize_wasm_module(&workdir, &output_file, &configuration)?;
 
-    let binary = compile_to_binary(workdir, fs::read(&output_file)?.into_boxed_slice())?;
-    let out = output_path
-        .join(binary.manifest.name())
-        .with_extension("cmy");
+    //let out = output_path
+    //    .join(binary.manifest.name())
+    //    .with_extension("cmy");
 
-    let file = std::fs::File::create(out.clone())?;
-    let mut file = creamy_binary::adapters::FromStd::new(file);
-    binary.write_ne(&mut file)?;
+    //let file = std::fs::File::create(out.clone())?;
+    //let mut file = creamy_binary::adapters::FromStd::new(file);
+    //binary.write_ne(&mut file)?;
 
     Ok(())
 }
-*/

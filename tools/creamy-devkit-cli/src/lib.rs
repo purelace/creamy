@@ -26,11 +26,7 @@ pub fn run() -> anyhow::Result<()> {
         Some(command) => match command {
             Command::Init => init_template(get_workdir(None)?),
             Command::Show(list) => execute_show_cmd(list),
-            Command::Build { .. } =>
-            /* build::build(workdir)*/
-            {
-                Ok(())
-            }
+            Command::Build { workdir } => build::build(workdir),
             Command::Validate(args) => validate(args),
         },
         None => Ok(()),

@@ -15,6 +15,5 @@ creamy-binary = { path = "../creamy-binary" }
 cbus-core.workspace = true
 thiserror.workspace = true
 
-
 [build-dependencies]
 creamy-libgen-rs.workspace = true

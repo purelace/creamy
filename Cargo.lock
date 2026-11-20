@@ -321,6 +321,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "byteorder"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+
+[[package]]
 name = "bytes"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -823,6 +829,8 @@ dependencies = [
  "creamy-libgen-rs",
  "creamy-sdk",
  "hashbrown 0.17.1",
+ "heapless",
+ "idmint",
  "log",
  "rustc-hash",
  "smol_str",
@@ -865,7 +873,6 @@ dependencies = [
  "clap_complete",
  "console",
  "creamy-binary",
- "creamy-plugin-package",
  "creamy-template",
  "creamy-xmlc",
  "fs-err",
@@ -882,8 +889,9 @@ name = "creamy-engine-core"
 version = "0.1.0"
 dependencies = [
  "cbus",
+ "creamy-binary",
+ "creamy-manifest",
  "creamy-phf",
- "creamy-plugin-package",
 ]
 
 [[package]]
@@ -891,8 +899,9 @@ name = "creamy-libgen"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "creamy-binary",
+ "creamy-manifest",
  "creamy-phf",
- "creamy-plugin-package",
  "creamy-xmlc",
  "pretty_assertions",
  "tempfile",
@@ -924,18 +933,6 @@ name = "creamy-phf"
 version = "0.1.0"
 dependencies = [
  "wyhash",
-]
-
-[[package]]
-name = "creamy-plugin-package"
-version = "0.1.0"
-dependencies = [
- "creamy-binary",
- "creamy-manifest",
- "creamy-template",
- "semver",
- "tempfile",
- "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -996,6 +993,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing-subscriber",
+ "wasmparser 0.263.0",
  "wasmtime",
 ]
 
@@ -1597,6 +1595,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1643,6 +1650,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8094feaf31ff591f651a2664fb9cfd92bba7a60ce3197265e9482ebe753c8f7"
 dependencies = [
  "hashbrown 0.14.5",
+]
+
+[[package]]
+name = "heapless"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "411fdef4df93751117bd9ef8caa0e7f99c65dafec5bd84313eb8e2fdd75e32f2"
+dependencies = [
+ "hash32",
+ "stable_deref_trait",
 ]
 
 [[package]]
@@ -3823,6 +3840,19 @@ name = "wasmparser"
 version = "0.261.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f20f20e44f7e8aeb6744823ea9d869ede51e51be4fdaedede2852282e54d2d8"
+dependencies = [
+ "bitflags 2.13.2",
+ "hashbrown 0.17.1",
+ "indexmap",
+ "semver",
+ "serde",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.263.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f5fa0a054ae153606df820eb0a84213e28cda41bbe04ba2628e71b6ba100fcb"
 dependencies = [
  "bitflags 2.13.2",
  "hashbrown 0.17.1",

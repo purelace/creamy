@@ -15,10 +15,8 @@ pub fn generate_code(
     let working_dir = std::env::current_dir()?;
     let protocols: PathBuf = working_dir.join(protocols);
 
-    let mut library = ProtocolLibrary::new(
-        &std::fs::read_to_string(directory.join("manifest.toml"))?,
-        project_root.as_ref().into(),
-    );
+    let mut library =
+        ProtocolLibrary::new(&std::fs::read_to_string(directory.join("manifest.toml"))?);
     library.load_all(&protocols)?;
 
     let mut outdir = outdir.as_ref().to_owned();

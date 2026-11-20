@@ -13,6 +13,7 @@ creamy-binary = { path = "../../core/creamy-binary", features=["std"] }
 inotify.workspace = true
 log.workspace = true
 thiserror.workspace = true
+wasmparser = "0.263.0"
 wasmtime = { version = "50.0.2", default-features = false, features = [
     "runtime",
     "cranelift",

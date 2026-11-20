@@ -131,9 +131,12 @@ pub fn generate_basic_field_list<'s>(
                 },
                 EnrichedFieldType::HeapArray { .. } => unreachable!(),
             };
+
             if f.is_padding {
+                let t: Tokens = quote!($n: $t);
+                let x = format!("\n/* {} */", t.to_string().unwrap());
                 quote! {
-                    /* $n: $t, */
+                    $(x)
                 }
             } else {
                 quote! {

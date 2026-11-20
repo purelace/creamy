@@ -2,32 +2,26 @@
 
 extern crate alloc;
 
-mod table;
+pub mod scanner;
 use core::ptr::NonNull;
 
 use cbus::core::Subscriber;
-use creamy_plugin_package::{manifest::Manifest, version::Version};
-pub use table::ProtocolTable;
+
+use self::scanner::ApiScanner;
 
 pub mod bus {
     pub use cbus::*;
 }
 
-pub mod package {
-    pub use creamy_plugin_package::*;
+pub mod manifest {
+    pub use creamy_manifest::*;
 }
 
 pub const PACKAGE_FILE_EXTENSION: &str = "cmy";
 
-pub struct Metadata {
-    pub version: Version,
-    pub manifest: Manifest,
-}
-
-pub trait Module<const M: usize>: Subscriber {
+pub trait Module<const M: usize>: ApiScanner + Subscriber {
     fn incoming_ptr(&self) -> NonNull<u8>;
     fn outgoing_ptr(&self) -> NonNull<u8>;
-    fn get_protocol_table(&mut self) -> ProtocolTable<'_>;
 }
 
 #[allow(clippy::missing_errors_doc)]
@@ -36,5 +30,5 @@ pub trait Runtime<const M: usize>: 'static {
     type Module: Module<M>;
 
     fn tick(&mut self);
-    fn pop_ready_plugin(&mut self) -> Result<Option<(Metadata, Self::Module)>, Self::Error>;
+    fn pop_ready_plugin(&mut self) -> Result<Option<Self::Module>, Self::Error>;
 }

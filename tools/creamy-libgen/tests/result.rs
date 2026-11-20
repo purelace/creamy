@@ -7,6 +7,7 @@ use creamy_libgen::{
     prelude::*,
     proxy::{EnrichedMessageSymbol, EnrichedObjectSymbol, MessageType},
 };
+use creamy_xmlc::symbols::Number;
 use pretty_assertions::assert_eq;
 use tempfile::TempDir;
 
@@ -29,8 +30,8 @@ where
     let fields = symbol.fields.collect::<Vec<_>>();
     assert_eq!(symbol.name, "SetPermissions");
     assert_eq!(symbol.protocol, 2);
-    assert_eq!(symbol.kind, 0);
-    assert_eq!(symbol.dispatch_value, 2u32 << 16);
+    assert_eq!(symbol.kind, 1);
+    assert_eq!(symbol.dispatch_value, 2u32 << 16 | 1u32);
     assert_eq!(
         fields,
         [
@@ -87,6 +88,7 @@ where
 {
     let MessageType::Stream {
         _phantom,
+        serialization_layout: _,
         content_fields,
     } = symbol.message_type
     else {
@@ -95,8 +97,8 @@ where
 
     assert_eq!(symbol.name, "Log");
     assert_eq!(symbol.protocol, 2);
-    assert_eq!(symbol.kind, 1);
-    assert_eq!(symbol.dispatch_value, 2u32 << 16 | 1u32);
+    assert_eq!(symbol.kind, 0);
+    assert_eq!(symbol.dispatch_value, 2u32 << 16);
     let message_fields = symbol.fields.collect::<Vec<_>>();
     assert_eq!(
         message_fields,
@@ -391,7 +393,7 @@ impl<'s> CodeGenerator<'s> for Mock {
 
     fn generate_host_protocol_table(&mut self, _: PerfectHashTable) {}
 
-    fn generate_host_package(&mut self, _: Vec<u8>) {}
+    fn generate_link_section(&mut self, _: LinkSections) {}
 
     fn flush(&mut self) -> anyhow::Result<()> {
         Ok(())
@@ -428,10 +430,8 @@ fn setup_env(file: &str) -> Result<(TempDir, Codegen), Box<dyn core::error::Erro
 
     let working_dir = std::env::current_dir()?;
     std::fs::copy(working_dir.join("tests").join(file), protocols.join(file))?;
-    let mut library = ProtocolLibrary::new(
-        &std::fs::read_to_string(directory.join("manifest.toml"))?,
-        root.as_ref().into(),
-    );
+    let mut library =
+        ProtocolLibrary::new(&std::fs::read_to_string(directory.join("manifest.toml"))?);
     library.load_all(&protocols)?;
     Ok((root, Codegen::new(library, Target::Host)))
 }

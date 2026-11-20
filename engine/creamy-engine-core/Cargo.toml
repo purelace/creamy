@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-creamy-plugin-package.workspace = true
+creamy-binary.path = "../../core/creamy-binary"
+creamy-manifest.workspace = true
 cbus.workspace = true
 creamy-phf.workspace = true

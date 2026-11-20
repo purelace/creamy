@@ -1,30 +1,32 @@
 mod watcher;
 
-use std::{io::ErrorKind, path::PathBuf};
-
-use creamy_binary::BinaryReader;
-use creamy_engine_core::package::BinaryPlugin;
+use std::{
+    io::{ErrorKind, Read},
+    path::PathBuf,
+};
 
 use self::watcher::FileWatcher;
 use super::{PluginLoader, config::ValidLoaderConfig};
 
-fn load_file(path: PathBuf) -> Result<BinaryPlugin, std::io::Error> {
+fn load_file(path: PathBuf) -> Result<Box<[u8]>, std::io::Error> {
     log::info!("Loading package: {}", path.display());
-    let file = std::fs::File::open(path)?;
-    let mut file = creamy_binary::adapters::FromStd::new(file);
+    let mut file = std::fs::File::open(path)?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
+    Ok(buffer.into_boxed_slice())
 
-    let package = BinaryPlugin::read_ne(&mut file).unwrap();
-    log::info!(
-        "Plugin '{name}@{version}' loaded",
-        name = package.manifest.name(),
-        version = package.version
-    );
-    Ok(package)
+    //let package = BinaryPlugin::read_ne(&mut file).unwrap();
+    //log::info!(
+    //    "Plugin '{name}@{version}' loaded",
+    //    name = package.manifest.name(),
+    //    version = package.version
+    //);
+    //Ok(package)
 }
 
 pub struct Loader {
     watcher: FileWatcher,
-    loaded: Vec<BinaryPlugin>,
+    loaded: Vec<Box<[u8]>>,
 }
 
 impl Loader {
@@ -72,7 +74,7 @@ impl PluginLoader for Loader {
         self.loaded = loaded;
     }
 
-    fn take_loaded_package(&mut self) -> Option<BinaryPlugin> {
+    fn take_loaded_package(&mut self) -> Option<Box<[u8]>> {
         self.loaded.pop()
     }
 }

@@ -25,7 +25,7 @@ use creamy_libgen::{
     prelude::*,
     proxy::{EnrichedMessageSymbol, EnrichedObjectSymbol, MessageType},
 };
-use genco::{lang::rust::Tokens, quote};
+use genco::{lang::rust::Tokens, quote, tokens::quoted};
 pub use libgen::Target;
 
 const fn repr_to_string(repr: PrimitiveRepr) -> Cow<'static, str> {
@@ -161,6 +161,7 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
     where
         I: SymbolIterator<EnrichedFieldSymbol<'s>>,
     {
+        //self.push_tokens(symbols::generate_object(&self.args, symbol));
     }
 
     fn end_protocol(&mut self) {
@@ -247,17 +248,60 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
         });
     }
 
-    fn generate_host_package(&mut self, binary: Vec<u8>) {
-        use std::fmt::Write;
-        let len = binary.len();
-        let mut content = String::new();
-        for byte in binary {
-            let _ = write!(&mut content, "{byte}u8, ");
-        }
+    fn generate_link_section(&mut self, data: LinkSections) {
+        let section = data.protocol.link_section;
 
+        let manifest = data.manifest.symbol_name;
+        let bytes = bytes_to_token(&data.manifest.bytes);
+        let len = data.manifest.bytes.len();
         self.push_tokens(quote! {
-            pub static PACKAGE: &[u8; $len] = &[$content];
+            #[used]
+            #[unsafe(no_mangle)]
+            #[unsafe(link_section = $(quoted(section)))]
+            static $manifest: [u8; $len] = $bytes;
         });
+
+        for ProtocolEntry {
+            name,
+            contract,
+            link_section,
+        } in data.protocol.entries
+        {
+            let name_bytes = bytes_to_token(&name.bytes);
+            let name_len = name.bytes.len();
+            let name = name.symbol_name;
+
+            let bytes = bytes_to_token(&contract.bytes);
+            let contract_len = contract.bytes.len();
+            let contract = &contract.symbol_name;
+            self.push_tokens(quote! {
+                #[used]
+                #[unsafe(no_mangle)]
+                #[unsafe(link_section = $(quoted(section)))]
+                static $contract: [u8; $contract_len] = $bytes;
+
+                #[used]
+                #[unsafe(no_mangle)]
+                #[unsafe(link_section = $(quoted(section)))]
+                static $name: [u8; $name_len] = $name_bytes;
+            });
+
+            for LinkSectionEntry {
+                symbol_name,
+                api_name: _,
+                hash,
+            } in link_section
+            {
+                let symbol_name = &symbol_name;
+                let hash = bytes_to_token(&hash);
+                self.push_tokens(quote! {
+                    #[used]
+                    #[unsafe(no_mangle)]
+                    #[unsafe(link_section = $(quoted(section)))]
+                    static $symbol_name: [u8; 32] = $hash;
+                });
+            }
+        }
     }
 
     fn flush(&mut self) -> GenResult {
@@ -270,6 +314,27 @@ impl<'s, W: IoWrite> CodeGenerator<'s> for RustGen<W> {
         } else {
             panic!("Missing protocol");
         }
+    }
+
+    /*
+    fn generate_host_package(&mut self, binary: Vec<u8>) {
+        use std::fmt::Write;
+        let len = binary.len();
+        let mut content = String::new();
+        for byte in binary {
+            let _ = write!(&mut content, "{byte}u8, ");
+        }
+
+        self.push_tokens(quote! {
+            pub static PACKAGE: &[u8; $len] = &[$content];
+        });
+    }
+    */
+}
+
+fn bytes_to_token(hash: &[u8]) -> Tokens {
+    quote! {
+        [$(for b in hash join (, ) => $(format!("0x{b:02x}")))]
     }
 }
 

@@ -1,14 +1,13 @@
-use alloc::boxed::Box;
+use alloc::{boxed::Box, string::String};
 use core::{fmt::Debug, num::NonZeroU8};
 
-use creamy_engine_core::package::model::{
-    Access,
-    definition::ProtocolModel,
-    strpool::{StringId, StringPool},
-};
-use creamy_sdk::SubscriberId;
+use creamy_engine_core::scanner::Access;
+use creamy_sdk::{ProtocolId, SubscriberId};
 use hashbrown::HashMap;
+use idmint::StackMint;
 use rustc_hash::FxBuildHasher;
+
+use crate::{GlobalProtocolId, engine::SYSTEM_PROTOCOL, scanner::CheckedProtocolApi};
 
 #[derive(Default, Clone)]
 struct Bitset256([u128; 2]);
@@ -114,11 +113,11 @@ impl Iterator for Bitset256Iterator<'_> {
 enum AccessPolicy {
     Public {
         consumers: Bitset256,
-        ids: Box<[NonZeroU8; 256]>,
+        ids: Box<[ProtocolId; 256]>,
     },
     Private {
         consumer: Option<SubscriberId>,
-        protocol_id: NonZeroU8,
+        protocol_id: ProtocolId,
     },
 }
 
@@ -146,7 +145,7 @@ impl Default for AccessPolicy {
     fn default() -> Self {
         Self::Private {
             consumer: None,
-            protocol_id: NonZeroU8::new(1).unwrap(),
+            protocol_id: SYSTEM_PROTOCOL,
         }
     }
 }
@@ -173,17 +172,17 @@ impl AccessPolicy {
 enum ConsumerListRepr<'a> {
     Public {
         iter: Bitset256Iterator<'a>,
-        ids: &'a [NonZeroU8; 256],
+        ids: &'a [ProtocolId; 256],
     },
     Private {
         is_shown: bool,
         consumer: Option<SubscriberId>,
-        protocol_id: NonZeroU8,
+        protocol_id: ProtocolId,
     },
 }
 
 impl Iterator for ConsumerListRepr<'_> {
-    type Item = (SubscriberId, NonZeroU8);
+    type Item = (SubscriberId, ProtocolId);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -211,7 +210,7 @@ impl Iterator for ConsumerListRepr<'_> {
 
 pub struct ConsumerList<'a>(ConsumerListRepr<'a>);
 impl Iterator for ConsumerList<'_> {
-    type Item = (SubscriberId, NonZeroU8);
+    type Item = (SubscriberId, ProtocolId);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
@@ -221,11 +220,11 @@ impl Iterator for ConsumerList<'_> {
 #[derive(Clone, Copy)]
 pub(crate) struct Owner {
     id: SubscriberId,
-    protocol_id: NonZeroU8,
+    protocol_id: ProtocolId,
 }
 
 impl Owner {
-    pub const fn new(plugin: SubscriberId, protocol_id: NonZeroU8) -> Self {
+    pub const fn new(plugin: SubscriberId, protocol_id: ProtocolId) -> Self {
         Self {
             id: plugin,
             protocol_id,
@@ -236,13 +235,13 @@ impl Owner {
         self.id
     }
 
-    pub const fn protocol_id(self) -> NonZeroU8 {
+    pub const fn protocol_id(self) -> ProtocolId {
         self.protocol_id
     }
 }
 
 pub struct ProtocolContext {
-    model: ProtocolModel,
+    protocol: CheckedProtocolApi,
     access: AccessPolicy,
     owner: Option<Owner>,
 }
@@ -252,20 +251,20 @@ impl ProtocolContext {
         self.access.iter()
     }
 
-    fn new(model: ProtocolModel) -> Self {
-        let policy = match model.access() {
+    fn new(protocol: CheckedProtocolApi) -> Self {
+        let policy = match protocol.access {
             Access::Public => AccessPolicy::Public {
                 consumers: Bitset256::default(),
-                ids: Box::from([NonZeroU8::new(1).unwrap(); 256]),
+                ids: Box::from([SYSTEM_PROTOCOL; 256]),
             },
             Access::Private => AccessPolicy::Private {
                 consumer: None,
-                protocol_id: NonZeroU8::new(1).unwrap(),
+                protocol_id: SYSTEM_PROTOCOL,
             },
         };
 
         Self {
-            model,
+            protocol,
             access: policy,
             owner: None,
         }
@@ -286,7 +285,7 @@ impl ProtocolContext {
         }
     }
 
-    pub fn try_add_consumer(&mut self, consumer_id: SubscriberId, protocol_id: NonZeroU8) -> bool {
+    pub fn try_add_consumer(&mut self, consumer_id: SubscriberId, protocol_id: ProtocolId) -> bool {
         match &mut self.access {
             AccessPolicy::Public { consumers, ids } => {
                 consumers.set(consumer_id.as_u8());
@@ -313,15 +312,15 @@ impl ProtocolContext {
             AccessPolicy::Public { consumers, ids } => {
                 debug_assert!(consumers.get(consumer_id.as_u8()));
                 consumers.unset(consumer_id.as_u8());
-                ids[consumer_id.as_usize()] = NonZeroU8::new(1).unwrap();
+                ids[consumer_id.as_usize()] = SYSTEM_PROTOCOL;
             }
             AccessPolicy::Private {
                 consumer,
-                protocol_id: gid,
+                protocol_id: pid,
             } => {
                 debug_assert_eq!(*consumer, Some(consumer_id));
                 *consumer = None;
-                *gid = NonZeroU8::new(1).unwrap();
+                *pid = SYSTEM_PROTOCOL;
             }
         }
     }
@@ -331,65 +330,81 @@ impl ProtocolContext {
         self.owner = Some(owner);
     }
 
-    pub const fn model(&self) -> &ProtocolModel {
-        &self.model
+    pub const fn protocol(&self) -> &CheckedProtocolApi {
+        &self.protocol
     }
 }
 
+const MAX_PROTOCOLS: usize = 255;
+
 pub struct ProtocolRegistry {
-    pool: StringPool,
-    map: HashMap<StringId, ProtocolContext, FxBuildHasher>,
+    map: HashMap<GlobalProtocolId, ProtocolContext, FxBuildHasher>,
+    name_to_id: HashMap<String, GlobalProtocolId, FxBuildHasher>,
+    global_id: StackMint,
 }
 
 impl Default for ProtocolRegistry {
     fn default() -> Self {
         Self {
-            pool: StringPool::default(),
-            map: HashMap::with_capacity_and_hasher(256, FxBuildHasher),
+            map: HashMap::with_capacity_and_hasher(MAX_PROTOCOLS, FxBuildHasher),
+            name_to_id: HashMap::with_capacity_and_hasher(MAX_PROTOCOLS, FxBuildHasher),
+            global_id: StackMint::new(1),
         }
     }
 }
 
 impl ProtocolRegistry {
-    pub(crate) fn replace_strings(&mut self, pool: &StringPool, model: &mut ProtocolModel) {
-        model.replace_identifiers(pool, &mut self.pool);
-    }
-
-    pub(crate) fn get_mut_protocol_context_by_name(
-        &mut self,
-        name: StringId,
-    ) -> &mut ProtocolContext {
-        self.map
-            .get_mut(&name)
-            .expect("Context for protocol model not found")
-    }
+    //pub(crate) fn declare_protocol(
+    //    &mut self,
+    //    api: CheckedProtocolApi,
+    //) -> Option<&mut ProtocolContext> {
+    //    let id = self.global_id.issue().expect("Too many protocols declared");
+    //    let global_id = ProtocolId::new_u8(id).expect("zero value is reserved");
+    //    self.map
+    //        .try_insert(global_id, ProtocolContext::new(api))
+    //        .map_err(|_| {})
+    //}
 
     pub(crate) fn get_or_declare_protocol(
         &mut self,
-        model: ProtocolModel,
-    ) -> (&StringPool, &mut ProtocolContext) {
-        let context = self
-            .map
-            .entry(model.name())
-            .or_insert(ProtocolContext::new(model));
-        (&self.pool, context)
+        api: CheckedProtocolApi,
+    ) -> &mut ProtocolContext {
+        let id = self.global_id.issue().expect("Too many protocols declared");
+        let global_id = GlobalProtocolId(ProtocolId::new_u8(id).expect("zero value is reserved"));
+        self.name_to_id.insert(api.name.clone(), global_id);
+        self.map
+            .entry(global_id)
+            .or_insert(ProtocolContext::new(api))
     }
 
-    pub(crate) fn try_get_protocol_context(&self, name: StringId) -> Option<&ProtocolContext> {
-        self.map.get(&name)
+    //pub(crate) fn try_get_protocol_context(&self, name: StringId) -> Option<&ProtocolContext> {
+    //    self.map.get(&name)
+    //}
+
+    pub(crate) fn find_protocol(&self, protocol: &CheckedProtocolApi) -> Option<&ProtocolContext> {
+        self.name_to_id
+            .get(&protocol.name)
+            .and_then(|id| self.map.get(id))
     }
 
     pub fn try_get_protocol_context_by_str(&self, name: &str) -> Option<&ProtocolContext> {
-        self.pool.try_get_id(name).and_then(|id| self.map.get(&id))
+        self.name_to_id.get(name).and_then(|id| self.map.get(id))
     }
 
-    pub const fn pool(&self) -> &StringPool {
-        &self.pool
+    pub(crate) fn get_mut_protocol_context(
+        &mut self,
+        id: GlobalProtocolId,
+    ) -> &mut ProtocolContext {
+        self.map
+            .get_mut(&id)
+            .expect("Context for protocol not found")
     }
 
-    pub(crate) fn undeclare_protocol(&mut self, protocol: StringId) -> ProtocolContext {
+    pub(crate) fn undeclare_protocol(&mut self, protocol: GlobalProtocolId) -> ProtocolContext {
         debug_assert!(self.map.contains_key(&protocol));
-        self.map.remove(&protocol).expect("Unreachable!")
+        let context = self.map.remove(&protocol).expect("Unreachable!");
+        self.name_to_id.remove(&context.protocol.name);
+        context
     }
 }
 

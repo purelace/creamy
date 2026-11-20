@@ -31,11 +31,12 @@ fn get_message_index(model: &SemanticModel, key: StringOrNumber) -> Option<u8> {
         StringOrNumber::String(name) => {
             let name_id = model.pool().try_get_id(&name)?;
             model
-                .messages()
+                .stable()
                 .iter()
-                .enumerate()
-                .find(|(_, m)| m.ident() == name_id)
-                .map(|(i, _)| i as u8)
+                .chain(model.extension())
+                .chain(model.experimental())
+                .find(|m| m.ident == name_id)
+                .map(|m| m.kind)
         }
         StringOrNumber::Number(value) => Some(value),
     }

@@ -1,24 +1,13 @@
 use alloc::boxed::Box;
 
-use creamy_engine_core::package::version::Version;
-
 #[derive(Debug, thiserror::Error)]
 pub enum PluginError {
-    #[error("Protocol model `{target_model}@{version}` not found")]
-    ProtocolModelNotFound {
-        target_model: Box<str>,
-        version: Version,
-    },
-    #[error("Protocol `{target}@{version}` has already been declared")]
-    ProtocolDeclaredAlready { target: Box<str>, version: Version },
-    #[error(
-        "Protocols `{target_model}@{version_a}` and `{target_model}@{version_b}` have different models"
-    )]
-    DifferentProtocolModels {
-        target_model: Box<str>,
-        version_a: Version,
-        version_b: Version,
-    },
+    #[error("Protocol model `{target}` not found")]
+    ProtocolModelNotFound { target: Box<str> },
+    #[error("Protocol `{target}` has already been declared")]
+    ProtocolDeclaredAlready { target: Box<str> },
+    #[error("Provided `{target}` protocol differs ")]
+    DifferentProtocol { target: Box<str> },
     #[error("Protocol '{protocol}' is already provided by '{provider}'")]
     ProtocolAlreadyProvided {
         protocol: Box<str>,

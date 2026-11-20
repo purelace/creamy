@@ -99,6 +99,11 @@ pub struct Manifest {
 
 impl Manifest {
     #[must_use]
+    pub const fn package(&self) -> &Package {
+        &self.package
+    }
+
+    #[must_use]
     pub fn into_package_manifest(self) -> Package {
         self.package
     }

@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, atomic::AtomicUsize},
 };
 
-use creamy_engine_core::{PACKAGE_FILE_EXTENSION, package::BinaryPlugin};
+use creamy_engine_core::PACKAGE_FILE_EXTENSION;
 use inotify::{Event, EventMask};
 use tokio::{
     io::AsyncReadExt,
@@ -13,10 +13,7 @@ use tokio::{
 };
 
 use super::watcher::FileWatcher;
-use crate::loader::{
-    r#async::{load_package, progress::ProgressReader},
-    config::ValidLoaderConfig,
-};
+use crate::loader::{r#async::progress::ProgressReader, config::ValidLoaderConfig};
 
 #[cfg(feature = "ui-events")]
 pub struct LoadingContext {
@@ -34,8 +31,8 @@ pub struct InnerLoader {
     watcher: FileWatcher,
     directory: PathBuf,
     semaphore: Arc<Semaphore>,
-    loading: Vec<JoinHandle<Option<BinaryPlugin>>>,
-    loaded: Vec<BinaryPlugin>,
+    loading: Vec<JoinHandle<Option<Box<[u8]>>>>,
+    loaded: Vec<Box<[u8]>>,
 
     #[cfg(feature = "ui-events")]
     sender: UnboundedSender<LoadingContext>,
@@ -70,13 +67,13 @@ impl InnerLoader {
         Ok(())
     }
 
-    pub fn take_loaded(&mut self) -> Vec<BinaryPlugin> {
+    pub fn take_loaded(&mut self) -> Vec<Box<[u8]>> {
         std::mem::take(&mut self.loaded)
     }
 
     async fn store_loaded(
-        loading: &mut Vec<JoinHandle<Option<BinaryPlugin>>>,
-        loaded: &mut Vec<BinaryPlugin>,
+        loading: &mut Vec<JoinHandle<Option<Box<[u8]>>>>,
+        loaded: &mut Vec<Box<[u8]>>,
     ) {
         let mut i = 0;
         while i < loading.len() {
@@ -139,14 +136,24 @@ impl InnerLoader {
 
             drop(permit);
 
-            match load_package(&state_write.data) {
-                Ok(package) => Some(package),
-                Err(err) => {
-                    log::error!("Got an error while the plugin is loading:");
-                    println!("{err}");
-                    None
-                }
-            }
+            Some(state_write.data.to_vec().into_boxed_slice())
+
+            // TODO: wasm parser
+            //log::info!(
+            //    "Plugin '{name}@{version}' loaded",
+            //    name = package.manifest.name(),
+            //    version = package.version
+            //);
+            //    Ok(package)
+
+            //match load_package(&state_write.data) {
+            //    Ok(package) => Some(package),
+            //    Err(err) => {
+            //        log::error!("Got an error while the plugin is loading:");
+            //        println!("{err}");
+            //        None
+            //    }
+            //}
         });
 
         self.loading.push(handle);

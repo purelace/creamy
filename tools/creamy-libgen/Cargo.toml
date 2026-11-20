@@ -8,7 +8,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-creamy-plugin-package.workspace = true
+creamy-binary.path = "../../core/creamy-binary"
+creamy-manifest.workspace = true
 creamy-phf.workspace = true
 creamy-xmlc.workspace = true
 anyhow.workspace = true

@@ -28,9 +28,14 @@ pub fn show_all_messages(model: &SemanticModel) {
     print_header(model);
     println!("+ List of messages");
 
-    for message in model.messages() {
-        let name_id = message.ident();
-        print_item(message.kind(), name_id.resolve(model.pool()), STRUCT_COLOR);
+    for message in model
+        .stable()
+        .iter()
+        .chain(model.extension())
+        .chain(model.experimental())
+    {
+        let name_id = message.ident;
+        print_item(message.kind, name_id.resolve(model.pool()), STRUCT_COLOR);
     }
 }
 
@@ -43,11 +48,15 @@ fn get_struct_paddings(fields: &[FieldSymbol]) -> u64 {
 }
 
 pub fn show_memory_layout(model: &SemanticModel, flat: bool, msg: u8) {
-    let messages = model.messages();
-    let message = &messages[msg as usize];
-    let fields = message.fields();
+    let mut messages = model
+        .stable()
+        .iter()
+        .chain(model.extension())
+        .chain(model.experimental());
+    let message = messages.find(|s| s.kind == msg).unwrap();
+    let fields = &message.fields;
 
-    let mut report = MemoryReport::new(message.ident().resolve(model.pool()));
+    let mut report = MemoryReport::new(message.ident.resolve(model.pool()));
     if flat {
         make_flat_report(model, &mut report, fields);
     } else {
@@ -85,14 +94,14 @@ fn make_flat_report(model: &SemanticModel, report: &mut MemoryReport, fields: &[
             paddings += 1;
         }
 
-        match field.kind() {
+        match field.kind {
             FieldType::Type(tid) => match tt.get_type(tid) {
                 Type::Struct(symbol) => {
-                    make_flat_report(model, report, symbol.fields());
+                    make_flat_report(model, report, &symbol.fields);
                 }
                 Type::Numeric(_) | Type::Enum(_) => {
                     report.add_field(SimpleField {
-                        name: field.ident().resolve(model.pool()).to_string(),
+                        name: field.ident.resolve(model.pool()).to_string(),
                         kind: tt.name_of_type(tid).resolve(model.pool()).to_string(),
                         size: size as usize,
                         align: align as usize,
@@ -104,12 +113,12 @@ fn make_flat_report(model: &SemanticModel, report: &mut MemoryReport, fields: &[
             },
             FieldType::StaticArray(array) => {
                 report.add_array_field(ArrayField {
-                    name: field.ident().resolve(model.pool()).to_string(),
+                    name: field.ident.resolve(model.pool()).to_string(),
                     kind: tt
-                        .name_of_type(array.kind())
+                        .name_of_type(array.kind)
                         .resolve(model.pool())
                         .to_string(),
-                    size: array.len().value() as usize,
+                    size: array.len.value() as usize,
                     align: align as usize,
                     is_padding: false,
                 });
@@ -147,9 +156,9 @@ fn make_report(model: &SemanticModel, report: &mut MemoryReport, fields: &[Field
         match tt.get_type(tid) {
             Type::Struct(sym) => {
                 report.start_report();
-                make_report(model, report, sym.fields());
+                make_report(model, report, &sym.fields);
                 report.end_report(SimpleField {
-                    name: field.ident().resolve(model.pool()).to_string(),
+                    name: field.ident.resolve(model.pool()).to_string(),
                     kind: tt.name_of_type(tid).resolve(model.pool()).to_string(),
                     size: size as usize,
                     align: align as usize,
@@ -157,7 +166,7 @@ fn make_report(model: &SemanticModel, report: &mut MemoryReport, fields: &[Field
             }
             Type::Numeric(_) | Type::Enum(_) => {
                 report.add_field(SimpleField {
-                    name: field.ident().resolve(model.pool()).to_string(),
+                    name: field.ident.resolve(model.pool()).to_string(),
                     kind: tt.name_of_type(tid).resolve(model.pool()).to_string(),
                     size: size as usize,
                     align: align as usize,

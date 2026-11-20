@@ -9,7 +9,6 @@ workspace = true
 
 [dependencies]
 creamy-binary = { path = "../../core/creamy-binary", features = ["std"] }
-creamy-plugin-package.workspace = true
 creamy-xmlc.workspace = true
 
 creamy-template.workspace = true

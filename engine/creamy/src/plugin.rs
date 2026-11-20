@@ -1,4 +1,4 @@
-use creamy_engine_core::{Runtime, bus::core::Subscriber, package::manifest::Package};
+use creamy_engine_core::{Runtime, bus::core::Subscriber, manifest::Package};
 use creamy_sdk::state::PluginState;
 
 use crate::{engine::HostSubscriber, system::System};
@@ -36,7 +36,7 @@ where
     R: Runtime<MM>,
     H: HostSubscriber,
 {
-    pub(crate) manifest: Package,
+    pub(crate) manifest: Option<Package>,
     pub(crate) kind: SubscriberType<R, H, MM, MS>,
 }
 
@@ -45,8 +45,8 @@ where
     R: Runtime<MM>,
     H: HostSubscriber,
 {
-    pub const fn manifest(&self) -> &Package {
-        &self.manifest
+    pub const fn manifest(&self) -> Option<&Package> {
+        self.manifest.as_ref()
     }
 
     pub const fn inner(&self) -> &SubscriberType<R, H, MM, MS> {

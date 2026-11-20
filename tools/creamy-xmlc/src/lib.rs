@@ -18,7 +18,7 @@ mod version;
 mod diagnostics;
 pub mod error;
 
-pub use compiler::{SemanticModel, get_meta};
+pub use compiler::{Api, SemanticModel, get_meta};
 pub use diagnostics::Diagnostics;
 //TODO: bool type
 //TODO: validate size

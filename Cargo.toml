@@ -27,7 +27,6 @@ members = [
 
     "core/creamy-binary",
     "core/creamy-binary-derive",
-    "core/creamy-plugin-package",
     "core/creamy-manifest",
     "core/creamy-phf",
     "core/creamy-sdk",
@@ -59,7 +58,6 @@ creamy-xmlc = { path = "tools/creamy-xmlc" }
 creamy-template = { path = "tools/creamy-template" }
 
 # Core (no_std)
-creamy-plugin-package = { path = "core/creamy-plugin-package" }
 creamy-manifest = { path = "core/creamy-manifest" }
 creamy-phf = { path = "core/creamy-phf" }
 creamy-sdk = { path = "core/creamy-sdk" }

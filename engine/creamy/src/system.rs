@@ -1,9 +1,8 @@
 use alloc::boxed::Box;
-use core::num::NonZeroU8;
 
 use creamy_engine_core::bus::core::{SubscriberId, buffer::DynOutBuf};
 use creamy_sdk::{
-    Sender,
+    ProtocolId, Sender,
     api::Plugin,
     stream::{StreamId, StreamMessage, StreamReader},
 };
@@ -66,7 +65,7 @@ impl<const MS: usize> System<MS> {
     pub fn send_protocol_declared(
         &mut self,
         provider: SubscriberId,
-        protocol_id: NonZeroU8,
+        protocol_id: ProtocolId,
         consumer: SubscriberId,
     ) {
         assert!(
@@ -74,7 +73,7 @@ impl<const MS: usize> System<MS> {
                 &ProtocolDeclared::PREPARED
                     .with_dst(consumer)
                     .with_provider(provider.as_u8())
-                    .with_protocol_id(protocol_id.get())
+                    .with_protocol_id(protocol_id.as_u8())
             )
         );
     }
@@ -82,14 +81,14 @@ impl<const MS: usize> System<MS> {
     pub fn send_protocol_undeclared(
         &mut self,
         provider: SubscriberId,
-        protocol_id: NonZeroU8,
+        protocol_id: ProtocolId,
         consumer: SubscriberId,
     ) {
         assert!(
             self.out.send(
                 &ProtocolUndeclared::PREPARED
                     .with_dst(consumer)
-                    .with_protocol_id(protocol_id.get())
+                    .with_protocol_id(protocol_id.as_u8())
                     .with_provider(provider.as_u8())
             )
         );
@@ -98,14 +97,14 @@ impl<const MS: usize> System<MS> {
     pub fn send_consumer_appeared(
         &mut self,
         provider: SubscriberId,
-        protocol_id: NonZeroU8,
+        protocol_id: ProtocolId,
         consumer: SubscriberId,
     ) {
         assert!(
             self.out.send(
                 &ConsumerAppeared::PREPARED
                     .with_dst(provider)
-                    .with_protocol_id(protocol_id.get())
+                    .with_protocol_id(protocol_id.as_u8())
                     .with_consumer_id(consumer.as_u8())
             )
         );
@@ -114,14 +113,14 @@ impl<const MS: usize> System<MS> {
     pub fn send_consumer_disappeared(
         &mut self,
         provider: SubscriberId,
-        protocol_id: NonZeroU8,
+        protocol_id: ProtocolId,
         consumer: SubscriberId,
     ) {
         assert!(
             self.out.send(
                 &ConsumerDisappeared::PREPARED
                     .with_dst(provider)
-                    .with_protocol_id(protocol_id.get())
+                    .with_protocol_id(protocol_id.as_u8())
                     .with_consumer_id(consumer.as_u8())
             )
         );
@@ -145,7 +144,7 @@ impl<const MS: usize> MessageHandler for System<MS> {
                         .as_ref()
                         .unwrap();
 
-                    match data.log_type {
+                    match data.kind {
                         LogType::Debug => log::debug!(target: target, "{content}"),
                         LogType::Info => log::info!(target: target, "{content}"),
                         LogType::Warning => log::warn!(target:target, "{content}"),

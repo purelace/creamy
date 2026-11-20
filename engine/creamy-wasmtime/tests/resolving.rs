@@ -1,20 +1,18 @@
 //TODO: move this tests to engine tests
 mod general;
 
-use std::{fs::File, num::NonZeroU8};
+use std::num::NonZeroU8;
 
-use creamy_binary::BinaryReader;
-use creamy_engine_core::package::BinaryPlugin;
 use creamy_wasmtime::WTRuntime;
 
 use self::general::{PluginEngine, TestContext, fixtures_path, init_engine};
 
 const ROUNDTRIP: NonZeroU8 = NonZeroU8::new(4).unwrap();
 
-fn read_plugin(plugin: &str) -> anyhow::Result<BinaryPlugin> {
+fn read_plugin(plugin: &str) -> anyhow::Result<Box<[u8]>> {
     let path = fixtures_path().join(plugin);
-    let mut adapter = creamy_binary::adapters::FromStd::new(File::open(path)?);
-    Ok(BinaryPlugin::read_ne(&mut adapter)?)
+    let plugin = std::fs::read(path)?.into_boxed_slice();
+    Ok(plugin)
 }
 
 fn load_and_wait(engine: &mut PluginEngine<WTRuntime, ()>, plugin: &str) -> anyhow::Result<()> {

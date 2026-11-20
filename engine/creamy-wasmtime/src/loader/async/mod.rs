@@ -3,8 +3,6 @@ mod inner;
 mod progress;
 mod watcher;
 
-use creamy_binary::BinaryReader;
-use creamy_engine_core::package::BinaryPlugin;
 use tokio::{sync::mpsc::UnboundedReceiver, task::JoinHandle};
 
 use self::{
@@ -15,18 +13,17 @@ use super::{PluginLoader, config::ValidLoaderConfig};
 
 pub type Loader = AsyncLoader;
 
-fn load_package(mut data: &[u8]) -> Result<BinaryPlugin, Error> {
-    let package = BinaryPlugin::read_ne(&mut data)?;
-    log::info!(
-        "Plugin '{name}@{version}' loaded",
-        name = package.manifest.name(),
-        version = package.version
-    );
-    Ok(package)
-}
+//fn load_package(mut data: &[u8]) -> Result<Box<[u8]>, Error> {
+//    log::info!(
+//        "Plugin '{name}@{version}' loaded",
+//        name = package.manifest.name(),
+//        version = package.version
+//    );
+//    Ok(package)
+//}
 
 pub struct AsyncLoader {
-    loaded: UnboundedReceiver<BinaryPlugin>,
+    loaded: UnboundedReceiver<Box<[u8]>>,
     #[cfg(feature = "ui-events")]
     in_progress: UnboundedReceiver<LoadingContext>,
     _inner: JoinHandle<()>,
@@ -35,7 +32,7 @@ pub struct AsyncLoader {
 impl PluginLoader for AsyncLoader {
     fn tick(&mut self) {}
 
-    fn take_loaded_package(&mut self) -> Option<BinaryPlugin> {
+    fn take_loaded_package(&mut self) -> Option<Box<[u8]>> {
         self.loaded.try_recv().ok()
     }
 }

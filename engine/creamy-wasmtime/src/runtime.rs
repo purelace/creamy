@@ -1,6 +1,6 @@
 use core::ptr::NonNull;
 
-use creamy_engine_core::{Metadata, Runtime, package::BinaryPlugin};
+use creamy_engine_core::Runtime;
 use wasmtime::{Config, Engine, Instance, PoolingAllocationConfig, Store};
 
 use crate::{
@@ -13,7 +13,7 @@ pub struct WTRuntime {
     heap_size: u32,
     engine: Engine,
     loader: Loader,
-    manually_loaded: Vec<BinaryPlugin>,
+    manually_loaded: Vec<Box<[u8]>>,
 }
 
 impl WTRuntime {
@@ -49,7 +49,7 @@ impl WTRuntime {
         &mut self.loader
     }
 
-    pub fn load_manually(&mut self, package: BinaryPlugin) {
+    pub fn load_manually(&mut self, package: Box<[u8]>) {
         self.manually_loaded.push(package);
     }
 }
@@ -62,7 +62,7 @@ impl<const M: usize> Runtime<M> for WTRuntime {
         self.loader.tick();
     }
 
-    fn pop_ready_plugin(&mut self) -> Result<Option<(Metadata, Self::Module)>, Self::Error> {
+    fn pop_ready_plugin(&mut self) -> Result<Option<Self::Module>, Self::Error> {
         let Some(package) = self
             .manually_loaded
             .pop()
@@ -72,7 +72,7 @@ impl<const M: usize> Runtime<M> for WTRuntime {
         };
 
         let mut store = Store::new(&self.engine, ());
-        let module = wasmtime::Module::from_binary(&self.engine, package.core())?;
+        let module = wasmtime::Module::from_binary(&self.engine, &package)?;
         let instance = Instance::new(&mut store, &module, &[])?;
 
         let export_incoming_buffer =
@@ -98,20 +98,14 @@ impl<const M: usize> Runtime<M> for WTRuntime {
         let host_inc_ptr = (start + incoming_ptr as usize) as *mut u8;
         let host_out_ptr = (start + outgoing_ptr as usize) as *mut u8;
 
-        Ok(Some((
-            Metadata {
-                version: package.version,
-                manifest: package.manifest,
-            },
-            WasmPlugin {
-                incoming_ptr: NonNull::new(host_inc_ptr)
-                    .ok_or(wasmtime::format_err!("Pointer of incoming buffer is null"))?,
-                outgoing_ptr: NonNull::new(host_out_ptr)
-                    .ok_or(wasmtime::format_err!("Pointer of outgoing buffer is null"))?,
-                notify: notify_func,
-                store,
-                instance,
-            },
-        )))
+        Ok(Some(WasmPlugin {
+            incoming_ptr: NonNull::new(host_inc_ptr)
+                .ok_or(wasmtime::format_err!("Pointer of incoming buffer is null"))?,
+            outgoing_ptr: NonNull::new(host_out_ptr)
+                .ok_or(wasmtime::format_err!("Pointer of outgoing buffer is null"))?,
+            notify: notify_func,
+            store,
+            instance,
+        }))
     }
 }

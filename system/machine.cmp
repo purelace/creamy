@@ -3,6 +3,25 @@
 #access  "Private"
 #schema  1
 
+message[I] Test {}
+
 machine shell(key: i32) {
-...
+    globals {
+        Test
+    }
+
+    locals {
+        []
+
+        for [];
+    }
+
+    init start;
+
+    state start {
+        Test -> loop;
+    }
+
+    state loop {
+    }
 }

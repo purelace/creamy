@@ -16,10 +16,10 @@
 //}
 
 // Reference: Rust strings
-[Builtin]
-object String {
-    inner: Array<u8>,
-}
+//[Builtin]
+//object String {
+//    inner: Array<u8>,
+//}
 
 message[O] ProtocolDeclared {
     version: u32,
@@ -61,7 +61,7 @@ enum[u8] LogType {
 
 stream[I] Log {
     kind: LogType,
-    content: String,
+    content: Array<u8>,
 }
 
 //u8, u16, u32, u64, u128,
